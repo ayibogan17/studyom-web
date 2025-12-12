@@ -1,80 +1,101 @@
+// app/api/lead/route.ts
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const leadTo = process.env.LEAD_TO;
-const leadFrom = process.env.LEAD_FROM || "Studyom <noreply@studyom.net>";
+const leadTo = process.env.LEAD_TO || "info@studyom.net"; // sana düşecek adres
+const leadFrom =
+  process.env.LEAD_FROM || "Studyom <onboarding@resend.dev>"; // domain doğrulanmadıysa da çalışır
 
-const missingConfig =
-  !resendApiKey || !leadTo
-    ? "Missing RESEND_API_KEY or LEAD_TO environment variable."
-    : null;
+if (!resendApiKey) {
+  console.error("Missing RESEND_API_KEY env.");
+}
 
-function asString(
-  value: FormDataEntryValue | string | null | undefined,
-): string {
-  if (typeof value !== "string") return "";
-  return value.trim();
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
+
+// küçük yardımcı
+function asStr(v: FormDataEntryValue | string | null | undefined): string {
+  if (typeof v !== "string") return "";
+  return v.trim();
 }
 
 export async function POST(req: Request) {
-  if (missingConfig) {
-    return NextResponse.json({ error: missingConfig }, { status: 500 });
+  if (!resend) {
+    return NextResponse.json(
+      { ok: false, error: "Missing RESEND_API_KEY" },
+      { status: 500 }
+    );
   }
-
-  const contentType = req.headers.get("content-type") || "";
-  let name = "";
-  let email = "";
-  let note = "";
-
   try {
-    if (contentType.includes("application/json")) {
+    // JSON veya form-data ikisini de destekle
+    const ct = (req.headers.get("content-type") || "").toLowerCase();
+
+    let name = "";
+    let email = "";
+    let note = "";
+
+    if (ct.includes("application/json")) {
       const body = await req.json();
-      name = asString(body?.name);
-      email = asString(body?.email);
-      note = asString(body?.message);
+      name = asStr(body?.name);
+      email = asStr(body?.email);
+      note = asStr(body?.message || body?.note);
     } else {
       const form = await req.formData();
-      name = asString(form.get("name"));
-      email = asString(form.get("email"));
-      note = asString(form.get("message"));
+      name = asStr(form.get("name"));
+      email = asStr(form.get("email"));
+      note = asStr(form.get("message") || form.get("note"));
     }
-  } catch (error) {
-    console.error("Lead parse error:", error);
-    return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 },
-    );
-  }
 
-  if (!email) {
-    return NextResponse.json(
-      { error: "Email is required." },
-      { status: 400 },
-    );
-  }
+    if (!email) {
+      return NextResponse.json(
+        { ok: false, error: "Email is required" },
+        { status: 400 }
+      );
+    }
 
-  const resend = new Resend(resendApiKey);
-
-  try {
-    await resend.emails.send({
+    // 1) Sana bildirim
+    const sendOwner = resend.emails.send({
       from: leadFrom,
-      to: [leadTo as string],
-      replyTo: email,
+      to: [leadTo],
+      replyTo: email, // Mail'e "Cevapla" dersen kullanıcıya gider
       subject: "Yeni lead - Studyom",
-      text: `Yeni lead alındı:
-
-Ad: ${name || "Belirtilmedi"}
+      text: `Yeni lead alındı!
+Ad: ${name || "-"}
 E-posta: ${email}
 Not: ${note || "-"}
 `,
     });
 
-    return NextResponse.json({ ok: true, message: "Lead received." });
-  } catch (error) {
-    console.error("Lead send failed:", error);
-    const message =
-      error instanceof Error ? error.message : "Unable to send email.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    // 2) Kullanıcıya otomatik cevap
+    const sendUser = resend.emails.send({
+      from: leadFrom,
+      to: [email],
+      subject: "Studyom – Talebinizi aldık",
+      text: `Merhaba ${name || ""},
+
+Talebinizi başarıyla aldık. Çok kısa sürede size dönüş yapacağız.
+
+Studyom Ekibi
+https://studyom.net`,
+    });
+
+    const [ownerResult, userResult] = await Promise.all([
+      sendOwner,
+      sendUser,
+    ]);
+
+    if (ownerResult.error || userResult.error) {
+      const message =
+        ownerResult.error?.message ||
+        userResult.error?.message ||
+        "Resend send failed.";
+      throw new Error(message);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unexpected error";
+    console.error("Lead route error:", err);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

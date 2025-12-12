@@ -36,18 +36,24 @@ export default function RootLayout({
                 Studyom
               </Link>
               <nav className="flex items-center gap-4 text-sm font-medium text-gray-700">
-                <Link
-                  href="/studios"
-                  className="transition hover:text-black hover:underline"
-                >
-                  Stüdyolar
-                </Link>
-                <Link
-                  href="/#lead-form"
-                  className="transition hover:text-black hover:underline"
-                >
-                  Teklif al
-                </Link>
+              <Link
+                href="/studios"
+                className="transition hover:text-black hover:underline"
+              >
+                Stüdyolar
+              </Link>
+              <Link
+                href="/#lead-form"
+                className="transition hover:text-black hover:underline"
+              >
+                Teklif al
+              </Link>
+              <Link
+                href="/dashboard"
+                className="transition hover:text-black hover:underline"
+              >
+                Panel
+              </Link>
               </nav>
             </div>
           </header>
