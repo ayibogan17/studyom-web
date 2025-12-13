@@ -171,3 +171,95 @@ export async function GET() {
     studio: mapStudioToResponse(studio),
   });
 }
+
+export async function PATCH(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  type UpdateRoomPayload = {
+    id: string;
+    name?: string;
+    type?: string;
+    color?: string;
+    pricing?: {
+      model?: string;
+      flatRate?: string;
+      minRate?: string;
+      dailyRate?: string;
+      hourlyRate?: string;
+    };
+  };
+
+  type Body = {
+    studio?: {
+      city?: string;
+      district?: string;
+      address?: string;
+      phone?: string;
+    };
+    rooms?: UpdateRoomPayload[];
+  };
+
+  let body: Body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const studio = await prisma.studio.findFirst({
+    where: { ownerEmail: session.user.email },
+  });
+
+  if (!studio) {
+    return NextResponse.json({ error: "Studio not found" }, { status: 404 });
+  }
+
+  if (body.studio) {
+    const { city, district, address, phone } = body.studio;
+    await prisma.studio.update({
+      where: { id: studio.id },
+      data: { city, district, address, phone },
+    });
+  }
+
+  if (body.rooms?.length) {
+    for (const roomUpdate of body.rooms) {
+      const room = await prisma.room.findFirst({
+        where: { id: roomUpdate.id, studioId: studio.id },
+      });
+      if (!room) continue;
+      await prisma.room.update({
+        where: { id: roomUpdate.id },
+        data: {
+          name: roomUpdate.name ?? room.name,
+          type: roomUpdate.type ?? room.type,
+          color: roomUpdate.color ?? room.color,
+          pricingModel: roomUpdate.pricing?.model
+            ? pricingToDb(roomUpdate.pricing.model)
+            : room.pricingModel,
+          flatRate: roomUpdate.pricing?.flatRate ?? room.flatRate,
+          minRate: roomUpdate.pricing?.minRate ?? room.minRate,
+          dailyRate: roomUpdate.pricing?.dailyRate ?? room.dailyRate,
+          hourlyRate: roomUpdate.pricing?.hourlyRate ?? room.hourlyRate,
+        },
+      });
+    }
+  }
+
+  const updated = (await prisma.studio.findUnique({
+    where: { id: studio.id },
+    include: {
+      rooms: { include: { slots: true } },
+      notifications: true,
+      ratings: true,
+    },
+  })) as StudioWithRelations | null;
+
+  return NextResponse.json({
+    ok: true,
+    studio: updated ? mapStudioToResponse(updated) : null,
+  });
+}

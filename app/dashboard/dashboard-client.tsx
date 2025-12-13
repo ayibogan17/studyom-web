@@ -11,7 +11,7 @@ import {
 } from "@/types/panel";
 
 type Props = {
-  initialStudio: Studio;
+  initialStudio?: Studio;
   userName?: string | null;
   userEmail?: string | null;
 };
@@ -85,15 +85,17 @@ const ensureSlotsForDay = (
 };
 
 export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
-  const [studio, setStudio] = useState<Studio>(initialStudio);
+  const [studio, setStudio] = useState<Studio | null>(initialStudio ?? null);
   const [activeTab, setActiveTab] = useState<string>("panel");
   const [selectedRoomId, setSelectedRoomId] = useState(
-    initialStudio.rooms[0]?.id ?? "",
+    initialStudio?.rooms?.[0]?.id ?? "",
   );
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [monthCursor, setMonthCursor] = useState<Date>(new Date());
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
 
-  const rooms = studio.rooms;
+  const rooms = studio?.rooms ?? [];
   const currentRoom =
     rooms.find((r) => r.id === selectedRoomId) ?? rooms[0] ?? null;
 
@@ -107,13 +109,17 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
   const handleDaySelect = (day: Date) => {
     if (!currentRoom) return;
-    setStudio((prev) => ({
-      ...prev,
-      rooms: prev.rooms.map((room) => {
-        if (room.id !== currentRoom.id) return room;
-        return ensureSlotsForDay(room, day, prev.openingHours);
-      }),
-    }));
+    setStudio((prev) =>
+      prev
+        ? {
+            ...prev,
+            rooms: prev.rooms.map((room) => {
+              if (room.id !== currentRoom.id) return room;
+              return ensureSlotsForDay(room, day, prev.openingHours);
+            }),
+          }
+        : prev,
+    );
     setSelectedDate(day);
   };
 
@@ -122,22 +128,120 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     patch: Partial<Slot>,
     date: Date | null,
   ) => {
+    if (!currentRoom || !date || !studio) return;
+    setStudio((prev) =>
+      prev
+        ? {
+            ...prev,
+            rooms: prev.rooms.map((room) => {
+              if (room.id !== currentRoom.id) return room;
+              const roomWithSlots = ensureSlotsForDay(
+                room,
+                date,
+                prev.openingHours,
+              );
+              const key = formatKey(date);
+              const updatedSlots = roomWithSlots.slots[key].map((slot, i) =>
+                i === index ? { ...slot, ...patch } : slot,
+              );
+              return {
+                ...roomWithSlots,
+                slots: { ...roomWithSlots.slots, [key]: updatedSlots },
+              };
+            }),
+          }
+        : prev,
+    );
+  };
+
+  const updateSlotAndPersist = async (
+    index: number,
+    patch: Partial<Slot>,
+    date: Date | null,
+  ) => {
     if (!currentRoom || !date) return;
-    setStudio((prev) => ({
-      ...prev,
-      rooms: prev.rooms.map((room) => {
-        if (room.id !== currentRoom.id) return room;
-        const roomWithSlots = ensureSlotsForDay(room, date, prev.openingHours);
-        const key = formatKey(date);
-        const updatedSlots = roomWithSlots.slots[key].map((slot, i) =>
-          i === index ? { ...slot, ...patch } : slot,
-        );
-        return {
-          ...roomWithSlots,
-          slots: { ...roomWithSlots.slots, [key]: updatedSlots },
-        };
-      }),
-    }));
+    updateSlot(index, patch, date);
+    try {
+      await fetch("/api/slots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: currentRoom.id,
+          date: formatKey(date),
+          timeLabel: slotList[index]?.timeLabel,
+          status: patch.status,
+          name: patch.name,
+        }),
+      });
+    } catch (e) {
+      console.error("Slot save failed", e);
+      setStatus("Slot kaydedilemedi");
+    }
+  };
+
+  const saveStudioMeta = async (data: {
+    city?: string;
+    district?: string;
+    address?: string;
+    phone?: string;
+  }) => {
+    if (!studio) return;
+    setSaving(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/studio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studio: data }),
+      });
+      const json = await res.json();
+      if (res.ok && json.studio) {
+        setStudio(json.studio);
+        setStatus("Kaydedildi");
+      } else {
+        setStatus(json.error || "Kaydedilemedi");
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus("Kaydedilemedi");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveRoomBasics = async (roomId: string, patch: Partial<Room>) => {
+    if (!studio) return;
+    setSaving(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/studio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rooms: [
+            {
+              id: roomId,
+              name: patch.name,
+              type: patch.type,
+              color: patch.color,
+              pricing: patch.pricing,
+            },
+          ],
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.studio) {
+        setStudio(json.studio);
+        setStatus("Kaydedildi");
+      } else {
+        setStatus(json.error || "Kaydedilemedi");
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus("Kaydedilemedi");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleCourses = (roomId: string) => {
@@ -158,6 +262,9 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   };
 
   const metrics = useMemo(() => {
+    if (!studio) {
+      return { todayConfirmed: 0, weekConfirmed: 0, occupancy: 0 };
+    }
     const now = new Date();
     const todayKey = formatKey(now);
     const start = new Date(
@@ -214,11 +321,19 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
 
   const slotList = (() => {
-    if (!currentRoom || !selectedDate) return [];
+    if (!currentRoom || !selectedDate || !studio) return [];
     const key = formatKey(selectedDate);
     const withSlots = ensureSlotsForDay(currentRoom, selectedDate, studio.openingHours);
     return withSlots.slots[key] || [];
   })();
+
+  if (!studio) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center text-gray-600">
+        Studio verisi yüklenemedi.
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-b from-white via-orange-50/40 to-white">
@@ -245,6 +360,12 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
           </div>
           <SignOutButton />
         </header>
+
+        {status && (
+          <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+            {status}
+          </div>
+        )}
 
         <nav className="mb-6 flex flex-wrap gap-2">
           {[
@@ -306,7 +427,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Açılış saatleri</p>
                   <p className="text-xs text-gray-600">
-                    Tüm odalar için geçerli (demo). Kapalı günler kırmızı görünür.
+                    Tüm odalar için geçerli. Kapalı günler kırmızı görünür.
                   </p>
                 </div>
                 {studio.calendarNote && (
@@ -501,14 +622,14 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                         placeholder="İsim (opsiyonel)"
                         value={slot.name ?? ""}
                         onChange={(e) =>
-                          updateSlot(i, { name: e.target.value }, selectedDate)
+                          updateSlotAndPersist(i, { name: e.target.value }, selectedDate)
                         }
                       />
                       <div className="flex gap-2">
                         {slot.status !== "confirmed" && (
                           <button
                             onClick={() =>
-                              updateSlot(i, { status: "confirmed" }, selectedDate)
+                              updateSlotAndPersist(i, { status: "confirmed" }, selectedDate)
                             }
                             className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700"
                           >
@@ -517,7 +638,9 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                         )}
                         {slot.status !== "empty" && (
                           <button
-                            onClick={() => updateSlot(i, { status: "empty", name: "" }, selectedDate)}
+                            onClick={() =>
+                              updateSlotAndPersist(i, { status: "empty", name: "" }, selectedDate)
+                            }
                             className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-orange-300"
                           >
                             Boşalt
@@ -536,12 +659,62 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
           <section className="mt-2 grid gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 lg:col-span-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-800">
-                  {currentRoom.type}
-                </span>
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-800">
-                  {pricingLabel(currentRoom)}
-                </span>
+                <input
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                  value={currentRoom.name}
+                  onChange={(e) =>
+                    setStudio((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            rooms: prev.rooms.map((r) =>
+                              r.id === currentRoom.id ? { ...r, name: e.target.value } : r,
+                            ),
+                          }
+                        : prev,
+                    )
+                  }
+                />
+                <select
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                  value={currentRoom.type}
+                  onChange={(e) =>
+                    setStudio((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            rooms: prev.rooms.map((r) =>
+                              r.id === currentRoom.id ? { ...r, type: e.target.value } : r,
+                            ),
+                          }
+                        : prev,
+                    )
+                  }
+                >
+                  {["Prova odası", "Vokal kabini", "Kayıt kabini", "Davul kabini", "Etüt odası"].map(
+                    (t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ),
+                  )}
+                </select>
+                <input
+                  className="w-24 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                  value={currentRoom.color}
+                  onChange={(e) =>
+                    setStudio((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            rooms: prev.rooms.map((r) =>
+                              r.id === currentRoom.id ? { ...r, color: e.target.value } : r,
+                            ),
+                          }
+                        : prev,
+                    )
+                  }
+                />
                 <span
                   className="h-5 w-5 rounded-full border"
                   style={{ backgroundColor: currentRoom.color }}
@@ -554,6 +727,140 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
               <p className="mt-1 text-sm text-gray-600">
                 Şehir/ilçe: {studio.city || "—"} {studio.district ? `• ${studio.district}` : ""}
               </p>
+
+              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                <p className="text-sm font-semibold text-gray-900">Fiyatlandırma</p>
+                <div className="mt-2 flex flex-wrap gap-2 text-sm">
+                  <select
+                    className="rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
+                    value={currentRoom.pricing.model}
+                    onChange={(e) =>
+                      setStudio((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              rooms: prev.rooms.map((r) =>
+                                r.id === currentRoom.id
+                                  ? {
+                                      ...r,
+                                      pricing: { ...r.pricing, model: e.target.value as Room["pricing"]["model"] },
+                                    }
+                                  : r,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                  >
+                    <option value="flat">Sabit (saatlik)</option>
+                    <option value="daily">Günlük</option>
+                    <option value="hourly">Saatlik</option>
+                    <option value="variable">Değişken</option>
+                  </select>
+                  <input
+                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
+                    placeholder="Sabit"
+                    value={currentRoom.pricing.flatRate ?? ""}
+                    onChange={(e) =>
+                      setStudio((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              rooms: prev.rooms.map((r) =>
+                                r.id === currentRoom.id
+                                  ? {
+                                      ...r,
+                                      pricing: { ...r.pricing, flatRate: e.target.value },
+                                    }
+                                  : r,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                  <input
+                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
+                    placeholder="Günlük"
+                    value={currentRoom.pricing.dailyRate ?? ""}
+                    onChange={(e) =>
+                      setStudio((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              rooms: prev.rooms.map((r) =>
+                                r.id === currentRoom.id
+                                  ? {
+                                      ...r,
+                                      pricing: { ...r.pricing, dailyRate: e.target.value },
+                                    }
+                                  : r,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                  <input
+                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
+                    placeholder="Saatlik"
+                    value={currentRoom.pricing.hourlyRate ?? ""}
+                    onChange={(e) =>
+                      setStudio((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              rooms: prev.rooms.map((r) =>
+                                r.id === currentRoom.id
+                                  ? {
+                                      ...r,
+                                      pricing: { ...r.pricing, hourlyRate: e.target.value },
+                                    }
+                                  : r,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                  <input
+                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
+                    placeholder="Min (değişken)"
+                    value={currentRoom.pricing.minRate ?? ""}
+                    onChange={(e) =>
+                      setStudio((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              rooms: prev.rooms.map((r) =>
+                                r.id === currentRoom.id
+                                  ? {
+                                      ...r,
+                                      pricing: { ...r.pricing, minRate: e.target.value },
+                                    }
+                                  : r,
+                              ),
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                </div>
+                <button
+                  disabled={saving}
+                  onClick={() =>
+                    saveRoomBasics(currentRoom.id, {
+                      name: currentRoom.name,
+                      type: currentRoom.type,
+                      color: currentRoom.color,
+                      pricing: currentRoom.pricing,
+                    })
+                  }
+                  className="mt-3 rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-orange-700 disabled:opacity-60"
+                >
+                  {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
+                </button>
+              </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
@@ -603,20 +910,74 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
             <div className="rounded-2xl border border-gray-100 bg-white/90 p-4">
               <p className="text-sm font-semibold text-gray-900">Kısa bilgiler</p>
-              <ul className="mt-2 space-y-1 text-sm text-gray-700">
-                <li>Sahibi: {studio.owner || "—"}</li>
-                <li>Telefon: {studio.phone || "—"}</li>
-                <li>E-posta: {studio.email || "—"}</li>
-                <li>Adres: {studio.address || "—"}</li>
-              </ul>
+              <div className="mt-2 space-y-2 text-sm text-gray-700">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-[80px] font-semibold">Şehir/İlçe</span>
+                  <input
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                    placeholder="İstanbul / Kadıköy"
+                    value={`${studio.city ?? ""}${studio.district ? " / " + studio.district : ""}`}
+                    onChange={(e) => {
+                      const parts = e.target.value.split("/").map((p) => p.trim());
+                      const city = parts[0] || "";
+                      const district = parts[1] || "";
+                      setStudio((prev) =>
+                        prev ? { ...prev, city, district } : prev,
+                      );
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="min-w-[80px] font-semibold">Telefon</span>
+                  <input
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                    value={studio.phone ?? ""}
+                    onChange={(e) =>
+                      setStudio((prev) =>
+                        prev ? { ...prev, phone: e.target.value } : prev,
+                      )
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="min-w-[80px] font-semibold">Adres</span>
+                  <input
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                    value={studio.address ?? ""}
+                    onChange={(e) =>
+                      setStudio((prev) =>
+                        prev ? { ...prev, address: e.target.value } : prev,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  disabled={saving}
+                  onClick={() =>
+                    saveStudioMeta({
+                      city: studio.city,
+                      district: studio.district,
+                      address: studio.address,
+                      phone: studio.phone,
+                    })
+                  }
+                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:opacity-60"
+                >
+                  {saving ? "Kaydediliyor..." : "Stüdyo bilgisi kaydet"}
+                </button>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                  E-posta (giriş): {studio.ownerEmail}
+                </div>
+              </div>
               <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
                   Not
                 </p>
                 <p className="mt-1 text-sm text-gray-700">
-                  Bu ekran tamamen front-end demodur. Kaydedilen değişiklikler sadece
-                  tarayıcı durumunda kalır. Gerçek veritabanı/posta bağlamak için
-                  API katmanı eklenmesi gerekir.
+                  Değişiklikler DB&apos;ye kaydedilir. Daha detaylı ekipman/özellik editörü için
+                  ayrı ekran eklenebilir.
                 </p>
               </div>
             </div>
