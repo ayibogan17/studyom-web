@@ -98,7 +98,6 @@ async function seedFromMock(email: string, name?: string | null) {
       address: mockStudio.address,
       phone: mockStudio.phone,
       ownerEmail: email,
-      owner: { connect: { email } },
       notifications: {
         create: mockStudio.notifications.map((message) => ({ message })),
       },
