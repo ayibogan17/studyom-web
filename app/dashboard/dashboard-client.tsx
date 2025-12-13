@@ -245,20 +245,24 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   };
 
   const toggleCourses = (roomId: string) => {
-    setStudio((prev) => ({
-      ...prev,
-      rooms: prev.rooms.map((room) =>
-        room.id === roomId
-          ? {
-              ...room,
-              extras: {
-                ...room.extras,
-                acceptsCourses: !room.extras.acceptsCourses,
-              },
-            }
-          : room,
-      ),
-    }));
+    setStudio((prev) =>
+      prev
+        ? {
+            ...prev,
+            rooms: prev.rooms.map((room) =>
+              room.id === roomId
+                ? {
+                    ...room,
+                    extras: {
+                      ...room.extras,
+                      acceptsCourses: !room.extras.acceptsCourses,
+                    },
+                  }
+                : room,
+            ),
+          }
+        : prev,
+    );
   };
 
   const metrics = useMemo(() => {

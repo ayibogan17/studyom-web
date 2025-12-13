@@ -80,6 +80,7 @@ export type Room = {
 };
 
 export type Studio = {
+  id?: string;
   name: string;
   city?: string;
   district?: string;
@@ -87,6 +88,7 @@ export type Studio = {
   owner?: string;
   phone?: string;
   email?: string;
+  ownerEmail?: string;
   openingHours: OpeningHours[];
   rooms: Room[];
   notifications: string[];
