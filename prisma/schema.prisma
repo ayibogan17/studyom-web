@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(USER)
+  studios   Studio[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Studio {
+  id            String         @id @default(cuid())
+  name          String
+  city          String?
+  district      String?
+  address       String?
+  ownerEmail    String
+  phone         String?
+  owner         User?          @relation(fields: [ownerEmail], references: [email])
+  rooms         Room[]
+  notifications Notification[]
+  ratings       Rating[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Room {
+  id           String        @id @default(cuid())
+  name         String
+  type         String
+  color        String?
+  pricingModel PricingModel  @default(FLAT)
+  flatRate     String?
+  minRate      String?
+  dailyRate    String?
+  hourlyRate   String?
+  studioId     String
+  studio       Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  slots        Slot[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Slot {
+  id           String      @id @default(cuid())
+  date         DateTime
+  timeLabel    String
+  status       SlotStatus  @default(EMPTY)
+  customerName String?
+  roomId       String
+  room         Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  studioId  String
+  studio    Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  value     Float
+  comment   String?
+  studioId  String
+  studio    Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  USER
+  STUDIO
+  ADMIN
+}
+
+enum SlotStatus {
+  EMPTY
+  CONFIRMED
+}
+
+enum PricingModel {
+  FLAT
+  DAILY
+  HOURLY
+  VARIABLE
+}
