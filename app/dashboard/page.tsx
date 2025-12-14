@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { mockStudio } from "@/data/panelMock";
 import { prisma } from "@/lib/prisma";
 import {
+  Prisma,
   PricingModel,
   SlotStatus,
   type Notification as PrismaNotification,
@@ -191,6 +192,7 @@ function UserDashboardMock({ name, email }: { name?: string | null; email?: stri
 }
 
 type StudioWithRelations = PrismaStudio & {
+  openingHours?: Prisma.JsonValue | null;
   rooms: (PrismaRoom & { slots: PrismaSlot[] })[];
   notifications: PrismaNotification[];
   ratings: PrismaRating[];

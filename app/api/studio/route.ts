@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { mockStudio } from "@/data/panelMock";
 import {
+  Prisma,
   PricingModel,
   SlotStatus,
   type Room as PrismaRoom,
@@ -84,6 +85,7 @@ function normalizeDateKey(key: string) {
 }
 
 type StudioWithRelations = PrismaStudio & {
+  openingHours?: Prisma.JsonValue | null;
   rooms: (PrismaRoom & { slots: PrismaSlot[] })[];
   notifications: PrismaNotification[];
   ratings: PrismaRating[];
