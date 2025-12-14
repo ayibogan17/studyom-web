@@ -193,7 +193,14 @@ function UserDashboardMock({ name, email }: { name?: string | null; email?: stri
 
 type StudioWithRelations = PrismaStudio & {
   openingHours?: Prisma.JsonValue | null;
-  rooms: (PrismaRoom & { slots: PrismaSlot[] })[];
+  rooms: (PrismaRoom & {
+    order?: number;
+    equipmentJson?: Prisma.JsonValue | null;
+    featuresJson?: Prisma.JsonValue | null;
+    extrasJson?: Prisma.JsonValue | null;
+    imagesJson?: Prisma.JsonValue | null;
+    slots: PrismaSlot[];
+  })[];
   notifications: PrismaNotification[];
   ratings: PrismaRating[];
 };

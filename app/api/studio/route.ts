@@ -86,7 +86,14 @@ function normalizeDateKey(key: string) {
 
 type StudioWithRelations = PrismaStudio & {
   openingHours?: Prisma.JsonValue | null;
-  rooms: (PrismaRoom & { order?: number; slots: PrismaSlot[] })[];
+  rooms: (PrismaRoom & {
+    order?: number;
+    equipmentJson?: Prisma.JsonValue | null;
+    featuresJson?: Prisma.JsonValue | null;
+    extrasJson?: Prisma.JsonValue | null;
+    imagesJson?: Prisma.JsonValue | null;
+    slots: PrismaSlot[];
+  })[];
   notifications: PrismaNotification[];
   ratings: PrismaRating[];
 };
