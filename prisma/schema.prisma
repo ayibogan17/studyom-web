@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -25,6 +26,7 @@ model Studio {
   address       String?
   ownerEmail    String
   phone         String?
+  openingHours  Json?
   owner         User?          @relation(fields: [ownerEmail], references: [email])
   rooms         Room[]
   notifications Notification[]
@@ -38,11 +40,16 @@ model Room {
   name         String
   type         String
   color        String?
+  order        Int           @default(0)
   pricingModel PricingModel  @default(FLAT)
   flatRate     String?
   minRate      String?
   dailyRate    String?
   hourlyRate   String?
+  equipmentJson Json?
+  featuresJson  Json?
+  extrasJson    Json?
+  imagesJson    Json?
   studioId     String
   studio       Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
   slots        Slot[]

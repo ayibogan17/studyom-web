@@ -1,14 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SignOutButton } from "@/components/sign-out-button";
-import {
-  OpeningHours,
-  Room,
-  Slot,
-  Studio,
-} from "@/types/panel";
+import { OpeningHours, Room, Slot, Studio } from "@/types/panel";
 
 type Props = {
   initialStudio?: Studio;
@@ -26,6 +21,87 @@ const longDays = [
   "Cumartesi",
   "Pazar",
 ];
+
+const defaultEquipment: Room["equipment"] = {
+  hasDrum: false,
+  drumDetail: "",
+  micCount: 0,
+  micDetails: [],
+  guitarAmpCount: 0,
+  guitarAmpDetails: [],
+  hasBassAmp: false,
+  bassDetail: "",
+  hasDiBox: false,
+  diDetail: "",
+  hasPedal: false,
+  pedalDetail: "",
+  hasKeyboard: false,
+  keyboardDetail: "",
+  hasKeyboardStand: false,
+  hasGuitarsForUse: false,
+  guitarUseDetail: "",
+};
+
+const defaultFeatures: Room["features"] = {
+  micCount: 0,
+  micDetails: [],
+  musicianMicAllowed: false,
+  hasControlRoom: false,
+  hasHeadphones: false,
+  headphonesDetail: "",
+  hasTechSupport: false,
+};
+
+const defaultExtras: Room["extras"] = {
+  offersMixMaster: false,
+  engineerPortfolioUrl: "",
+  offersProduction: false,
+  productionAreas: [],
+  offersOther: false,
+  otherDetail: "",
+  acceptsCourses: false,
+};
+
+function normalizeRoom(room: Room): Room {
+  return {
+    ...room,
+    equipment: room.equipment ?? { ...defaultEquipment },
+    features: room.features ?? { ...defaultFeatures },
+    extras: room.extras ?? { ...defaultExtras },
+    images: room.images ?? [],
+    slots: room.slots ?? {},
+  };
+}
+
+function normalizeStudio(data: Studio | null): Studio | null {
+  if (!data) return null;
+  return {
+    ...data,
+    openingHours:
+      data.openingHours?.length === 7
+        ? data.openingHours
+        : Array.from({ length: 7 }, () => ({
+            open: true,
+            openTime: "09:00",
+            closeTime: "21:00",
+          })),
+    rooms: (data.rooms ?? []).map((r) => normalizeRoom(r)),
+  };
+}
+
+const colorPalette = ["#1D4ED8", "#0EA5E9", "#10B981", "#F97316", "#F43F5E"];
+
+const pickNextColor = (rooms: Room[]) => {
+  const used = new Set(
+    rooms
+      .map((r) => r.color)
+      .filter(Boolean)
+      .map((c) => c!.toLowerCase()),
+  );
+  const next =
+    colorPalette.find((c) => !used.has(c.toLowerCase())) ?? colorPalette[rooms.length % colorPalette.length];
+  return next;
+};
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 const formatKey = (d: Date) =>
@@ -85,7 +161,9 @@ const ensureSlotsForDay = (
 };
 
 export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
-  const [studio, setStudio] = useState<Studio | null>(initialStudio ?? null);
+  const [studio, setStudio] = useState<Studio | null>(
+    normalizeStudio(initialStudio ?? null),
+  );
   const [activeTab, setActiveTab] = useState<string>("panel");
   const [selectedRoomId, setSelectedRoomId] = useState(
     initialStudio?.rooms?.[0]?.id ?? "",
@@ -94,10 +172,40 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [monthCursor, setMonthCursor] = useState<Date>(new Date());
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [hoursDraft, setHoursDraft] = useState<OpeningHours[]>(
+    normalizeStudio(initialStudio ?? null)?.openingHours ?? [],
+  );
+  const [showRatings, setShowRatings] = useState(false);
+  const [editingHours, setEditingHours] = useState(false);
+  const [dragRoomId, setDragRoomId] = useState<string | null>(null);
+  const [showPalette, setShowPalette] = useState(false);
 
-  const rooms = studio?.rooms ?? [];
-  const currentRoom =
-    rooms.find((r) => r.id === selectedRoomId) ?? rooms[0] ?? null;
+  const studioRooms = studio?.rooms ?? [];
+  const orderedRooms = useMemo(() => {
+    if (!studio?.rooms) return [];
+    return [...studio.rooms].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name),
+    );
+  }, [studio?.rooms]);
+  const currentRoomRaw =
+    orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
+  const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
+
+  // sync hours draft when studio changes
+  useEffect(() => {
+    if (studio?.openingHours) {
+      setHoursDraft(studio.openingHours);
+    }
+  }, [studio?.openingHours]);
+
+  useEffect(() => {
+    if (!orderedRooms.length) return;
+    const exists = orderedRooms.some((r) => r.id === selectedRoomId);
+    if (!exists) {
+      setSelectedRoomId(orderedRooms[0].id);
+      setActiveTab(`room-${orderedRooms[0].id}`);
+    }
+  }, [orderedRooms, selectedRoomId]);
 
   const handleTabChange = (key: string) => {
     setActiveTab(key);
@@ -179,11 +287,47 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     }
   };
 
+  const persistRoomOrder = async (ordered: Room[]) => {
+    setSaving(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/studio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rooms: ordered.map((r) => ({ id: r.id, order: r.order ?? 0 })),
+        }),
+      });
+      let json: Record<string, unknown> | null = null;
+      try {
+        json = await res.json();
+      } catch {
+        // Ignore parse errors; treat empty body as ok
+        json = null;
+      }
+      if (res.ok) {
+        if (json?.studio) {
+          setStudio(normalizeStudio(json.studio));
+        }
+        setStatus("Oda sırası kaydedildi");
+      } else {
+        const text = json?.error ?? (await res.text().catch(() => "")) ?? "";
+        setStatus(text || `Kaydedilemedi (status ${res.status})`);
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus("Kaydedilemedi");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveStudioMeta = async (data: {
     city?: string;
     district?: string;
     address?: string;
     phone?: string;
+    openingHours?: OpeningHours[];
   }) => {
     if (!studio) return;
     setSaving(true);
@@ -196,7 +340,10 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
       });
       const json = await res.json();
       if (res.ok && json.studio) {
-        setStudio(json.studio);
+        setStudio(normalizeStudio(json.studio));
+        if (data.openingHours) {
+          setHoursDraft(data.openingHours);
+        }
         setStatus("Kaydedildi");
       } else {
         setStatus(json.error || "Kaydedilemedi");
@@ -231,7 +378,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
       });
       const json = await res.json();
       if (res.ok && json.studio) {
-        setStudio(json.studio);
+        setStudio(normalizeStudio(json.studio));
         setStatus("Kaydedildi");
       } else {
         setStatus(json.error || "Kaydedilemedi");
@@ -244,25 +391,55 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     }
   };
 
-  const toggleCourses = (roomId: string) => {
-    setStudio((prev) =>
-      prev
-        ? {
-            ...prev,
-            rooms: prev.rooms.map((room) =>
-              room.id === roomId
-                ? {
-                    ...room,
-                    extras: {
-                      ...room.extras,
-                      acceptsCourses: !room.extras.acceptsCourses,
-                    },
-                  }
-                : room,
-            ),
-          }
-        : prev,
-    );
+  const addRoom = async () => {
+    setSaving(true);
+    setStatus(null);
+    try {
+      const existingPayload = buildRoomsPayload(orderedRooms);
+      const newRoomOrder = orderedRooms.length;
+      const nextColor = pickNextColor(orderedRooms);
+      const res = await fetch("/api/studio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rooms: [
+            ...existingPayload,
+            {
+              name: `Yeni Oda ${studioRooms.length + 1}`,
+              type: "Prova odası",
+              color: nextColor,
+              order: newRoomOrder,
+              pricing: { model: "flat", flatRate: "" },
+              equipment: defaultEquipment,
+              features: defaultFeatures,
+              extras: defaultExtras,
+              images: [],
+            },
+          ],
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.studio) {
+        const normalized = normalizeStudio(json.studio);
+        setStudio(normalized);
+        if (normalized?.rooms?.length) {
+          const newest =
+            [...normalized.rooms].sort(
+              (a, b) => (b.order ?? 0) - (a.order ?? 0) || b.name.localeCompare(a.name),
+            )[0] ?? normalized.rooms[normalized.rooms.length - 1];
+          setSelectedRoomId(newest.id);
+          setActiveTab(`room-${newest.id}`);
+        }
+        setStatus("Yeni oda eklendi");
+      } else {
+        setStatus(json.error || "Oda eklenemedi");
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus("Oda eklenemedi");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const metrics = useMemo(() => {
@@ -311,6 +488,20 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     }
   };
 
+  const buildRoomsPayload = (rooms: Room[]) =>
+    rooms.map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      color: r.color,
+      order: r.order ?? 0,
+      pricing: r.pricing,
+      equipment: r.equipment ?? defaultEquipment,
+      features: r.features ?? defaultFeatures,
+      extras: r.extras ?? defaultExtras,
+      images: r.images ?? [],
+    }));
+
   const startOfMonth = new Date(
     monthCursor.getFullYear(),
     monthCursor.getMonth(),
@@ -340,11 +531,12 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   }
 
   return (
-    <div className="bg-gradient-to-b from-white via-orange-50/40 to-white">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <>
+      <div className="bg-gradient-to-b from-white via-blue-50/40 to-white">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <header className="mb-6 flex flex-col gap-3 rounded-3xl border border-black/5 bg-white/80 p-6 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
               Stüdyo paneli
             </p>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -366,7 +558,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         </header>
 
         {status && (
-          <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+          <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
             {status}
           </div>
         )}
@@ -375,39 +567,80 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
           {[
             { key: "panel", label: "Panel" },
             { key: "calendar", label: "Takvim" },
-            ...rooms.map((r) => ({ key: `room-${r.id}`, label: r.name || "Oda" })),
+            ...orderedRooms.map((r) => ({ key: `room-${r.id}`, label: r.name || "Oda" })),
           ].map((item) => (
             <button
               key={item.key}
+              draggable={item.key.startsWith("room-")}
+              onDragStart={() => {
+                if (item.key.startsWith("room-")) setDragRoomId(item.key.replace("room-", ""));
+              }}
+              onDragOver={(e) => {
+                if (!item.key.startsWith("room-")) return;
+                e.preventDefault();
+              }}
+              onDrop={() => {
+                if (!item.key.startsWith("room-")) return;
+                const targetId = item.key.replace("room-", "");
+                if (!dragRoomId || dragRoomId === targetId) return;
+                const newOrder = [...orderedRooms];
+                const from = newOrder.findIndex((r) => r.id === dragRoomId);
+                const to = newOrder.findIndex((r) => r.id === targetId);
+                if (from === -1 || to === -1) return;
+                const [moved] = newOrder.splice(from, 1);
+                newOrder.splice(to, 0, moved);
+                const withOrder = newOrder.map((r, idx) => ({ ...r, order: idx }));
+                setStudio((prev) => (prev ? { ...prev, rooms: withOrder } : prev));
+                persistRoomOrder(withOrder);
+                setDragRoomId(null);
+              }}
+              onDragEnd={() => setDragRoomId(null)}
               onClick={() => handleTabChange(item.key)}
               className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                 activeTab === item.key
-                  ? "border-orange-500 bg-orange-500 text-white shadow-sm"
-                  : "border-orange-100 bg-white text-gray-800 hover:border-orange-300"
+                  ? "border-blue-500 bg-blue-500 text-white shadow-sm"
+                  : "border-blue-100 bg-white text-gray-800 hover:border-blue-200"
               }`}
             >
-              {item.label}
+              {item.key.startsWith("room-") && (
+                <span
+                  className="mr-2 inline-block h-3 w-3 rounded-full border border-white/70"
+                  style={{
+                    backgroundColor:
+                      orderedRooms.find((r) => `room-${r.id}` === item.key)?.color ?? "#1D4ED8",
+                  }}
+                  aria-hidden
+                />
+              )}
+              <span className="truncate">{item.label}</span>
             </button>
           ))}
+          <button
+            onClick={addRoom}
+            className="rounded-full border border-dashed border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-700"
+          >
+            + Oda ekle
+          </button>
         </nav>
 
         {activeTab === "panel" && (
           <section className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-green-100 bg-green-50/80 p-4">
-              <p className="text-sm font-semibold text-green-900">Puan ortalaması</p>
+            <button
+              onClick={() => setShowRatings(true)}
+              className="rounded-2xl border border-green-100 bg-green-50/80 p-4 text-left transition hover:border-green-200 hover:shadow-sm"
+            >
+              <p className="text-sm font-semibold text-green-900">Puan</p>
               <p className="mt-2 text-4xl font-bold text-green-800">
                 {studio.ratings.length
                   ? (studio.ratings.reduce((a, b) => a + b, 0) / studio.ratings.length).toFixed(1)
                   : "0.0"}
               </p>
-              <p className="mt-1 text-xs text-green-700">
-                Yorumlar demo, gerçek veritabanı bağlantısı yok.
-              </p>
-            </div>
+              <p className="mt-1 text-xs text-green-700 underline">Yorumları aç</p>
+            </button>
 
-            <div className="rounded-2xl border border-orange-100 bg-orange-50/80 p-4">
-              <p className="text-sm font-semibold text-orange-900">Rezervasyon özeti</p>
-              <div className="mt-2 space-y-1 text-sm text-orange-800">
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
+              <p className="text-sm font-semibold text-blue-900">Rezervasyon özeti</p>
+              <div className="mt-2 space-y-1 text-sm text-blue-800">
                 <p>Bugün onaylanan: {metrics.todayConfirmed}</p>
                 <p>Bu hafta onaylanan: {metrics.weekConfirmed}</p>
                 <p>Doluluk: {metrics.occupancy}%</p>
@@ -434,24 +667,94 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     Tüm odalar için geçerli. Kapalı günler kırmızı görünür.
                   </p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setEditingHours((v) => !v)}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
+                  >
+                    {editingHours ? "İptal" : "Saatleri düzenle"}
+                  </button>
+                  {editingHours && (
+                    <button
+                      disabled={saving}
+                      onClick={() =>
+                        saveStudioMeta({
+                          openingHours: hoursDraft,
+                        })
+                      }
+                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {saving ? "Kaydediliyor..." : "Kaydet"}
+                    </button>
+                  )}
+                </div>
                 {studio.calendarNote && (
-                  <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
+                  <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
                     {studio.calendarNote}
                   </span>
                 )}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                {studio.openingHours.map((h, idx) => (
+                {(editingHours ? hoursDraft : studio.openingHours).map((h, idx) => (
                   <div
                     key={idx}
-                    className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${
+                    className={`flex flex-col gap-2 rounded-xl border px-3 py-2 text-sm ${
                       h.open
                         ? "border-gray-100 bg-gray-50"
                         : "border-red-100 bg-red-50 text-red-700"
                     }`}
                   >
-                    <span className="font-semibold">{longDays[idx]}</span>
-                    <span>{h.open ? `${h.openTime} - ${h.closeTime}` : "Kapalı"}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">{longDays[idx]}</span>
+                      {editingHours ? (
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={h.open}
+                            onChange={(e) =>
+                              setHoursDraft((prev) =>
+                                prev.map((item, i) =>
+                                  i === idx ? { ...item, open: e.target.checked } : item,
+                                ),
+                              )
+                            }
+                          />
+                          Açık
+                        </label>
+                      ) : (
+                        <span>{h.open ? `${h.openTime} - ${h.closeTime}` : "Kapalı"}</span>
+                      )}
+                    </div>
+                    {editingHours && h.open && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <input
+                          className="w-20 rounded-lg border border-gray-200 px-2 py-1"
+                          value={h.openTime}
+                          onChange={(e) =>
+                            setHoursDraft((prev) =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, openTime: e.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                        <span>-</span>
+                        <input
+                          className="w-20 rounded-lg border border-gray-200 px-2 py-1"
+                          value={h.closeTime}
+                          onChange={(e) =>
+                            setHoursDraft((prev) =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, closeTime: e.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+                    {!editingHours && (
+                      <span>{h.open ? `${h.openTime} - ${h.closeTime}` : "Kapalı"}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -474,6 +777,13 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
         {activeTab === "calendar" && currentRoom && (
           <section className="mt-2 rounded-3xl border border-black/5 bg-white/80 p-5 shadow-sm backdrop-blur">
+            <div className="mb-2 flex items-center gap-2 text-xs text-gray-600">
+              <span
+                className="inline-block h-3 w-3 rounded-full"
+                style={{ backgroundColor: currentRoom.color }}
+              />
+              <span>Takvim vurguları oda rengine göre</span>
+            </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-gray-900">Takvim</p>
@@ -512,17 +822,20 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {rooms.map((room) => (
+              {orderedRooms.map((room) => (
                 <button
                   key={room.id}
                   onClick={() => {
                     setSelectedRoomId(room.id);
                     handleTabChange("calendar");
                   }}
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  style={
                     room.id === currentRoom.id
-                      ? "border-orange-500 bg-orange-500 text-white"
-                      : "border-gray-200 bg-gray-50 text-gray-700 hover:border-orange-300"
+                      ? { backgroundColor: room.color, borderColor: room.color, color: "#fff" }
+                      : { borderColor: "#e5e7eb" }
+                  }
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    room.id === currentRoom.id ? "" : "bg-gray-50 text-gray-700 hover:border-blue-300"
                   }`}
                 >
                   {room.name}
@@ -558,17 +871,24 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     selectedDate &&
                     formatKey(selectedDate) === key &&
                     selectedRoomId === currentRoom.id;
+                  const selectedStyle = isSelected
+                    ? {
+                        borderColor: currentRoom.color,
+                        backgroundColor: `${currentRoom.color}22`,
+                      }
+                    : {};
 
                   return (
                     <button
                       key={idx}
                       onClick={() => isOpen && handleDaySelect(date)}
+                      style={selectedStyle}
                       className={`flex h-16 flex-col rounded-xl border text-left transition ${
                         !isOpen
                           ? "cursor-not-allowed border-red-100 bg-red-50 text-red-700"
-                          : isSelected
-                            ? "border-orange-500 bg-orange-50"
-                            : "border-gray-200 bg-white hover:border-orange-300"
+                          : !isSelected
+                            ? "border-gray-200 bg-white hover:border-blue-300"
+                            : ""
                       }`}
                     >
                       <span className="px-2 py-1 text-sm font-semibold">{dayNum}</span>
@@ -622,7 +942,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                         {slot.timeLabel}
                       </div>
                       <input
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
                         placeholder="İsim (opsiyonel)"
                         value={slot.name ?? ""}
                         onChange={(e) =>
@@ -645,7 +965,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                             onClick={() =>
                               updateSlotAndPersist(i, { status: "empty", name: "" }, selectedDate)
                             }
-                            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-orange-300"
+                            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
                           >
                             Boşalt
                           </button>
@@ -660,11 +980,11 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         )}
 
         {activeTab.startsWith("room-") && currentRoom && (
-          <section className="mt-2 grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 lg:col-span-2">
+          <section className="mt-2 grid gap-4">
+            <div className="rounded-2xl border border-gray-100 bg-white/90 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <input
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
                   value={currentRoom.name}
                   onChange={(e) =>
                     setStudio((prev) =>
@@ -680,7 +1000,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                   }
                 />
                 <select
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
                   value={currentRoom.type}
                   onChange={(e) =>
                     setStudio((prev) =>
@@ -703,69 +1023,108 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     ),
                   )}
                 </select>
-                <input
-                  className="w-24 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
-                  value={currentRoom.color}
-                  onChange={(e) =>
-                    setStudio((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            rooms: prev.rooms.map((r) =>
-                              r.id === currentRoom.id ? { ...r, color: e.target.value } : r,
-                            ),
-                          }
-                        : prev,
-                    )
-                  }
-                />
-                <span
-                  className="h-5 w-5 rounded-full border"
-                  style={{ backgroundColor: currentRoom.color }}
-                  aria-hidden
-                />
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-block h-8 w-8 rounded-full border border-gray-200"
+                    style={{ backgroundColor: currentRoom.color }}
+                    aria-hidden
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPalette((v) => !v)}
+                    className="rounded-full border border-gray-200 p-2 text-xs text-gray-700 hover:border-blue-300 hover:text-blue-700"
+                    aria-label="Renk değiştir"
+                  >
+                    ✏️
+                  </button>
+                </div>
+                {showPalette && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {colorPalette.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => {
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id ? { ...r, color: c } : r,
+                                  ),
+                                }
+                              : prev,
+                          );
+                          setShowPalette(false);
+                        }}
+                        className="h-9 w-9 rounded-full border border-gray-200 ring-offset-2 hover:ring-2 hover:ring-blue-400"
+                        style={{ backgroundColor: c }}
+                        aria-label={`Renk ${c}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
               <h2 className="mt-3 text-2xl font-bold text-gray-900">
                 {currentRoom.name}
               </h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Şehir/ilçe: {studio.city || "—"} {studio.district ? `• ${studio.district}` : ""}
-              </p>
-
-              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3 text-gray-900">
                 <p className="text-sm font-semibold text-gray-900">Fiyatlandırma</p>
-                <div className="mt-2 flex flex-wrap gap-2 text-sm">
-                  <select
-                    className="rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
-                    value={currentRoom.pricing.model}
-                    onChange={(e) =>
-                      setStudio((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              rooms: prev.rooms.map((r) =>
-                                r.id === currentRoom.id
-                                  ? {
-                                      ...r,
-                                      pricing: { ...r.pricing, model: e.target.value as Room["pricing"]["model"] },
-                                    }
-                                  : r,
-                              ),
-                            }
-                          : prev,
-                      )
-                    }
-                  >
-                    <option value="flat">Sabit (saatlik)</option>
-                    <option value="daily">Günlük</option>
-                    <option value="hourly">Saatlik</option>
-                    <option value="variable">Değişken</option>
-                  </select>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-900">
+                  <label className="flex items-center gap-2">
+                    <span>Ücretlendirme</span>
+                    <select
+                      className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:outline-none"
+                      value={
+                        currentRoom.pricing.model === "daily" ||
+                        currentRoom.pricing.model === "hourly"
+                          ? currentRoom.pricing.model
+                          : "hourly"
+                      }
+                      onChange={(e) => {
+                        const nextModel = e.target.value as Room["pricing"]["model"];
+                        const rate =
+                          nextModel === "daily"
+                            ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate ?? ""
+                            : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate ?? "";
+                        setStudio((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                rooms: prev.rooms.map((r) =>
+                                  r.id === currentRoom.id
+                                    ? {
+                                        ...r,
+                                        pricing: {
+                                          ...r.pricing,
+                                          model: nextModel,
+                                          dailyRate: nextModel === "daily" ? rate : "",
+                                          hourlyRate: nextModel === "hourly" ? rate : "",
+                                          flatRate: "",
+                                          minRate: "",
+                                        },
+                                      }
+                                    : r,
+                                ),
+                              }
+                            : prev,
+                        );
+                      }}
+                    >
+                      <option value="daily">Günlük</option>
+                      <option value="hourly">Saatlik</option>
+                    </select>
+                  </label>
                   <input
-                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
-                    placeholder="Sabit"
-                    value={currentRoom.pricing.flatRate ?? ""}
-                    onChange={(e) =>
+                    className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-400 focus:outline-none"
+                    placeholder="Ücret"
+                    value={
+                      currentRoom.pricing.model === "daily"
+                        ? currentRoom.pricing.dailyRate ?? ""
+                        : currentRoom.pricing.hourlyRate ?? ""
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
                       setStudio((prev) =>
                         prev
                           ? {
@@ -774,80 +1133,22 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                 r.id === currentRoom.id
                                   ? {
                                       ...r,
-                                      pricing: { ...r.pricing, flatRate: e.target.value },
+                                      pricing: {
+                                        ...r.pricing,
+                                        dailyRate:
+                                          (r.pricing.model === "daily" ? val : r.pricing.dailyRate) ?? "",
+                                        hourlyRate:
+                                          (r.pricing.model === "hourly" ? val : r.pricing.hourlyRate) ?? "",
+                                        flatRate: "",
+                                        minRate: "",
+                                      },
                                     }
                                   : r,
                               ),
                             }
                           : prev,
-                      )
-                    }
-                  />
-                  <input
-                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
-                    placeholder="Günlük"
-                    value={currentRoom.pricing.dailyRate ?? ""}
-                    onChange={(e) =>
-                      setStudio((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              rooms: prev.rooms.map((r) =>
-                                r.id === currentRoom.id
-                                  ? {
-                                      ...r,
-                                      pricing: { ...r.pricing, dailyRate: e.target.value },
-                                    }
-                                  : r,
-                              ),
-                            }
-                          : prev,
-                      )
-                    }
-                  />
-                  <input
-                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
-                    placeholder="Saatlik"
-                    value={currentRoom.pricing.hourlyRate ?? ""}
-                    onChange={(e) =>
-                      setStudio((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              rooms: prev.rooms.map((r) =>
-                                r.id === currentRoom.id
-                                  ? {
-                                      ...r,
-                                      pricing: { ...r.pricing, hourlyRate: e.target.value },
-                                    }
-                                  : r,
-                              ),
-                            }
-                          : prev,
-                      )
-                    }
-                  />
-                  <input
-                    className="w-28 rounded-lg border border-gray-200 px-3 py-2 focus:border-orange-400 focus:outline-none"
-                    placeholder="Min (değişken)"
-                    value={currentRoom.pricing.minRate ?? ""}
-                    onChange={(e) =>
-                      setStudio((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              rooms: prev.rooms.map((r) =>
-                                r.id === currentRoom.id
-                                  ? {
-                                      ...r,
-                                      pricing: { ...r.pricing, minRate: e.target.value },
-                                    }
-                                  : r,
-                              ),
-                            }
-                          : prev,
-                      )
-                    }
+                      );
+                    }}
                   />
                 </div>
                 <button
@@ -860,134 +1161,94 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       pricing: currentRoom.pricing,
                     })
                   }
-                  className="mt-3 rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-orange-700 disabled:opacity-60"
+                  className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
                 >
                   {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
                 </button>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <p className="text-sm font-semibold text-gray-900">Ekipman</p>
-                  <ul className="mt-2 space-y-1 text-sm text-gray-700">
-                    <li>Davul: {currentRoom.equipment.hasDrum ? currentRoom.equipment.drumDetail : "Yok"}</li>
-                    <li>Mikrofon: {currentRoom.equipment.micCount} adet</li>
-                    <li>Gitar amfi: {currentRoom.equipment.guitarAmpCount}</li>
-                    <li>Bas amfi: {currentRoom.equipment.hasBassAmp ? "Var" : "Yok"}</li>
-                    <li>Klavye: {currentRoom.equipment.hasKeyboard ? currentRoom.equipment.keyboardDetail : "Yok"}</li>
-                  </ul>
-                </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  <p className="text-sm font-semibold text-gray-900">Özellikler</p>
-                  <ul className="mt-2 space-y-1 text-sm text-gray-700">
-                    <li>Müzisyen kendi mikrofonu: {currentRoom.features.musicianMicAllowed ? "Evet" : "Hayır"}</li>
-                    <li>Control room: {currentRoom.features.hasControlRoom ? "Var" : "Yok"}</li>
-                    <li>Kulaklık: {currentRoom.features.hasHeadphones ? currentRoom.features.headphonesDetail || "Var" : "Yok"}</li>
-                    <li>Teknisyen: {currentRoom.features.hasTechSupport ? "Var" : "Yok"}</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-orange-100 bg-orange-50/80 p-3">
-                  <p className="text-sm font-semibold text-orange-900">Ekstralar</p>
-                  <ul className="mt-2 space-y-1 text-sm text-orange-800">
-                    <li>Mix/Master: {currentRoom.extras.offersMixMaster ? "Var" : "Yok"}</li>
-                    <li>Prodüksiyon: {currentRoom.extras.offersProduction ? currentRoom.extras.productionAreas.join(" • ") || "Var" : "Yok"}</li>
-                    {currentRoom.extras.otherDetail && <li>Diğer: {currentRoom.extras.otherDetail}</li>}
-                  </ul>
-                </div>
-                <div className="rounded-xl border border-green-100 bg-green-50/80 p-3">
-                  <p className="text-sm font-semibold text-green-900">Kurslar</p>
-                  <p className="mt-2 text-sm text-green-800">
-                    {currentRoom.extras.acceptsCourses ? "Kurslara açık" : "Kurslara kapalı"}
-                  </p>
-                  <button
-                    onClick={() => toggleCourses(currentRoom.id)}
-                    className="mt-3 rounded-lg border border-green-300 bg-white px-3 py-2 text-xs font-semibold text-green-800 transition hover:border-green-500"
-                  >
-                    {currentRoom.extras.acceptsCourses ? "Kursları kapat" : "Kursları aç"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-100 bg-white/90 p-4">
-              <p className="text-sm font-semibold text-gray-900">Kısa bilgiler</p>
-              <div className="mt-2 space-y-2 text-sm text-gray-700">
-                <div className="flex items-center gap-2">
-                  <span className="min-w-[80px] font-semibold">Şehir/İlçe</span>
-                  <input
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
-                    placeholder="İstanbul / Kadıköy"
-                    value={`${studio.city ?? ""}${studio.district ? " / " + studio.district : ""}`}
-                    onChange={(e) => {
-                      const parts = e.target.value.split("/").map((p) => p.trim());
-                      const city = parts[0] || "";
-                      const district = parts[1] || "";
-                      setStudio((prev) =>
-                        prev ? { ...prev, city, district } : prev,
-                      );
-                    }}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="min-w-[80px] font-semibold">Telefon</span>
-                  <input
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
-                    value={studio.phone ?? ""}
-                    onChange={(e) =>
-                      setStudio((prev) =>
-                        prev ? { ...prev, phone: e.target.value } : prev,
-                      )
-                    }
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="min-w-[80px] font-semibold">Adres</span>
-                  <input
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
-                    value={studio.address ?? ""}
-                    onChange={(e) =>
-                      setStudio((prev) =>
-                        prev ? { ...prev, address: e.target.value } : prev,
-                      )
-                    }
-                  />
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2">
                 <button
-                  disabled={saving}
-                  onClick={() =>
-                    saveStudioMeta({
-                      city: studio.city,
-                      district: studio.district,
-                      address: studio.address,
-                      phone: studio.phone,
+                  disabled={saving || orderedRooms.length <= 1}
+                  onClick={() => {
+                    if (!currentRoom) return;
+                    if (!window.confirm("Bu odayı silmek istediğine emin misin?")) return;
+                    setSaving(true);
+                    fetch("/api/studio", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        rooms: [{ id: currentRoom.id, _delete: true }],
+                      }),
                     })
-                  }
-                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:opacity-60"
+                      .then((res) => res.json())
+                      .then((json) => {
+                        if (json.studio) {
+                          const normalized = normalizeStudio(json.studio);
+                          setStudio(normalized);
+                          if (normalized?.rooms?.length) {
+                            setSelectedRoomId(normalized.rooms[0].id);
+                            setActiveTab(`room-${normalized.rooms[0].id}`);
+                          }
+                          setStatus("Oda silindi");
+                        } else {
+                          setStatus(json.error || "Oda silinemedi");
+                        }
+                      })
+                      .catch(() => setStatus("Oda silinemedi"))
+                      .finally(() => setSaving(false));
+                  }}
+                  className="mt-2 rounded-lg border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 transition hover:border-red-400 disabled:opacity-50"
                 >
-                  {saving ? "Kaydediliyor..." : "Stüdyo bilgisi kaydet"}
+                  Odayı sil
                 </button>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
-                  E-posta (giriş): {studio.ownerEmail}
-                </div>
               </div>
-              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                  Not
-                </p>
-                <p className="mt-1 text-sm text-gray-700">
-                  Değişiklikler DB&apos;ye kaydedilir. Daha detaylı ekipman/özellik editörü için
-                  ayrı ekran eklenebilir.
+
+              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
+                <p className="font-semibold text-gray-900">Oda içerikleri temizlendi</p>
+                <p className="mt-1">
+                  Bu sekmede şimdilik sadece ad, tür, renk ve fiyat alanları kaldı. Yeni UI eklenene kadar
+                  başka bölüm yok.
                 </p>
               </div>
             </div>
           </section>
         )}
+        </div>
       </div>
-    </div>
+
+      {showRatings && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Yorumlar (demo)</h3>
+              <button
+                onClick={() => setShowRatings(false)}
+                className="rounded-full border border-gray-200 px-3 py-1 text-sm"
+              >
+                Kapat
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {studio?.ratings.length ? (
+                studio.ratings.map((r, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2"
+                  >
+                    <span className="mt-1 h-6 w-6 rounded-full bg-green-100 text-center text-sm font-semibold text-green-800">
+                      {r.toFixed(1)}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Demo yorum {i + 1}</p>
+                      <p className="text-xs text-gray-700">Gerçek yorumlar entegrasyon sonrası gelecek.</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-600">Henüz puan yok.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

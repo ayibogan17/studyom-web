@@ -71,6 +71,7 @@ export type Room = {
     | "Etüt odası"
     | string;
   color: string; // hex
+  order?: number;
   pricing: Pricing;
   equipment: Equipment;
   features: Features;

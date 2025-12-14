@@ -27,52 +27,58 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#2C2C2C] text-white`}
       >
         <div className="flex min-h-screen flex-col">
-          <header className="border-b border-black/5 bg-white/80 backdrop-blur">
+          <header className="border-b border-white/10 bg-[#2C2C2C] backdrop-blur">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-              <Link href="/" className="text-lg font-bold tracking-tight">
+              <Link href="/" className="text-lg font-bold tracking-tight text-white">
                 Studyom
               </Link>
-              <nav className="flex items-center gap-4 text-sm font-medium text-gray-700">
-              <Link
-                href="/studios"
-                className="transition hover:text-black hover:underline"
-              >
-                Stüdyolar
-              </Link>
-              <Link
-                href="/#lead-form"
-                className="transition hover:text-black hover:underline"
-              >
-                Teklif al
-              </Link>
-              <Link
-                href="/dashboard"
-                className="transition hover:text-black hover:underline"
-              >
-                Panel
-              </Link>
+              <nav className="flex items-center gap-4 text-sm font-medium text-white">
+                <Link
+                  href="/studios"
+                  className="transition hover:text-[#2D9CDB] hover:underline"
+                >
+                  Stüdyolar
+                </Link>
+                <Link
+                  href="/#lead-form"
+                  className="transition hover:text-[#2D9CDB] hover:underline"
+                >
+                  Teklif al
+                </Link>
+                <Link
+                  href="/login"
+                  className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-[#2D9CDB] hover:text-[#2D9CDB]"
+                >
+                  Giriş Yap
+                </Link>
+                <Link
+                  href="/studio-login"
+                  className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-[#2D9CDB] hover:text-[#2D9CDB]"
+                >
+                  Stüdyo Sahipleri
+                </Link>
               </nav>
             </div>
           </header>
 
           <main className="flex-1">{children}</main>
 
-          <footer className="border-t border-black/5 bg-white/80 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-6 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+          <footer className="border-t border-white/10 bg-[#2C2C2C] backdrop-blur">
+            <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-6 text-sm text-gray-200 sm:flex-row sm:items-center sm:justify-between">
               <span>© {new Date().getFullYear()} Studyom</span>
               <div className="flex items-center gap-4">
                 <a
                   href="mailto:info@studyom.net"
-                  className="transition hover:text-black hover:underline"
+                  className="transition hover:text-[#2D9CDB] hover:underline"
                 >
                   info@studyom.net
                 </a>
                 <Link
                   href="/studios"
-                  className="transition hover:text-black hover:underline"
+                  className="transition hover:text-[#2D9CDB] hover:underline"
                 >
                   Stüdyolar
                 </Link>
