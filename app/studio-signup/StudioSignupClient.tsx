@@ -50,6 +50,8 @@ type FormState = {
   email: string;
   password: string;
   passwordConfirm: string;
+  website: string;
+  verificationNote: string;
 };
 
 const initialState: FormState = {
@@ -64,6 +66,8 @@ const initialState: FormState = {
   email: "",
   password: "",
   passwordConfirm: "",
+  website: "",
+  verificationNote: "",
 };
 
 const buildLocationIndex = (raw: RawProvince[]): LocationIndex => {
@@ -501,6 +505,28 @@ export default function StudioSignupClient() {
               </p>
             </label>
 
+            <label className="block text-sm font-semibold text-white">
+              Stüdyonuzun web sitesi (opsiyonel)
+              <input
+                type="url"
+                className="mt-1 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:border-[#2D9CDB] focus:outline-none"
+                placeholder="https://example.com"
+                value={form.website}
+                onChange={(e) => update("website", e.target.value)}
+              />
+            </label>
+
+            <label className="block text-sm font-semibold text-white">
+              Stüdyonuzu onaylayabilmemiz için ek bilgi (opsiyonel)
+              <textarea
+                className="mt-1 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-sm text-white placeholder:text-gray-400 focus:border-[#2D9CDB] focus:outline-none"
+                rows={3}
+                placeholder="Doğrulama süreci için bize not bırakabilirsiniz."
+                value={form.verificationNote}
+                onChange={(e) => update("verificationNote", e.target.value)}
+              />
+            </label>
+
             <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -546,6 +572,10 @@ export default function StudioSignupClient() {
               >
                 {submitting ? "Kaydediliyor..." : "Üyeliği Tamamla"}
               </button>
+              <p className="mt-2 text-xs text-gray-300">
+                Formunuz ekibimiz tarafından incelenip onaylanacaktır. Giriş yapmış olduğunuz mail
+                üzerinden bilgi verilecektir. Onaylandıktan sonra giriş yapabilirsiniz.
+              </p>
             </div>
           </div>
         </section>
