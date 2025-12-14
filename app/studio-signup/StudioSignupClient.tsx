@@ -193,31 +193,36 @@ export default function StudioSignupClient() {
       return;
     }
     setSubmitting(true);
-    if (form.signupMethod === "email") {
-      setStatus("Doğrulama e-postası gönderiliyor...");
-      try {
-        const res = await fetch("/api/signup/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: form.email.trim(),
-            name: form.ownerName.trim(),
-          }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (res.ok) {
-          setStatus("Doğrulama maili gönderildi. Gelen kutunuzu kontrol edin.");
-        } else {
-          setStatus(json.error || "Doğrulama maili gönderilemedi.");
-        }
-      } catch (e) {
-        console.error(e);
-        setStatus("Doğrulama maili gönderilemedi.");
-      } finally {
-        setSubmitting(false);
+    setStatus("Form gönderiliyor...");
+    try {
+      const res = await fetch("/api/signup/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signupMethod: form.signupMethod,
+          ownerName: form.ownerName.trim(),
+          studioName: form.studioName.trim(),
+          city: form.city,
+          district: form.district,
+          neighborhood: form.neighborhood,
+          address: form.address.trim(),
+          googleMapsUrl: form.googleMapsUrl.trim(),
+          email: form.signupMethod === "email" ? form.email.trim() : undefined,
+          website: form.website.trim() || undefined,
+          verificationNote: form.verificationNote.trim() || undefined,
+          coords: pin ?? undefined,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setStatus("Formunuz alındı, ekibimize iletildi.");
+      } else {
+        setStatus(json.error || "Gönderilemedi.");
       }
-    } else {
-      setStatus("Bilgiler kaydedildi. Google doğrulaması tamamlandı.");
+    } catch (e) {
+      console.error(e);
+      setStatus("Gönderilemedi.");
+    } finally {
       setSubmitting(false);
     }
   };

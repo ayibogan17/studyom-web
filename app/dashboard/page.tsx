@@ -357,7 +357,7 @@ export default async function DashboardPage({
   }
 
   const sessionRole =
-    (session.user as any).role === "STUDIO" ? UserRole.STUDIO : UserRole.USER;
+    (session.user as { role?: string }).role === "STUDIO" ? UserRole.STUDIO : UserRole.USER;
   const isStudioHint =
     (typeof searchParams?.as === "string" && searchParams?.as === "studio") ||
     (Array.isArray(searchParams?.as) && searchParams?.as.includes("studio"));
