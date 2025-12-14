@@ -298,7 +298,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
           rooms: ordered.map((r) => ({ id: r.id, order: r.order ?? 0 })),
         }),
       });
-      let json: Record<string, unknown> | null = null;
+      let json: { studio?: Studio | null; error?: string } | null = null;
       try {
         json = await res.json();
       } catch {

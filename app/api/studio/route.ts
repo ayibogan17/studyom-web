@@ -179,7 +179,7 @@ async function seedFromMock(email: string, name?: string | null) {
       address: mockStudio.address,
       phone: mockStudio.phone,
       ownerEmail: email,
-      openingHours: mockStudio.openingHours ?? defaultOpeningHours,
+      openingHours: (mockStudio.openingHours ?? defaultOpeningHours) as Prisma.InputJsonValue,
       notifications: {
         create: mockStudio.notifications.map((message) => ({ message })),
       },
@@ -315,7 +315,13 @@ export async function PATCH(req: Request) {
     const { city, district, address, phone, openingHours } = body.studio;
     await prisma.studio.update({
       where: { id: studio.id },
-      data: { city, district, address, phone, openingHours: openingHours ?? studio.openingHours ?? defaultOpeningHours },
+      data: {
+        city,
+        district,
+        address,
+        phone,
+        openingHours: (openingHours ?? studio.openingHours ?? defaultOpeningHours) as Prisma.InputJsonValue,
+      },
     });
   }
 

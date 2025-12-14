@@ -3,21 +3,31 @@
 import { cityDistricts } from "@/data/cityDistricts";
 import { signIn } from "next-auth/react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useMapEvents } from "react-leaflet";
+import type { LeafletMouseEvent } from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+import type {
+  MapContainerProps,
+  TileLayerProps,
+  CircleMarkerProps,
+} from "react-leaflet";
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((m) => m.MapContainer),
   { ssr: false },
-);
-const TileLayer = dynamic(() => import("react-leaflet").then((m) => m.TileLayer), {
-  ssr: false,
-});
+) as unknown as ComponentType<MapContainerProps>;
+const TileLayer = dynamic(
+  () => import("react-leaflet").then((m) => m.TileLayer),
+  {
+    ssr: false,
+  },
+) as unknown as ComponentType<TileLayerProps>;
 const CircleMarker = dynamic(
   () => import("react-leaflet").then((m) => m.CircleMarker),
   { ssr: false },
-);
+) as unknown as ComponentType<CircleMarkerProps>;
 
 type RawQuarter = { name?: string };
 type RawDistrict = { name?: string; quarters?: RawQuarter[] };
@@ -247,7 +257,7 @@ export default function StudioSignupClient() {
 
   const MapClickHandler = ({ onSelect }: { onSelect: (c: Coords) => void }) => {
     useMapEvents({
-      click(e) {
+      click(e: LeafletMouseEvent) {
         onSelect({ lat: e.latlng.lat, lng: e.latlng.lng });
         setLocStatus("Pin haritada güncellendi (elle).");
       },
