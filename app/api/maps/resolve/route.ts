@@ -10,12 +10,12 @@ const allowedHosts = [
 ];
 
 const parseCoords = (url: string) => {
-  const at = url.match(/@([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
-  if (at) return { lat: parseFloat(at[1]), lng: parseFloat(at[2]) };
-  const q = url.match(/[?&]q=([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
-  if (q) return { lat: parseFloat(q[1]), lng: parseFloat(q[2]) };
   const d = url.match(/!3d([+-]?\d+\.\d+)!4d([+-]?\d+\.\d+)/);
   if (d) return { lat: parseFloat(d[1]), lng: parseFloat(d[2]) };
+  const q = url.match(/[?&]q=([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
+  if (q) return { lat: parseFloat(q[1]), lng: parseFloat(q[2]) };
+  const at = url.match(/@([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
+  if (at) return { lat: parseFloat(at[1]), lng: parseFloat(at[2]) };
   const generic = url.match(/([+-]?\d+\.\d+)[ ,]+([+-]?\d+\.\d+)/);
   if (generic) return { lat: parseFloat(generic[1]), lng: parseFloat(generic[2]) };
   return null;

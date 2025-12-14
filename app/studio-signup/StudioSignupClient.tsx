@@ -52,7 +52,7 @@ type FormState = {
   passwordConfirm: string;
   website: string;
   verificationNote: string;
-  phone?: string;
+  phone: string;
 };
 
 const initialState: FormState = {
@@ -176,6 +176,7 @@ export default function StudioSignupClient() {
   const canSubmit =
     form.ownerName.trim() &&
     form.studioName.trim() &&
+    form.phone.trim() &&
     form.city &&
     form.district &&
     form.address.trim() &&
@@ -238,14 +239,15 @@ export default function StudioSignupClient() {
       return null;
     }
     // @lat,long
-    const atMatch = val.match(/@([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
-    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
-    // q=lat,long
-    const qMatch = val.match(/[?&]q=([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
-    if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
     // !3dLAT!4dLON
     const dMatch = val.match(/!3d([+-]?\d+\.\d+)!4d([+-]?\d+\.\d+)/);
     if (dMatch) return { lat: parseFloat(dMatch[1]), lng: parseFloat(dMatch[2]) };
+    // q=lat,long
+    const qMatch = val.match(/[?&]q=([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
+    if (qMatch) return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
+    // @lat,long
+    const atMatch = val.match(/@([+-]?\d+\.\d+),\s*([+-]?\d+\.\d+)/);
+    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
     // Generic lat,long pattern
     const generic = val.match(/([+-]?\d+\.\d+)[ ,]+([+-]?\d+\.\d+)/);
     if (generic) return { lat: parseFloat(generic[1]), lng: parseFloat(generic[2]) };

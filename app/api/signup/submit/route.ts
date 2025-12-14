@@ -59,6 +59,7 @@ export async function POST(req: Request) {
     `Yöntem: ${signupMethod === "google" ? "Google" : "E-posta"}`,
     `Ad Soyad: ${ownerName}`,
     `Stüdyo Adı: ${studioName}`,
+    phone ? `Telefon: ${phone}` : null,
     `Şehir: ${city}`,
     `İlçe: ${district}`,
     neighborhood ? `Mahalle/Köy: ${neighborhood}` : null,
