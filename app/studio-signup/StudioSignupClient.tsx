@@ -182,7 +182,6 @@ export default function StudioSignupClient() {
     form.address.trim() &&
     form.googleMapsUrl.trim() &&
     (neighborhoods.length === 0 || form.neighborhood.trim()) &&
-    pin !== null &&
     (form.signupMethod === "google"
       ? true
       : form.email.trim() &&
@@ -198,6 +197,15 @@ export default function StudioSignupClient() {
     setSubmitting(true);
     setStatus("Form gönderiliyor...");
     try {
+      let coordsToUse = pin;
+      if (!coordsToUse) {
+        coordsToUse = await geocodeAddress();
+        if (!coordsToUse) {
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const res = await fetch("/api/signup/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -214,7 +222,7 @@ export default function StudioSignupClient() {
           email: form.signupMethod === "email" ? form.email.trim() : undefined,
           website: form.website.trim() || undefined,
           verificationNote: form.verificationNote.trim() || undefined,
-          coords: pin ?? undefined,
+          coords: coordsToUse,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -279,15 +287,15 @@ export default function StudioSignupClient() {
     return null;
   };
 
-  const geocodeAddress = async () => {
+  const geocodeAddress = async (): Promise<Coords | null> => {
     if (!form.city || !form.district) {
       setLocStatus("İl ve ilçe seçin.");
-      return;
+      return null;
     }
     const link = form.googleMapsUrl.trim();
     if (!link) {
       setLocStatus("Google Maps linki gerekli (Paylaş > Kopyala).");
-      return;
+      return null;
     }
 
     setLocStatus("Google Maps linki okunuyor...");
@@ -296,18 +304,19 @@ export default function StudioSignupClient() {
     if (parsed) {
       setPin(parsed);
       setLocStatus("Google Maps linkinden konum alındı. Haritaya tıklayarak güncelleyebilirsin.");
-      return;
+      return parsed;
     }
 
     const maybeShort = await resolveShortMapsLink(link);
     if (maybeShort) {
       setPin(maybeShort);
       setLocStatus("Google Maps kısa linkinden konum alındı. Haritaya tıklayarak güncelleyebilirsin.");
-      return;
+      return maybeShort;
     }
 
     setPin(null);
     setLocStatus("Linkten koordinat çıkarılamadı. Paylaş > Kopyala linkini yapıştırmayı deneyin.");
+    return null;
   };
 
   return (
