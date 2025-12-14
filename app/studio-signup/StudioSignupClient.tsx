@@ -52,6 +52,7 @@ type FormState = {
   passwordConfirm: string;
   website: string;
   verificationNote: string;
+  phone?: string;
 };
 
 const initialState: FormState = {
@@ -68,6 +69,7 @@ const initialState: FormState = {
   passwordConfirm: "",
   website: "",
   verificationNote: "",
+  phone: "",
 };
 
 const buildLocationIndex = (raw: RawProvince[]): LocationIndex => {
@@ -202,6 +204,7 @@ export default function StudioSignupClient() {
           signupMethod: form.signupMethod,
           ownerName: form.ownerName.trim(),
           studioName: form.studioName.trim(),
+          phone: form.phone?.trim() || undefined,
           city: form.city,
           district: form.district,
           neighborhood: form.neighborhood,
@@ -423,6 +426,16 @@ export default function StudioSignupClient() {
                 onChange={(e) => update("studioName", e.target.value)}
               />
             </label>
+            <label className="block text-sm font-semibold text-white">
+              İletişim Numarası
+              <input
+                type="tel"
+                className="mt-1 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:border-[#2D9CDB] focus:outline-none"
+                placeholder="+90 5xx xxx xx xx"
+                value={form.phone ?? ""}
+                onChange={(e) => update("phone", e.target.value)}
+              />
+            </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block text-sm font-semibold text-white">
@@ -526,7 +539,7 @@ export default function StudioSignupClient() {
               <textarea
                 className="mt-1 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-3 text-sm text-white placeholder:text-gray-400 focus:border-[#2D9CDB] focus:outline-none"
                 rows={3}
-                placeholder="Doğrulama süreci için bize not bırakabilirsiniz."
+                placeholder="Instagram adresiniz, Google işletme sayfanız gibi destekleyici içerikleri yazabilirsiniz."
                 value={form.verificationNote}
                 onChange={(e) => update("verificationNote", e.target.value)}
               />

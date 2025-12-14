@@ -19,6 +19,7 @@ type Body = {
   website?: string;
   verificationNote?: string;
   coords?: { lat: number; lng: number };
+  phone?: string;
 };
 
 export async function POST(req: Request) {
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
     ownerName,
     studioName,
     city,
+    phone,
     district,
     neighborhood,
     address,
@@ -64,6 +66,7 @@ export async function POST(req: Request) {
     `Google Maps: ${googleMapsUrl}`,
     coords ? `Koordinat: ${coords.lat}, ${coords.lng}` : null,
     email ? `E-posta (kullanıcı adı): ${email}` : null,
+    phone ? `Telefon: ${phone}` : null,
     website ? `Web sitesi: ${website}` : null,
     verificationNote ? `Ek bilgi: ${verificationNote}` : null,
   ]
