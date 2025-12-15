@@ -143,19 +143,61 @@ const ensureSlotsForDay = (
 
   const dayIdx = weekdayIndex(day);
   const info = openingHours[dayIdx];
+  const prevInfo = openingHours[(dayIdx + 6) % 7];
   if (!info || !info.open) {
-    return { ...room, slots: { ...room.slots, [key]: [] } };
+    // Eğer önceki gün ertesi güne taşan saatler varsa onları ekle
+    const ranges: { start: number; end: number }[] = [];
+    if (prevInfo?.open) {
+      const [prevStart] = prevInfo.openTime.split(":").map(Number);
+      const [prevEnd] = prevInfo.closeTime.split(":").map(Number);
+      if (prevEnd <= prevStart && prevEnd > 0) {
+        ranges.push({ start: 0, end: prevEnd });
+      }
+    }
+    const slotsFromRanges: Slot[] = [];
+    ranges.forEach(({ start, end }) => {
+      for (let h = start; h < end; h++) {
+        slotsFromRanges.push({
+          timeLabel: `${pad(h)}:00 - ${pad(h + 1)}:00`,
+          status: "empty",
+        });
+      }
+    });
+    return { ...room, slots: { ...room.slots, [key]: slotsFromRanges } };
   }
 
   const [startHour] = info.openTime.split(":").map(Number);
   const [endHour] = info.closeTime.split(":").map(Number);
-  const generated: Slot[] = [];
-  for (let h = startHour; h < endHour; h++) {
-    generated.push({
-      timeLabel: `${pad(h)}:00 - ${pad(h + 1)}:00`,
-      status: "empty",
-    });
+  const ranges: { start: number; end: number }[] = [];
+
+  // Önceki günden taşan aralık
+  if (prevInfo?.open) {
+    const [prevStart] = prevInfo.openTime.split(":").map(Number);
+    const [prevEnd] = prevInfo.closeTime.split(":").map(Number);
+    if (prevEnd <= prevStart && prevEnd > 0) {
+      ranges.push({ start: 0, end: prevEnd });
+    }
   }
+
+  // Bugünün aralığı
+  if (endHour > startHour) {
+    ranges.push({ start: startHour, end: endHour });
+  } else if (endHour < startHour) {
+    // ertesi güne sarkan: bugün start..24
+    ranges.push({ start: startHour, end: 24 });
+    // ertesi gün 0..endHour kısmı, bu günün slot’una yazılmıyor; o gün ensureSlotsForDay çağrısında ekleniyor
+  }
+  // endHour === startHour ise boş (24 saat açık desteği yok, kapalı say)
+
+  const generated: Slot[] = [];
+  ranges.forEach(({ start, end }) => {
+    for (let h = start; h < end; h++) {
+      generated.push({
+        timeLabel: `${pad(h)}:00 - ${pad(h + 1)}:00`,
+        status: "empty",
+      });
+    }
+  });
 
   return { ...room, slots: { ...room.slots, [key]: generated } };
 };
