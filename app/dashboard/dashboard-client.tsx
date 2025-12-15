@@ -626,6 +626,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
           <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
             {status}
           </div>
+        )}
         <nav className="mb-6 flex flex-wrap gap-2">
           {[
             { key: "panel", label: "Panel" },
