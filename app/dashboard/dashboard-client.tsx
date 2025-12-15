@@ -1167,7 +1167,286 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 </button>
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
                   <p className="text-sm font-semibold text-gray-900">Ekipman</p>
-                  <p className="text-xs text-gray-600">Detaylar yakında eklenecek.</p>
+                  <div className="mt-2 grid gap-3">
+                    <label className="text-xs text-gray-700">
+                      Davul var mı? (model)
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.drumDetail ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            hasDrum: !!e.target.value,
+                                            drumDetail: e.target.value,
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: Mapex Saturn"
+                      />
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      Mikrofon sayısı ve model
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.micDetails?.join(", ") ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            micCount: e.target.value
+                                              ? e.target.value.split(",").length
+                                              : 0,
+                                            micDetails: e.target.value
+                                              ? e.target.value.split(",").map((s) => s.trim())
+                                              : [],
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: SM58 x2, SM57, e935"
+                      />
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      Gitar amfisi (sayı/model)
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.guitarAmpDetails?.join(", ") ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            guitarAmpCount: e.target.value
+                                              ? e.target.value.split(",").length
+                                              : 0,
+                                            guitarAmpDetails: e.target.value
+                                              ? e.target.value.split(",").map((s) => s.trim())
+                                              : [],
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: Fender Hot Rod, Marshall DSL"
+                      />
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      Bass amfisi var mı? (detay)
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.bassDetail ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            hasBassAmp: !!e.target.value,
+                                            bassDetail: e.target.value,
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: Ampeg BA-115"
+                      />
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      DI box var mı? (detay)
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.diDetail ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            hasDiBox: !!e.target.value,
+                                            diDetail: e.target.value,
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: Radial ProDI"
+                      />
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      Pedal/pedalboard sağlıyor musunuz?
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.pedalDetail ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            hasPedal: !!e.target.value,
+                                            pedalDetail: e.target.value,
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: DW 5000 çift pedal"
+                      />
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      Klavye var mı? (model)
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.keyboardDetail ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            hasKeyboard: !!e.target.value,
+                                            keyboardDetail: e.target.value,
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: Roland FP-30"
+                      />
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      Klavye sehpası var mı?
+                      <div className="mt-1 flex gap-2">
+                        {[
+                          { label: "Evet", value: true },
+                          { label: "Hayır", value: false },
+                        ].map((opt) => (
+                          <button
+                            key={opt.label}
+                            type="button"
+                            onClick={() =>
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id
+                                          ? {
+                                              ...r,
+                                              equipment: { ...r.equipment, hasKeyboardStand: opt.value },
+                                            }
+                                          : r,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                              currentRoom.equipment?.hasKeyboardStand === opt.value
+                                ? "bg-blue-600 text-white"
+                                : "bg-gray-200 text-gray-800"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </label>
+                    <label className="text-xs text-gray-700">
+                      Kullanıma hazır gitar var mı? (detay)
+                      <input
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.guitarUseDetail ?? ""}
+                        onChange={(e) =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          equipment: {
+                                            ...r.equipment,
+                                            hasGuitarsForUse: !!e.target.value,
+                                            guitarUseDetail: e.target.value,
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="Örn: Telecaster (takım)"
+                      />
+                    </label>
+                  </div>
                 </div>
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
                   <div className="flex items-center justify-between gap-2">
