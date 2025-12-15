@@ -2050,6 +2050,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         </div>
       )}
 
+    </>
   );
 }
-
