@@ -348,9 +348,10 @@ async function loadStudio(email: string, name?: string | null) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const session = await getServerSession(authOptions);
+  const search = await searchParams;
 
   if (!session?.user || !session.user.email) {
     redirect("/login");
@@ -359,8 +360,8 @@ export default async function DashboardPage({
   const sessionRole =
     (session.user as { role?: string }).role === "STUDIO" ? UserRole.STUDIO : UserRole.USER;
   const isStudioHint =
-    (typeof searchParams?.as === "string" && searchParams?.as === "studio") ||
-    (Array.isArray(searchParams?.as) && searchParams?.as.includes("studio"));
+    (typeof search?.as === "string" && search?.as === "studio") ||
+    (Array.isArray(search?.as) && search?.as.includes("studio"));
 
   // Kullanıcı ve stüdyo var mı?
   const [existingUser, existingStudio] = await Promise.all([
