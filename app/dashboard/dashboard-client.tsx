@@ -62,6 +62,8 @@ const defaultExtras: Room["extras"] = {
   acceptsCourses: false,
 };
 
+const guitarList = (val?: string | null) => (val ? val.split("|") : []);
+
 function normalizeRoom(room: Room): Room {
   return {
     ...room,
@@ -1793,19 +1795,19 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                             type="button"
                             className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
                             onClick={() => {
-                              const nextCount =
-                                ((currentRoom.equipment?.guitarUseDetail || "").split("|").filter(Boolean).length ?? 0) - 1;
-                              const count = Math.max(0, nextCount);
+                              const currentList = guitarList(currentRoom.equipment?.guitarUseDetail);
+                              const count = Math.max(0, currentList.length - 1);
                               setStudio((prev) =>
                                 prev
                                   ? {
                                       ...prev,
                                       rooms: prev.rooms.map((r) => {
                                         if (r.id !== currentRoom.id) return r;
-                                        const prevList = (r.equipment?.guitarUseDetail || "")
-                                          .split("|")
-                                          .filter(Boolean);
-                                        const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "Örn: Telecaster (takım)");
+                                        const prevList = guitarList(r.equipment?.guitarUseDetail);
+                                        const next = Array.from(
+                                          { length: count },
+                                          (_, i) => prevList[i] ?? "Örn: Telecaster (takım)",
+                                        );
                                         return {
                                           ...r,
                                           equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
@@ -1819,25 +1821,25 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                             -
                           </button>
                           <span className="text-sm font-semibold text-gray-900">
-                            {(currentRoom.equipment?.guitarUseDetail || "").split("|").filter(Boolean).length || 0} adet
+                            {guitarList(currentRoom.equipment?.guitarUseDetail).length || 0} adet
                           </span>
                         </div>
                         <button
                           type="button"
                           className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
                           onClick={() => {
-                            const count =
-                              (currentRoom.equipment?.guitarUseDetail || "").split("|").filter(Boolean).length + 1;
+                            const count = guitarList(currentRoom.equipment?.guitarUseDetail).length + 1;
                             setStudio((prev) =>
                               prev
                                 ? {
                                     ...prev,
                                     rooms: prev.rooms.map((r) => {
                                       if (r.id !== currentRoom.id) return r;
-                                      const prevList = (r.equipment?.guitarUseDetail || "")
-                                        .split("|")
-                                        .filter(Boolean);
-                                      const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "Örn: Telecaster (takım)");
+                                      const prevList = guitarList(r.equipment?.guitarUseDetail);
+                                      const next = Array.from(
+                                        { length: count },
+                                        (_, i) => prevList[i] ?? "Örn: Telecaster (takım)",
+                                      );
                                       return {
                                         ...r,
                                         equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
@@ -1851,10 +1853,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                           +
                         </button>
                       </div>
-                      {currentRoom.equipment?.guitarUseDetail
-                        ?.split("|")
-                        .filter(Boolean)
-                        .map((detail, idx) => (
+                      {guitarList(currentRoom.equipment?.guitarUseDetail).map((detail, idx) => (
                           <input
                             key={idx}
                             className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
@@ -1867,9 +1866,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                       ...prev,
                                       rooms: prev.rooms.map((r) => {
                                         if (r.id !== currentRoom.id) return r;
-                                        const parts = (r.equipment?.guitarUseDetail || "")
-                                          .split("|")
-                                          .filter(Boolean);
+                                        const parts = guitarList(r.equipment?.guitarUseDetail);
                                         parts[idx] = e.target.value;
                                         return {
                                           ...r,
