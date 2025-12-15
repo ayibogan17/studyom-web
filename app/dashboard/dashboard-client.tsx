@@ -1172,17 +1172,17 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                   {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
                 </button>
                 {currentRoom.type === "Prova odası" && (
-                <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
-                  <button
-                    type="button"
-                    onClick={() => setShowEquipment((v) => !v)}
-                    className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
-                  >
-                    Ekipman
-                    <span className="text-xs text-gray-500">{showEquipment ? "Gizle" : "Göster"}</span>
-                  </button>
-                  {showEquipment && (
-                  <div className="mt-2 grid gap-4">
+                  <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                    <button
+                      type="button"
+                      onClick={() => setShowEquipment((v) => !v)}
+                      className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
+                    >
+                      Ekipman
+                      <span className="text-xs text-gray-500">{showEquipment ? "Gizle" : "Göster"}</span>
+                    </button>
+                    {showEquipment && (
+                      <div className="mt-2 grid gap-4">
                     <div>
                       <p className="text-xs font-semibold text-gray-800">Davul var mı?</p>
                       <div className="mt-1 flex gap-2">
@@ -1742,24 +1742,25 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                           />
                         ))}
                     </div>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() =>
+                        saveRoomBasics(currentRoom.id, {
+                          name: currentRoom.name,
+                          type: currentRoom.type,
+                          color: currentRoom.color,
+                          pricing: currentRoom.pricing,
+                          equipment: currentRoom.equipment,
+                        })
+                      }
+                      className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {saving ? "Kaydediliyor..." : "Ekipman bilgisi kaydet"}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() =>
-                      saveRoomBasics(currentRoom.id, {
-                        name: currentRoom.name,
-                        type: currentRoom.type,
-                        color: currentRoom.color,
-                        pricing: currentRoom.pricing,
-                        equipment: currentRoom.equipment,
-                      })
-                    }
-                    className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    {saving ? "Kaydediliyor..." : "Ekipman bilgisi kaydet"}
-                  </button>
-                </div>
                 )}
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
                   <div className="flex items-center justify-between gap-2">
