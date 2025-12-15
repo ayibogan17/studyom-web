@@ -9,7 +9,7 @@ import { cn } from "../../lib/cn";
 
 const links = [
   { href: "/studyo", label: "Stüdyolar" },
-  { href: "/studyo", label: "Fiyatlar" },
+  { href: "/hocalar", label: "Hocalar" },
   { href: "/hakkinda", label: "Hakkında" },
   { href: "/iletisim", label: "İletişim" },
 ];
