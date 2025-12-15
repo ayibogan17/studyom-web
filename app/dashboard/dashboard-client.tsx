@@ -2026,7 +2026,11 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
           uploadUrl: string;
           publicUrl: string;
         };
-        const putRes = await fetch(uploadUrl, { method: "PUT", body: file });
+        const putRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
         if (!putRes.ok) {
           throw new Error("Dosya yüklenemedi");
         }
