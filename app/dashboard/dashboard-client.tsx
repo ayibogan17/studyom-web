@@ -111,43 +111,6 @@ const parseKey = (key: string) => {
   return new Date(y, m - 1, d);
 };
 
-const loadImageElement = (src: string) =>
-  new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () =>
-      reject(new Error("Görsel yüklenemedi (CORS için bucket/headers kontrol edin)"));
-    img.src = src;
-  });
-
-const cropToSquare = async (src: string): Promise<Blob> => {
-  const img = await loadImageElement(src);
-  const size = Math.min(img.width, img.height);
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas desteklenmiyor");
-  ctx.drawImage(
-    img,
-    (img.width - size) / 2,
-    (img.height - size) / 2,
-    size,
-    size,
-    0,
-    0,
-    size,
-    size,
-  );
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("Kırpma başarısız"));
-    }, "image/jpeg");
-  });
-};
-
 const weekdayIndex = (d: Date) => {
   // Monday = 0 ... Sunday = 6
   return (d.getDay() + 6) % 7;
@@ -329,22 +292,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     arr.splice(to, 0, item);
     void persistImages(arr, "Görsel sırası kaydedildi");
   };
-  const cropImageAt = async (idx: number) => {
-    if (!currentRoom?.images?.[idx]) return;
-    try {
-      setStatus("Görsel kare kırpılıyor...");
-      const blob = await cropToSquare(currentRoom.images[idx]);
-      const file = new File([blob], `crop-${Date.now()}.jpg`, { type: blob.type || "image/jpeg" });
-      await uploadImages([file], { replaceIndex: idx });
-      setStatus("Kare kırpma kaydedildi (kaydetmeyi unutma)");
-    } catch (err) {
-      console.warn("Crop failed", err);
-      setStatus(
-        "Görsel kırpılamadı. R2 bucket'ında Access-Control-Allow-Origin: * (veya domainin) ekli mi?",
-      );
-    }
-  };
-
   // sync hours draft when studio changes
   useEffect(() => {
     if (studio?.openingHours) {
@@ -1985,13 +1932,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                   className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
                                 >
                                   Kapak yap
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => cropImageAt(idx)}
-                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition hover:border-blue-400"
-                                >
-                                  Kare kırp
                                 </button>
                               </div>
                             </div>
