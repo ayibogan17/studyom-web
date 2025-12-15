@@ -1917,7 +1917,9 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-gray-900">Görseller</p>
-                      <p className="text-xs text-gray-600">Max 5 MB, ilk görsel kapak olur.</p>
+                      <p className="text-xs text-gray-600">
+                        Max 5 MB, ilk görsel kapak olur. Yatay (landscape) görseller daha iyi görünür.
+                      </p>
                     </div>
                     <button
                       type="button"
