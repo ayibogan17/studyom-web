@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -14,7 +16,7 @@ const leadSchema = z.object({
   phone: z.string().min(7, "Telefon girin"),
   message: z.string().min(5, "Mesajınızı girin"),
   studioSlug: z.string().optional(),
-  consent: z.literal(true, { errorMap: () => ({ message: "Onay gerekli" }) }),
+  consent: z.boolean().refine((v) => v === true, { message: "Onay gerekli" }),
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
