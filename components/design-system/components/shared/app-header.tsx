@@ -49,11 +49,13 @@ export function AppHeader() {
           {links.map((link) => (
             <div key={`${link.href}-${link.label}`} className="flex items-center gap-2">
               {link.label === "Hakkında" && (
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setShowProd(true)}
+                  onMouseLeave={() => setShowProd(false)}
+                >
                   <button
                     type="button"
-                    onMouseEnter={() => setShowProd(true)}
-                    onMouseLeave={() => setShowProd(false)}
                     className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
                   >
                     Üretim
@@ -62,8 +64,6 @@ export function AppHeader() {
                   {showProd && (
                     <div
                       className="absolute right-0 top-12 z-20 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
-                      onMouseEnter={() => setShowProd(true)}
-                      onMouseLeave={() => setShowProd(false)}
                     >
                       <div className="space-y-3 text-left">
                         {productionItems.map((item) => (
