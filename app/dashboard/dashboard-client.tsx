@@ -190,6 +190,55 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [showPalette, setShowPalette] = useState(false);
   const [showEquipment, setShowEquipment] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadImages = async (files: File[]) => {
+    const valid = files.filter((f) => f.size <= 5 * 1024 * 1024);
+    if (!valid.length) {
+      setStatus("5 MB üzeri dosyalar eklenemez.");
+      return;
+    }
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of valid) {
+        const metaRes = await fetch("/api/uploads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, type: file.type }),
+        });
+        if (!metaRes.ok) {
+          const err = await metaRes.json().catch(() => ({}));
+          throw new Error(err.error || "Upload URL alınamadı");
+        }
+        const { uploadUrl, publicUrl } = (await metaRes.json()) as {
+          uploadUrl: string;
+          publicUrl: string;
+        };
+        const putRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!putRes.ok) {
+          const txt = await putRes.text().catch(() => "");
+          throw new Error(txt || "Dosya yüklenemedi");
+        }
+        uploadedUrls.push(publicUrl);
+      }
+      setStudio((prev) =>
+        prev
+          ? {
+              ...prev,
+              rooms: prev.rooms.map((r) =>
+                r.id === currentRoom?.id ? { ...r, images: [...(r.images ?? []), ...uploadedUrls] } : r,
+              ),
+            }
+          : prev,
+      );
+      setStatus("Görseller eklendi (kaydetmeyi unutma)");
+    } catch (err) {
+      console.error(err);
+      setStatus("Görseller yüklenemedi.");
+    }
+  };
 
   const studioRooms = studio?.rooms ?? [];
   const orderedRooms = useMemo(() => {
@@ -2001,54 +2050,3 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
           </div>
         </div>
       )}
-    </>
-  );
-}
-  const uploadImages = async (files: File[]) => {
-    const valid = files.filter((f) => f.size <= 5 * 1024 * 1024);
-    if (!valid.length) {
-      setStatus("5 MB üzeri dosyalar eklenemez.");
-      return;
-    }
-    try {
-      const uploadedUrls: string[] = [];
-      for (const file of valid) {
-        const metaRes = await fetch("/api/uploads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: file.name, type: file.type }),
-        });
-        if (!metaRes.ok) {
-          const err = await metaRes.json().catch(() => ({}));
-          throw new Error(err.error || "Upload URL alınamadı");
-        }
-        const { uploadUrl, publicUrl } = (await metaRes.json()) as {
-          uploadUrl: string;
-          publicUrl: string;
-        };
-        const putRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        });
-        if (!putRes.ok) {
-          throw new Error("Dosya yüklenemedi");
-        }
-        uploadedUrls.push(publicUrl);
-      }
-      setStudio((prev) =>
-        prev
-          ? {
-              ...prev,
-              rooms: prev.rooms.map((r) =>
-                r.id === currentRoom?.id ? { ...r, images: [...(r.images ?? []), ...uploadedUrls] } : r,
-              ),
-            }
-          : prev,
-      );
-      setStatus("Görseller eklendi (kaydetmeyi unutma)");
-    } catch (err) {
-      console.error(err);
-      setStatus("Görseller yüklenemedi.");
-    }
-  };
