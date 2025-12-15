@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 import { SignOutButton } from "@/components/sign-out-button";
 import { OpeningHours, Room, Slot, Studio } from "@/types/panel";
