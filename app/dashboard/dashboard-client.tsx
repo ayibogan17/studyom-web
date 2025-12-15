@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 
 import { SignOutButton } from "@/components/sign-out-button";
-import { OpeningHours, Room, Slot, Studio } from "@/types/panel";
+import { Equipment, OpeningHours, Room, Slot, Studio } from "@/types/panel";
 
 type Props = {
   initialStudio?: Studio;
@@ -25,6 +25,31 @@ const longDays = [
 const defaultEquipment: Room["equipment"] = {
   hasDrum: false,
   drumDetail: "",
+  hasDrumKick: false,
+  drumKickDetail: "",
+  hasDrumSnare: false,
+  drumSnareDetail: "",
+  hasDrumToms: false,
+  drumTomsDetail: "",
+  hasDrumFloorTom: false,
+  drumFloorTomDetail: "",
+  hasDrumHihat: false,
+  drumHihatDetail: "",
+  hasDrumRide: false,
+  drumRideDetail: "",
+  hasDrumCrash1: false,
+  drumCrash1Detail: "",
+  hasDrumCrash2: false,
+  drumCrash2Detail: "",
+  hasDrumCrash3: false,
+  drumCrash3Detail: "",
+  hasDrumCrash4: false,
+  drumCrash4Detail: "",
+  hasDrumChina: false,
+  drumChinaDetail: "",
+  hasDrumSplash: false,
+  drumSplashDetail: "",
+  hasTwinPedal: false,
   micCount: 0,
   micDetails: [],
   guitarAmpCount: 0,
@@ -50,6 +75,13 @@ const defaultFeatures: Room["features"] = {
   hasHeadphones: false,
   headphonesDetail: "",
   hasTechSupport: false,
+  dawList: [],
+  recordingEngineerIncluded: false,
+  providesLiveAutotune: false,
+  rawTrackIncluded: false,
+  editServiceLevel: "none",
+  mixServiceLevel: "none",
+  productionServiceLevel: "none",
 };
 
 const defaultExtras: Room["extras"] = {
@@ -60,6 +92,20 @@ const defaultExtras: Room["extras"] = {
   offersOther: false,
   otherDetail: "",
   acceptsCourses: false,
+  vocalHasEngineer: false,
+  vocalLiveAutotune: false,
+  vocalRawIncluded: false,
+  vocalEditService: "none",
+  vocalMixService: "none",
+  vocalProductionService: "none",
+  drumProRecording: "none",
+  drumVideo: "none",
+  drumProduction: "none",
+  drumMix: "none",
+  practiceDescription: "",
+  recordingMixService: "none",
+  recordingProduction: "none",
+  recordingProductionAreas: [],
 };
 
 const guitarList = (val?: string | null) => (val ? val.split("|") : []);
@@ -237,6 +283,8 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
+  const isRehearsalLike =
+    currentRoom?.type === "Prova odası" || currentRoom?.type === "Kayıt kabini";
   const persistImages = async (images: string[], statusText?: string) => {
     if (!currentRoom?.id) return;
     setStudio((prev) =>
@@ -342,6 +390,192 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
       setHoursDraft(studio.openingHours);
     }
   }, [studio?.openingHours]);
+
+  const ImagesBlock = () => {
+    if (!currentRoom) return null;
+    return (
+      <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Görseller</p>
+            <p className="text-xs text-gray-600">
+              Max 5 MB, ilk görsel kapak olur. Yatay (landscape) görseller daha iyi görünür.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:border-blue-400"
+          >
+            Görsel ekle
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={async (e) => {
+            const files = Array.from(e.target.files ?? []);
+            if (!files.length) return;
+            await uploadImages(files);
+            e.target.value = "";
+          }}
+        />
+        {currentRoom.images?.length ? (
+          <div className="grid grid-cols-2 gap-2">
+            {currentRoom.images.map((src, idx) => (
+              <div
+                key={idx}
+                className="relative overflow-hidden rounded-lg border border-gray-200 bg-white"
+              >
+                <img
+                  src={src}
+                  alt={`Oda görsel ${idx + 1}`}
+                  className="h-36 w-full cursor-pointer object-cover transition hover:opacity-90"
+                  onClick={() => setPreviewImage(src)}
+                />
+                <div className="flex flex-col gap-1 px-2 py-1 text-[11px] text-gray-700">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900">
+                      {idx === 0 ? "Kapak" : `Görsel ${idx + 1}`}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveImage(idx, idx - 1)}
+                        className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === (currentRoom.images?.length ?? 0) - 1}
+                        onClick={() => moveImage(idx, idx + 1)}
+                        className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveImage(idx, 0)}
+                        className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
+                      >
+                        Kapak yap
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-gray-600">Sırayı değiştirebilirsiniz</span>
+                    <button
+                      type="button"
+                      className="text-red-600 hover:underline"
+                      onClick={async () => {
+                        if (!currentRoom) return;
+                        const next = (currentRoom.images ?? []).filter((_, i) => i !== idx);
+                        await persistImages(next, "Görsel silindi");
+                      }}
+                    >
+                      Sil
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-600">Henüz görsel eklenmedi.</p>
+        )}
+      </div>
+    );
+  };
+
+  const CoursesBlock = ({
+    title = "Kurslara açık mısınız?",
+    description = "Hocalar uygun odaları önerir.",
+  }: { title?: string; description?: string }) => {
+    if (!currentRoom) return null;
+    return (
+      <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">{title}</p>
+            <p className="text-xs text-gray-600">{description}</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setStudio((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        rooms: prev.rooms.map((r) =>
+                          r.id === currentRoom.id
+                            ? { ...r, extras: { ...r.extras, acceptsCourses: true } }
+                            : r,
+                        ),
+                      }
+                    : prev,
+                )
+              }
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                currentRoom.extras?.acceptsCourses ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"
+              }`}
+            >
+              Evet
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setStudio((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        rooms: prev.rooms.map((r) =>
+                          r.id === currentRoom.id
+                            ? { ...r, extras: { ...r.extras, acceptsCourses: false } }
+                            : r,
+                        ),
+                      }
+                    : prev,
+                )
+              }
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                currentRoom.extras?.acceptsCourses ? "bg-gray-200 text-gray-800" : "bg-red-100 text-red-800"
+              }`}
+            >
+              Hayır
+            </button>
+          </div>
+        </div>
+        <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+          Kurslara açığız derseniz Hocalarımız sizinle iletişime geçecektir. Buradaki amacımız yetenekli olup
+          da ders verecek odası olmayan müzisyenlerimizi, stüdyolarının boş vakitlerini doldurmaya çalışan siz
+          stüdyo sahipleriyle buluşturmak. Bizim önerimiz: <strong>Hocalarımıza normal ücret üzerinden %20 indirim uygulanması.</strong> Tabi tercih sizin.
+        </p>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() =>
+            saveRoomBasics(currentRoom.id, {
+              name: currentRoom.name,
+              type: currentRoom.type,
+              color: currentRoom.color,
+              pricing: currentRoom.pricing,
+              extras: { ...currentRoom.extras, acceptsCourses: currentRoom.extras?.acceptsCourses ?? false },
+            })
+          }
+          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+        >
+          {saving ? "Kaydediliyor..." : "Kurs ayarını kaydet"}
+        </button>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (!orderedRooms.length) return;
@@ -1314,7 +1548,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 >
                   {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
                 </button>
-                {currentRoom.type === "Prova odası" && (
+                {isRehearsalLike && (
                   <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
                     <button
                       type="button"
@@ -1902,182 +2136,779 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     )}
                   </div>
                 )}
-                <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">Görseller</p>
-                      <p className="text-xs text-gray-600">
-                        Max 5 MB, ilk görsel kapak olur. Yatay (landscape) görseller daha iyi görünür.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:border-blue-400"
-                    >
-                      Görsel ekle
-                    </button>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={async (e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      if (!files.length) return;
-                      await uploadImages(files);
-                      e.target.value = "";
-                    }}
-                  />
-                  {currentRoom.images?.length ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {currentRoom.images.map((src, idx) => (
-                        <div
-                          key={idx}
-                          className="relative overflow-hidden rounded-lg border border-gray-200 bg-white"
-                        >
-                          <img
-                            src={src}
-                            alt={`Oda görsel ${idx + 1}`}
-                            className="h-36 w-full cursor-pointer object-cover transition hover:opacity-90"
-                            onClick={() => setPreviewImage(src)}
-                          />
-                          <div className="flex flex-col gap-1 px-2 py-1 text-[11px] text-gray-700">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900">
-                                {idx === 0 ? "Kapak" : `Görsel ${idx + 1}`}
-                              </span>
-                              <div className="flex flex-wrap items-center gap-1">
-                                <button
-                                  type="button"
-                                  disabled={idx === 0}
-                                  onClick={() => moveImage(idx, idx - 1)}
-                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={idx === (currentRoom.images?.length ?? 0) - 1}
-                                  onClick={() => moveImage(idx, idx + 1)}
-                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
-                                >
-                                  ↓
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={idx === 0}
-                                  onClick={() => moveImage(idx, 0)}
-                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
-                                >
-                                  Kapak yap
-                                </button>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-gray-600">Sırayı değiştirip kırpabilirsiniz</span>
-                              <button
-                                type="button"
-                                className="text-red-600 hover:underline"
-                                onClick={async () => {
-                                  if (!currentRoom) return;
-                                  const next = (currentRoom.images ?? []).filter((_, i) => i !== idx);
-                                  await persistImages(next, "Görsel silindi");
-                                }}
-                              >
-                                Sil
-                              </button>
+                {currentRoom.type === "Prova odası" && (
+                  <>
+                    <ImagesBlock />
+                    <CoursesBlock />
+                  </>
+                )}
+                {currentRoom.type === "Vokal kabini" && (
+                  <>
+                    <div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Mikrofonlar</p>
+                        <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                              onClick={() => {
+                                const next = Math.max(0, (currentRoom.equipment?.micCount ?? 0) - 1);
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) => {
+                                          if (r.id !== currentRoom.id) return r;
+                                          const prevDetails = r.equipment?.micDetails ?? [];
+                                          const nextDetails =
+                                            next === 0 ? [] : Array.from({ length: next }, (_, i) => prevDetails[i] ?? "");
+                                          return {
+                                            ...r,
+                                            equipment: { ...r.equipment, micCount: next, micDetails: nextDetails },
+                                          };
+                                        }),
+                                      }
+                                    : prev,
+                                );
+                              }}
+                            >
+                              -
+                            </button>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {currentRoom.equipment?.micCount ?? 0} adet
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                            onClick={() => {
+                              const next = (currentRoom.equipment?.micCount ?? 0) + 1;
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) => {
+                                        if (r.id !== currentRoom.id) return r;
+                                        const prevDetails = r.equipment?.micDetails ?? [];
+                                        const nextDetails = Array.from({ length: next }, (_, i) => prevDetails[i] ?? "");
+                                        return {
+                                          ...r,
+                                          equipment: { ...r.equipment, micCount: next, micDetails: nextDetails },
+                                        };
+                                      }),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        {(currentRoom.equipment?.micCount ?? 0) > 0 && (
+                          <div className="mt-2 space-y-2">
+                            {(currentRoom.equipment?.micDetails ?? []).map((detail, idx) => (
+                              <input
+                                key={idx}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                                value={detail}
+                                placeholder={`Mikrofon ${idx + 1} (örn: SM58)`}
+                                onChange={(e) =>
+                                  setStudio((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          rooms: prev.rooms.map((r) =>
+                                            r.id === currentRoom.id
+                                              ? {
+                                                  ...r,
+                                                  equipment: {
+                                                    ...r.equipment,
+                                                    micDetails: (r.equipment?.micDetails ?? []).map((m, i) =>
+                                                      i === idx ? e.target.value : m,
+                                                    ),
+                                                  },
+                                                }
+                                              : r,
+                                          ),
+                                        }
+                                      : prev,
+                                  )
+                                }
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {[
+                          {
+                            label: "Kayıt teknisyeni var mı?",
+                            value: currentRoom.extras?.vocalHasEngineer ?? false,
+                            set: (val: boolean) =>
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id
+                                          ? { ...r, extras: { ...r.extras, vocalHasEngineer: val } }
+                                          : r,
+                                      ),
+                                    }
+                                  : prev,
+                              ),
+                          },
+                          {
+                            label: "Müzisyen kendi mikrofonunu getirebilir mi?",
+                            value: currentRoom.features?.musicianMicAllowed ?? false,
+                            set: (val: boolean) =>
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id
+                                          ? { ...r, features: { ...r.features, musicianMicAllowed: val } }
+                                          : r,
+                                      ),
+                                    }
+                                  : prev,
+                              ),
+                          },
+                          {
+                            label: "Canlı autotune hizmeti sağlanıyor mu?",
+                            value: currentRoom.extras?.vocalLiveAutotune ?? false,
+                            set: (val: boolean) =>
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id
+                                          ? { ...r, extras: { ...r.extras, vocalLiveAutotune: val } }
+                                          : r,
+                                      ),
+                                    }
+                                  : prev,
+                              ),
+                          },
+                          {
+                            label: "RAW kayıt ücrete dahil mi?",
+                            value: currentRoom.extras?.vocalRawIncluded ?? false,
+                            set: (val: boolean) =>
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id
+                                          ? { ...r, extras: { ...r.extras, vocalRawIncluded: val } }
+                                          : r,
+                                      ),
+                                    }
+                                  : prev,
+                              ),
+                          },
+                        ].map((item) => (
+                          <div key={item.label} className="space-y-1 rounded-lg border border-gray-200 bg-white p-3">
+                            <p className="text-xs font-semibold text-gray-800">{item.label}</p>
+                            <div className="flex gap-2">
+                              {["Evet", "Hayır"].map((label, idx) => {
+                                const val = idx === 0;
+                                return (
+                                  <button
+                                    key={label}
+                                    type="button"
+                                    onClick={() => item.set(val)}
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                      item.value === val ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
+                        ))}
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        {[
+                          {
+                            label: "Edit hizmeti",
+                            value: currentRoom.extras?.vocalEditService ?? "none",
+                            keyName: "vocalEditService",
+                          },
+                          {
+                            label: "Mix/Mastering hizmeti",
+                            value: currentRoom.extras?.vocalMixService ?? "none",
+                            keyName: "vocalMixService",
+                          },
+                          {
+                            label: "Prodüksiyon hizmeti",
+                            value: currentRoom.extras?.vocalProductionService ?? "none",
+                            keyName: "vocalProductionService",
+                          },
+                        ].map((item) => (
+                          <div key={item.keyName} className="space-y-1 rounded-lg border border-gray-200 bg-white p-3">
+                            <p className="text-xs font-semibold text-gray-800">{item.label}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { label: "Yok", value: "none" },
+                                { label: "Dahil", value: "included" },
+                                { label: "Ekstra", value: "extra" },
+                              ].map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() =>
+                                    setStudio((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            rooms: prev.rooms.map((r) =>
+                                              r.id === currentRoom.id
+                                                ? {
+                                                    ...r,
+                                                    extras: { ...r.extras, [item.keyName]: opt.value as typeof item.value },
+                                                  }
+                                                : r,
+                                            ),
+                                          }
+                                        : prev,
+                                    )
+                                  }
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                    item.value === opt.value ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          saveRoomBasics(currentRoom.id, {
+                            name: currentRoom.name,
+                            type: currentRoom.type,
+                            color: currentRoom.color,
+                            pricing: currentRoom.pricing,
+                            equipment: currentRoom.equipment,
+                            features: currentRoom.features,
+                            extras: currentRoom.extras,
+                          })
+                        }
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {saving ? "Kaydediliyor..." : "Vokal bilgisi kaydet"}
+                      </button>
+                    </div>
+                    <ImagesBlock />
+                    <CoursesBlock />
+                  </>
+                )}
+                {currentRoom.type === "Davul kabini" && (
+                  <>
+                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                      <p className="text-xs text-gray-700">
+                        Detayları doldurmak zorunda değilsiniz. Ama davulcuları bilirsiniz.
+                      </p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {(
+                          [
+                            { flag: "hasDrumKick", detail: "drumKickDetail", label: "Kick" },
+                            { flag: "hasDrumSnare", detail: "drumSnareDetail", label: "Snare" },
+                            { flag: "hasDrumToms", detail: "drumTomsDetail", label: "Tomlar" },
+                            { flag: "hasDrumFloorTom", detail: "drumFloorTomDetail", label: "Floor tom" },
+                            { flag: "hasDrumHihat", detail: "drumHihatDetail", label: "Hihat" },
+                            { flag: "hasDrumRide", detail: "drumRideDetail", label: "Ride" },
+                            { flag: "hasDrumCrash1", detail: "drumCrash1Detail", label: "Crash 1" },
+                            { flag: "hasDrumCrash2", detail: "drumCrash2Detail", label: "Crash 2" },
+                            { flag: "hasDrumCrash3", detail: "drumCrash3Detail", label: "Crash 3" },
+                            { flag: "hasDrumCrash4", detail: "drumCrash4Detail", label: "Crash 4" },
+                            { flag: "hasDrumChina", detail: "drumChinaDetail", label: "China" },
+                            { flag: "hasDrumSplash", detail: "drumSplashDetail", label: "Splash" },
+                          ] as const
+                        ).map((item) => (
+                          <label
+                            key={item.flag}
+                            className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white p-3 text-xs font-semibold text-gray-800"
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-4 w-4"
+                              checked={Boolean(currentRoom.equipment[item.flag])}
+                              onChange={(e) =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) => {
+                                          if (r.id !== currentRoom.id) return r;
+                                          const eq: Equipment = { ...r.equipment, [item.flag]: e.target.checked };
+                                          const nextDetail =
+                                            e.target.checked && typeof r.equipment[item.detail] === "string"
+                                              ? (r.equipment[item.detail] as string)
+                                              : "";
+                                          return { ...r, equipment: { ...eq, [item.detail]: nextDetail } };
+                                        }),
+                                      }
+                                    : prev,
+                                )
+                              }
+                            />
+                            <div className="flex-1 space-y-2">
+                              <span>{item.label}</span>
+                              {currentRoom.equipment[item.flag] && (
+                                <input
+                                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                                  value={(currentRoom.equipment[item.detail] as string) ?? ""}
+                                  onChange={(e) =>
+                                    setStudio((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            rooms: prev.rooms.map((r) =>
+                                              r.id === currentRoom.id
+                                                ? {
+                                                    ...r,
+                                                    equipment: { ...r.equipment, [item.detail]: e.target.value },
+                                                  }
+                                                : r,
+                                            ),
+                                          }
+                                        : prev,
+                                    )
+                                  }
+                                  placeholder={`Örn: ${item.label}`}
+                                />
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs font-semibold text-gray-800">
+                        <p className="mb-2">Twin pedal</p>
+                        <div className="flex gap-2">
+                          {["Var", "Yok"].map((label, idx) => {
+                            const val = idx === 0;
+                            return (
+                              <button
+                                key={label}
+                                type="button"
+                                onClick={() =>
+                                  setStudio((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          rooms: prev.rooms.map((r) =>
+                                            r.id === currentRoom.id ? { ...r, equipment: { ...r.equipment, hasTwinPedal: val } } : r,
+                                          ),
+                                        }
+                                      : prev,
+                                  )
+                                }
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                  currentRoom.equipment?.hasTwinPedal === val
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-200 text-gray-800"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-600">Henüz görsel eklenmedi.</p>
-                  )}
-                </div>
-                <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">Kurslara açık mısınız?</p>
-                      <p className="text-xs text-gray-600">Hocalar uygun odaları önerir.</p>
-                    </div>
-                    <div className="flex gap-2">
+                      </div>
                       <button
                         type="button"
+                        disabled={saving}
                         onClick={() =>
+                          saveRoomBasics(currentRoom.id, {
+                            name: currentRoom.name,
+                            type: currentRoom.type,
+                            color: currentRoom.color,
+                            pricing: currentRoom.pricing,
+                            equipment: currentRoom.equipment,
+                          })
+                        }
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {saving ? "Kaydediliyor..." : "Ekipmanları kaydet"}
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                      <p className="text-sm font-semibold text-gray-900">Ekstralar</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {(
+                          [
+                            { label: "Profesyonel davul kaydı imkanı", key: "drumProRecording", values: ["none", "included", "extra"] },
+                            { label: "Video çekimi", key: "drumVideo", values: ["none", "included", "extra"] },
+                            { label: "Davul prodüksiyonu", key: "drumProduction", values: ["none", "extra"] },
+                            { label: "Davul mix/mastering", key: "drumMix", values: ["none", "extra"] },
+                          ] as {
+                            label: string;
+                            key: "drumProRecording" | "drumVideo" | "drumProduction" | "drumMix";
+                            values: ("none" | "included" | "extra")[];
+                          }[]
+                        ).map((item) => {
+                          const currentVal = (currentRoom.extras?.[item.key] as string | undefined) ?? "none";
+                          return (
+                          <div key={item.key} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                            <p className="text-xs font-semibold text-gray-800">{item.label}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {item.values.map((val) => (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() =>
+                                    setStudio((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            rooms: prev.rooms.map((r) =>
+                                              r.id === currentRoom.id
+                                                ? { ...r, extras: { ...r.extras, [item.key]: val } }
+                                                : r,
+                                            ),
+                                        }
+                                      : prev,
+                                    )
+                                  }
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                    currentVal === val
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-200 text-gray-800"
+                                  }`}
+                                >
+                                  {val === "none" ? "Yok" : val === "included" ? "Dahil" : "Ekstra"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          );
+                        })}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          saveRoomBasics(currentRoom.id, {
+                            name: currentRoom.name,
+                            type: currentRoom.type,
+                            color: currentRoom.color,
+                            pricing: currentRoom.pricing,
+                            extras: currentRoom.extras,
+                          })
+                        }
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {saving ? "Kaydediliyor..." : "Ekstraları kaydet"}
+                      </button>
+                    </div>
+                    <ImagesBlock />
+                    <CoursesBlock />
+                  </>
+                )}
+                {currentRoom.type === "Etüt odası" && (
+                  <>
+                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                      <p className="text-sm font-semibold text-gray-900">
+                        Lütfen odanızı, amacını ve ekipmanları tanımlayın.
+                      </p>
+                      <textarea
+                        className="min-h-[120px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.extras?.practiceDescription ?? ""}
+                        onChange={(e) =>
                           setStudio((prev) =>
                             prev
                               ? {
                                   ...prev,
                                   rooms: prev.rooms.map((r) =>
                                     r.id === currentRoom.id
-                                      ? { ...r, extras: { ...r.extras, acceptsCourses: true } }
+                                      ? { ...r, extras: { ...r.extras, practiceDescription: e.target.value } }
                                       : r,
                                   ),
                                 }
                               : prev,
                           )
                         }
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                          currentRoom.extras?.acceptsCourses
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-200 text-gray-800"
-                        }`}
-                      >
-                        Evet
-                      </button>
+                        placeholder="Odanın amacı ve ekipmanları"
+                      />
                       <button
                         type="button"
+                        disabled={saving}
                         onClick={() =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? { ...r, extras: { ...r.extras, acceptsCourses: false } }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
+                          saveRoomBasics(currentRoom.id, {
+                            name: currentRoom.name,
+                            type: currentRoom.type,
+                            color: currentRoom.color,
+                            pricing: currentRoom.pricing,
+                            extras: currentRoom.extras,
+                          })
                         }
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                          currentRoom.extras?.acceptsCourses
-                            ? "bg-gray-200 text-gray-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
                       >
-                        Hayır
+                        {saving ? "Kaydediliyor..." : "Etüt bilgisi kaydet"}
                       </button>
                     </div>
-                  </div>
-                  <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
-                    Kurslara açığız derseniz Hocalarımız sizinle iletişime geçecektir. Buradaki
-                    amacımız yetenekli olup da ders verecek odası olmayan müzisyenlerimizi,
-                    stüdyolarının boş vakitlerini doldurmaya çalışan siz stüdyo sahipleriyle
-                    buluşturmak. Bizim önerimiz: <strong>Hocalarımıza normal ücret üzerinden %20 indirim uygulanması.</strong> Tabi tercih sizin.
-                  </p>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() =>
-                      saveRoomBasics(currentRoom.id, {
-                        name: currentRoom.name,
-                        type: currentRoom.type,
-                        color: currentRoom.color,
-                        pricing: currentRoom.pricing,
-                        extras: { ...currentRoom.extras, acceptsCourses: currentRoom.extras?.acceptsCourses ?? false },
-                      })
-                    }
-                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    {saving ? "Kaydediliyor..." : "Kurs ayarını kaydet"}
-                  </button>
-                </div>
+                    <ImagesBlock />
+                    <CoursesBlock title="Hocalara açık mısınız?" description="Hocalar uygun odaları önerir." />
+                  </>
+                )}
+                {currentRoom.type === "Kayıt kabini" && (
+                  <>
+                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                      <p className="text-sm font-semibold text-gray-900">DAW ve kayıt bilgileri</p>
+                      <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                        <p className="text-xs font-semibold text-gray-800">Mevcut olan DAW&apos;ları seçin:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {["Logic Pro", "Ableton", "FL Studio", "Pro Tools", "Studio One", "Reaper", "Reason"].map(
+                            (daw) => {
+                              const active = currentRoom.features?.dawList?.includes(daw);
+                              return (
+                                <button
+                                  key={daw}
+                                  type="button"
+                                  onClick={() =>
+                                    setStudio((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            rooms: prev.rooms.map((r) => {
+                                              if (r.id !== currentRoom.id) return r;
+                                              const list = new Set(r.features?.dawList ?? []);
+                                              if (active) {
+                                                list.delete(daw);
+                                              } else {
+                                                list.add(daw);
+                                              }
+                                              return { ...r, features: { ...r.features, dawList: Array.from(list) } };
+                                            }),
+                                          }
+                                        : prev,
+                                    )
+                                  }
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                    active ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"
+                                  }`}
+                                >
+                                  {daw}
+                                </button>
+                              );
+                            },
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {[
+                          {
+                            label: "Fiyata kayıt teknisyeni dahil mi?",
+                            value: currentRoom.features?.recordingEngineerIncluded ?? false,
+                            setter: (val: boolean) =>
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id
+                                          ? { ...r, features: { ...r.features, recordingEngineerIncluded: val } }
+                                          : r,
+                                      ),
+                                    }
+                                  : prev,
+                              ),
+                          },
+                          {
+                            label: "Control Room var mı?",
+                            value: currentRoom.features?.hasControlRoom ?? false,
+                            setter: (val: boolean) =>
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id ? { ...r, features: { ...r.features, hasControlRoom: val } } : r,
+                                      ),
+                                    }
+                                  : prev,
+                              ),
+                          },
+                        ].map((item) => (
+                          <div key={item.label} className="space-y-1 rounded-lg border border-gray-200 bg-white p-3">
+                            <p className="text-xs font-semibold text-gray-800">{item.label}</p>
+                            <div className="flex gap-2">
+                              {["Evet", "Hayır"].map((label, idx) => {
+                                const val = idx === 0;
+                                return (
+                                  <button
+                                    key={label}
+                                    type="button"
+                                    onClick={() => item.setter(val)}
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                      item.value === val ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          saveRoomBasics(currentRoom.id, {
+                            name: currentRoom.name,
+                            type: currentRoom.type,
+                            color: currentRoom.color,
+                            pricing: currentRoom.pricing,
+                            equipment: currentRoom.equipment,
+                            features: currentRoom.features,
+                          })
+                        }
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {saving ? "Kaydediliyor..." : "Kayıt bilgisi kaydet"}
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                      <p className="text-sm font-semibold text-gray-900">Ekstralar</p>
+                      <p className="text-xs text-gray-600">Ekstra olarak sunabildiğiniz hizmetler</p>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                          <p className="text-xs font-semibold text-gray-800">Edit / Mix / Mastering hizmeti</p>
+                          <div className="flex gap-2">
+                            {(["none", "extra"] as const).map((val) => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() =>
+                                  setStudio((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          rooms: prev.rooms.map((r) =>
+                                            r.id === currentRoom.id
+                                              ? { ...r, extras: { ...r.extras, recordingMixService: val } }
+                                              : r,
+                                          ),
+                                        }
+                                      : prev,
+                                )
+                              }
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                  (currentRoom.extras?.recordingMixService ?? "none") === val
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-200 text-gray-800"
+                                }`}
+                              >
+                                {val === "none" ? "Yok" : "Ekstra"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                          <p className="text-xs font-semibold text-gray-800">Prodüksiyon hizmeti</p>
+                          <div className="flex gap-2">
+                            {(["none", "extra"] as const).map((val) => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() =>
+                                  setStudio((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          rooms: prev.rooms.map((r) =>
+                                            r.id === currentRoom.id
+                                              ? {
+                                                  ...r,
+                                                  extras: { ...r.extras, recordingProduction: val, recordingProductionAreas: [] },
+                                                }
+                                              : r,
+                                          ),
+                                        }
+                                      : prev,
+                                  )
+                                }
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                  (currentRoom.extras?.recordingProduction ?? "none") === val
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-200 text-gray-800"
+                                }`}
+                              >
+                                {val === "none" ? "Yok" : "Ekstra"}
+                              </button>
+                            ))}
+                          </div>
+                          {(currentRoom.extras?.recordingProduction ?? "none") === "extra" && (
+                            <div className="mt-2 space-y-2">
+                              {["Beat yapımı", "Enstrüman ekleme"].map((label) => {
+                                const active = currentRoom.extras?.recordingProductionAreas?.includes(label);
+                                return (
+                                  <label key={label} className="flex items-center gap-2 text-xs font-semibold text-gray-800">
+                                    <input
+                                      type="checkbox"
+                                      className="h-4 w-4"
+                                      checked={active}
+                                      onChange={(e) =>
+                                        setStudio((prev) =>
+                                          prev
+                                            ? {
+                                                ...prev,
+                                                rooms: prev.rooms.map((r) => {
+                                                  if (r.id !== currentRoom.id) return r;
+                                                  const set = new Set(r.extras?.recordingProductionAreas ?? []);
+                                                  if (e.target.checked) set.add(label);
+                                                  else set.delete(label);
+                                                  return {
+                                                    ...r,
+                                                    extras: { ...r.extras, recordingProductionAreas: Array.from(set) },
+                                                  };
+                                                }),
+                                              }
+                                            : prev,
+                                        )
+                                      }
+                                    />
+                                    {label}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          saveRoomBasics(currentRoom.id, {
+                            name: currentRoom.name,
+                            type: currentRoom.type,
+                            color: currentRoom.color,
+                            pricing: currentRoom.pricing,
+                            extras: currentRoom.extras,
+                          })
+                        }
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                      >
+                        {saving ? "Kaydediliyor..." : "Ekstraları kaydet"}
+                      </button>
+                    </div>
+                    <ImagesBlock />
+                  </>
+                )}
                 <button
                   disabled={saving || orderedRooms.length <= 1}
                   onClick={() => {
