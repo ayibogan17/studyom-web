@@ -36,6 +36,9 @@ const productionItems = [
 export function AppHeader() {
   const [open, setOpen] = useState(false);
   const [showProd, setShowProd] = useState(false);
+  const handleProdOpen = () => setShowProd(true);
+  const handleProdClose = () => setShowProd(false);
+
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
@@ -51,12 +54,16 @@ export function AppHeader() {
               {link.label === "Hakkında" && (
                 <div
                   className="relative"
-                  onMouseEnter={() => setShowProd(true)}
-                  onMouseLeave={() => setShowProd(false)}
+                  onMouseEnter={handleProdOpen}
+                  onMouseLeave={handleProdClose}
                 >
                   <button
                     type="button"
                     className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
+                    aria-haspopup="true"
+                    aria-expanded={showProd}
+                    onFocus={handleProdOpen}
+                    onBlur={handleProdClose}
                   >
                     Üretim
                     <span className="text-[10px] text-[var(--color-muted)]">▼</span>
@@ -64,6 +71,8 @@ export function AppHeader() {
                   {showProd && (
                     <div
                       className="absolute right-0 top-12 z-20 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
+                      onMouseEnter={handleProdOpen}
+                      onMouseLeave={handleProdClose}
                     >
                       <div className="space-y-3 text-left">
                         {productionItems.map((item) => (
