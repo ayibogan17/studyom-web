@@ -116,7 +116,8 @@ const loadImageElement = (src: string) =>
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Görsel yüklenemedi"));
+    img.onerror = () =>
+      reject(new Error("Görsel yüklenemedi (CORS için bucket/headers kontrol edin)"));
     img.src = src;
   });
 
@@ -336,8 +337,10 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
       await uploadImages([file], { replaceIndex: idx });
       setStatus("Kare kırpma kaydedildi (kaydetmeyi unutma)");
     } catch (err) {
-      console.error(err);
-      setStatus("Görsel kırpılamadı (CORS engeli olabilir).");
+      console.warn("Crop failed", err);
+      setStatus(
+        "Görsel kırpılamadı. R2 bucket'ında Access-Control-Allow-Origin: * (veya domainin) ekli mi?",
+      );
     }
   };
 
