@@ -394,7 +394,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const ImagesBlock = () => {
     if (!currentRoom) return null;
     return (
-      <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+      <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-gray-900">Görseller</p>
@@ -499,7 +499,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   }: { title?: string; description?: string }) => {
     if (!currentRoom) return null;
     return (
-      <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+      <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-gray-900">{title}</p>
@@ -1363,9 +1363,9 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         )}
 
         {activeTab.startsWith("room-") && currentRoom && (
-          <section className="mt-2 grid gap-4">
-            <div className="rounded-2xl border border-gray-100 bg-white/90 p-4">
-              <div className="flex flex-wrap items-center gap-2">
+          <section className="mt-4 grid gap-5 max-w-6xl mx-auto">
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center gap-3">
                 <input
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
                   value={currentRoom.name}
@@ -1451,9 +1451,9 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
               <h2 className="mt-3 text-2xl font-bold text-gray-900">
                 {currentRoom.name}
               </h2>
-              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3 text-gray-900">
+              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-4 text-gray-900 shadow-sm space-y-3">
                 <p className="text-sm font-semibold text-gray-900">Fiyatlandırma</p>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-900">
+                <div className="grid gap-3 text-sm text-gray-900 sm:grid-cols-2 sm:items-center">
                   <label className="flex items-center gap-2">
                     <span>Ücretlendirme</span>
                     <select
@@ -1544,12 +1544,12 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       pricing: currentRoom.pricing,
                     })
                   }
-                  className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                  className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm"
                 >
                   {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
                 </button>
                 {isRehearsalLike && (
-                  <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                  <div className="mt-4 space-y-4 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
                     <button
                       type="button"
                       onClick={() => setShowEquipment((v) => !v)}
@@ -1560,8 +1560,8 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     </button>
                     {showEquipment && (
                       <>
-                        <div className="mt-2 grid gap-4">
-                    <div>
+                    <div className="mt-2 grid gap-4 lg:grid-cols-2">
+                    <div className="lg:col-span-2">
                       <p className="text-xs font-semibold text-gray-800">Davul var mı?</p>
                       <div className="mt-1 flex gap-2">
                         {["Evet", "Hayır"].map((label, idx) => {
@@ -2144,7 +2144,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 )}
                 {currentRoom.type === "Vokal kabini" && (
                   <>
-                    <div className="mt-4 space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                    <div className="mt-4 space-y-4 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
                       <div>
                         <p className="text-sm font-semibold text-gray-900">Mikrofonlar</p>
                         <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
@@ -2415,7 +2415,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 )}
                 {currentRoom.type === "Davul kabini" && (
                   <>
-                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
                       <p className="text-xs text-gray-700">
                         Detayları doldurmak zorunda değilsiniz. Ama davulcuları bilirsiniz.
                       </p>
@@ -2543,7 +2543,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                         {saving ? "Kaydediliyor..." : "Ekipmanları kaydet"}
                       </button>
                     </div>
-                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
                       <p className="text-sm font-semibold text-gray-900">Ekstralar</p>
                       <div className="grid gap-3 md:grid-cols-2">
                         {(
@@ -2618,7 +2618,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 )}
                 {currentRoom.type === "Etüt odası" && (
                   <>
-                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
                       <p className="text-sm font-semibold text-gray-900">
                         Lütfen odanızı, amacını ve ekipmanları tanımlayın.
                       </p>
@@ -2664,7 +2664,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 )}
                 {currentRoom.type === "Kayıt kabini" && (
                   <>
-                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
                       <p className="text-sm font-semibold text-gray-900">DAW ve kayıt bilgileri</p>
                       <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
                         <p className="text-xs font-semibold text-gray-800">Mevcut olan DAW&apos;ları seçin:</p>
@@ -2781,7 +2781,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                         {saving ? "Kaydediliyor..." : "Kayıt bilgisi kaydet"}
                       </button>
                     </div>
-                    <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
                       <p className="text-sm font-semibold text-gray-900">Ekstralar</p>
                       <p className="text-xs text-gray-600">Ekstra olarak sunabildiğiniz hizmetler</p>
                       <div className="grid gap-3 md:grid-cols-2">
