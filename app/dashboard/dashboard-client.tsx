@@ -217,6 +217,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [showEquipment, setShowEquipment] = useState(true);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const studioRooms = studio?.rooms ?? [];
@@ -1945,8 +1946,16 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                   {currentRoom.images?.length ? (
                     <div className="grid grid-cols-2 gap-2">
                       {currentRoom.images.map((src, idx) => (
-                        <div key={idx} className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
-                          <img src={src} alt={`Oda görsel ${idx + 1}`} className="h-28 w-full object-cover" />
+                        <div
+                          key={idx}
+                          className="relative overflow-hidden rounded-lg border border-gray-200 bg-white"
+                        >
+                          <img
+                            src={src}
+                            alt={`Oda görsel ${idx + 1}`}
+                            className="h-36 w-full cursor-pointer object-cover transition hover:opacity-90"
+                            onClick={() => setPreviewImage(src)}
+                          />
                           <div className="flex flex-col gap-1 px-2 py-1 text-[11px] text-gray-700">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="rounded bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900">
@@ -2169,6 +2178,31 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 <p className="text-sm text-gray-600">Henüz puan yok.</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="relative max-h-[90vh] max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white"
+            >
+              Kapat
+            </button>
+            <img
+              src={previewImage}
+              alt="Görsel önizleme"
+              className="block max-h-[90vh] w-full object-contain bg-black"
+            />
           </div>
         </div>
       )}
