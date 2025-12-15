@@ -48,7 +48,7 @@ export function AppHeader() {
         <nav className="relative hidden items-center gap-6 text-sm font-medium text-[var(--color-primary)] md:flex">
           {links.map((link) => (
             <div key={`${link.href}-${link.label}`} className="flex items-center gap-2">
-              {link.label === "İletişim" && (
+              {link.label === "Hakkında" && (
                 <div className="relative">
                   <button
                     type="button"
@@ -109,7 +109,7 @@ export function AppHeader() {
           <div className="flex flex-col gap-3 text-sm font-medium text-[var(--color-primary)]">
             {links.map((link) => (
               <div key={`${link.href}-${link.label}`} className="flex flex-col gap-1">
-                {link.label === "İletişim" && (
+                {link.label === "Hakkında" && (
                   <div className="space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
                     <p className="text-sm font-semibold text-[var(--color-primary)]">Üretim</p>
                     <div className="space-y-2">
