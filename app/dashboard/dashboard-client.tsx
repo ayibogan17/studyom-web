@@ -1165,6 +1165,104 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 >
                   {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
                 </button>
+                <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                  <p className="text-sm font-semibold text-gray-900">Ekipman</p>
+                  <p className="text-xs text-gray-600">Detaylar yakında eklenecek.</p>
+                </div>
+                <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Görseller</p>
+                      <p className="text-xs text-gray-600">Max 5 MB, ilk görsel kapak olur.</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:border-blue-400"
+                    >
+                      Görsel ekle
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Kurslara açık mısınız?</p>
+                      <p className="text-xs text-gray-600">Hocalar uygun odaları önerir.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? { ...r, extras: { ...r.extras, acceptsCourses: true } }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                          currentRoom.extras?.acceptsCourses
+                            ? "bg-green-600 text-white"
+                            : "bg-gray-200 text-gray-800"
+                        }`}
+                      >
+                        Evet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? { ...r, extras: { ...r.extras, acceptsCourses: false } }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                          currentRoom.extras?.acceptsCourses
+                            ? "bg-gray-200 text-gray-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
+                      >
+                        Hayır
+                      </button>
+                    </div>
+                  </div>
+                  <p className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
+                    Kurslara açığız derseniz Hocalarımız sizinle iletişime geçecektir. Buradaki
+                    amacımız yetenekli olup da ders verecek odası olmayan müzisyenlerimizi,
+                    stüdyolarının boş vakitlerini doldurmaya çalışan siz stüdyo sahipleriyle
+                    buluşturmak. Bizim önerimiz: <strong>Hocalarımıza normal ücret üzerinden %20 indirim uygulanması.</strong> Tabi tercih sizin.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() =>
+                      saveRoomBasics(currentRoom.id, {
+                        name: currentRoom.name,
+                        type: currentRoom.type,
+                        color: currentRoom.color,
+                        pricing: currentRoom.pricing,
+                        extras: { ...currentRoom.extras, acceptsCourses: currentRoom.extras?.acceptsCourses ?? false },
+                      })
+                    }
+                    className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {saving ? "Kaydediliyor..." : "Kurs ayarını kaydet"}
+                  </button>
+                </div>
                 <button
                   disabled={saving || orderedRooms.length <= 1}
                   onClick={() => {
