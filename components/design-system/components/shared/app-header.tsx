@@ -27,7 +27,11 @@ export function AppHeader() {
         </div>
         <nav className="hidden items-center gap-6 text-sm font-medium text-[var(--color-primary)] md:flex">
           {links.map((link) => (
-            <Link key={link.href} href={link.href} className="transition hover:text-[var(--color-accent)]">
+            <Link
+              key={`${link.href}-${link.label}`}
+              href={link.href}
+              className="transition hover:text-[var(--color-accent)]"
+            >
               {link.label}
             </Link>
           ))}
@@ -55,7 +59,7 @@ export function AppHeader() {
         <div className="flex flex-col gap-3 text-sm font-medium text-[var(--color-primary)]">
           {links.map((link) => (
             <Link
-              key={link.href}
+              key={`${link.href}-${link.label}`}
               href={link.href}
               className="rounded-xl px-3 py-2 hover:bg-[var(--color-secondary)]"
               onClick={() => setOpen(false)}
