@@ -223,7 +223,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [editingHours, setEditingHours] = useState(false);
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
-  const [showEquipment, setShowEquipment] = useState(true);
+  const [showEquipment, setShowEquipment] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -684,40 +684,40 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     <>
       <div className="bg-gradient-to-b from-white via-blue-50/40 to-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <header className="mb-6 flex flex-col gap-3 rounded-3xl border border-black/5 bg-white/80 p-6 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-              Stüdyo paneli
-            </p>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Hoş geldin{userName ? `, ${userName}` : ""}!
-            </h1>
-            <p className="text-sm text-gray-600">
-              Flutter panelindeki akışın web uyarlaması. Slotları düzenleyebilir,
-              kurs aç/kapa yapabilir ve açılış saatlerini görebilirsin. Veriler
-              demo/moktur.
-            </p>
-            {userEmail && (
-              <p className="text-sm text-gray-700">
-                Giriş yaptığın e-posta:{" "}
-                <span className="font-semibold">{userEmail}</span>
+          <header className="mb-6 flex flex-col gap-3 rounded-3xl border border-black/5 bg-white/80 p-6 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                Stüdyo paneli
               </p>
-            )}
-          </div>
-          <SignOutButton />
-        </header>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Hoş geldin{userName ? `, ${userName}` : ""}!
+              </h1>
+              <p className="text-sm text-gray-600">
+                Flutter panelindeki akışın web uyarlaması. Slotları düzenleyebilir,
+                kurs aç/kapa yapabilir ve açılış saatlerini görebilirsin. Veriler
+                demo/moktur.
+              </p>
+              {userEmail && (
+                <p className="text-sm text-gray-700">
+                  Giriş yaptığın e-posta:{" "}
+                  <span className="font-semibold">{userEmail}</span>
+                </p>
+              )}
+            </div>
+            <SignOutButton />
+          </header>
 
-        {status && (
-          <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            {status}
-          </div>
-        )}
-        <nav className="mb-6 flex flex-wrap gap-2">
-          {[
-            { key: "panel", label: "Panel" },
-            { key: "calendar", label: "Takvim" },
-            ...orderedRooms.map((r) => ({ key: `room-${r.id}`, label: r.name || "Oda" })),
-          ].map((item) => (
+          {status && (
+            <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              {status}
+            </div>
+          )}
+          <nav className="mb-6 flex flex-wrap gap-2">
+            {[
+              { key: "panel", label: "Panel" },
+              { key: "calendar", label: "Takvim" },
+              ...orderedRooms.map((r) => ({ key: `room-${r.id}`, label: r.name || "Oda" })),
+            ].map((item) => (
             <button
               key={item.key}
               draggable={item.key.startsWith("room-")}
@@ -1325,7 +1325,8 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       <span className="text-xs text-gray-500">{showEquipment ? "Gizle" : "Göster"}</span>
                     </button>
                     {showEquipment && (
-                      <div className="mt-2 grid gap-4">
+                      <>
+                        <div className="mt-2 grid gap-4">
                     <div>
                       <p className="text-xs font-semibold text-gray-800">Davul var mı?</p>
                       <div className="mt-1 flex gap-2">
@@ -1880,24 +1881,25 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                           />
                         ))}
                     </div>
-                      </div>
+                  </div>
+                  <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() =>
+                            saveRoomBasics(currentRoom.id, {
+                              name: currentRoom.name,
+                              type: currentRoom.type,
+                              color: currentRoom.color,
+                              pricing: currentRoom.pricing,
+                              equipment: currentRoom.equipment,
+                            })
+                          }
+                          className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {saving ? "Kaydediliyor..." : "Ekipman bilgisi kaydet"}
+                        </button>
+                      </>
                     )}
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() =>
-                        saveRoomBasics(currentRoom.id, {
-                          name: currentRoom.name,
-                          type: currentRoom.type,
-                          color: currentRoom.color,
-                          pricing: currentRoom.pricing,
-                          equipment: currentRoom.equipment,
-                        })
-                      }
-                      className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                    >
-                      {saving ? "Kaydediliyor..." : "Ekipman bilgisi kaydet"}
-                    </button>
                   </div>
                 )}
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
