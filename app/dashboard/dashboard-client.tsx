@@ -700,7 +700,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     key={idx}
                     className={`flex flex-col gap-2 rounded-xl border px-3 py-2 text-sm ${
                       h.open
-                        ? "border-gray-100 bg-gray-50"
+                        ? "border-gray-100 bg-gray-50 text-gray-900"
                         : "border-red-100 bg-red-50 text-red-700"
                     }`}
                   >
