@@ -197,43 +197,35 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
       return;
     }
     try {
+      const form = new FormData();
       const uploadedUrls: string[] = [];
       for (const file of valid) {
-        const metaRes = await fetch("/api/uploads", {
+        form.append("file", file);
+        const res = await fetch("/api/uploads", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: file.name, type: file.type }),
+          body: form,
         });
-        if (!metaRes.ok) {
-          const err = await metaRes.json().catch(() => ({}));
-          throw new Error(err.error || "Upload URL alınamadı");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `Upload failed (${res.status})`);
         }
-        const { uploadUrl, publicUrl } = (await metaRes.json()) as {
-          uploadUrl: string;
-          publicUrl: string;
-        };
-        const putRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          body: file,
-        });
-        if (!putRes.ok) {
-          const txt = await putRes.text().catch(() => "");
-          throw new Error(`Dosya yüklenemedi (${putRes.status}) ${txt}`);
-        }
-        uploadedUrls.push(publicUrl);
+        const data = (await res.json()) as { publicUrl?: string };
+        if (data.publicUrl) uploadedUrls.push(data.publicUrl);
+        form.delete("file");
       }
-      setStudio((prev) =>
-        prev
-          ? {
-              ...prev,
-              rooms: prev.rooms.map((r) =>
-                r.id === currentRoom?.id ? { ...r, images: [...(r.images ?? []), ...uploadedUrls] } : r,
-              ),
-            }
-          : prev,
-      );
-      setStatus("Görseller eklendi (kaydetmeyi unutma)");
+      if (uploadedUrls.length) {
+        setStudio((prev) =>
+          prev
+            ? {
+                ...prev,
+                rooms: prev.rooms.map((r) =>
+                  r.id === currentRoom?.id ? { ...r, images: [...(r.images ?? []), ...uploadedUrls] } : r,
+                ),
+              }
+            : prev,
+        );
+        setStatus("Görseller eklendi (kaydetmeyi unutma)");
+      }
     } catch (err) {
       console.error(err);
       setStatus("Görseller yüklenemedi.");

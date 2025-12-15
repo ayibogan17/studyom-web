@@ -22,9 +22,41 @@ const s3 =
       })
     : null;
 
+const buildPublicUrl = (key: string, uploadUrl: string) =>
+  publicBaseUrl ? `${publicBaseUrl}/${key}` : uploadUrl.split("?")[0];
+
 export async function POST(req: Request) {
   if (!s3 || !bucket) {
     return NextResponse.json({ error: "Storage not configured" }, { status: 500 });
+  }
+
+  const ct = (req.headers.get("content-type") || "").toLowerCase();
+  const isForm = ct.includes("multipart/form-data");
+
+  if (isForm) {
+    const form = await req.formData();
+    const file = form.get("file");
+    if (!file || !(file instanceof File)) {
+      return NextResponse.json({ error: "file gerekli" }, { status: 400 });
+    }
+    const name = file.name || "upload.bin";
+    const ext = name.split(".").pop() || "bin";
+    const key = `uploads/${Date.now()}-${randomUUID()}.${ext}`;
+    try {
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          Body: Buffer.from(await file.arrayBuffer()),
+          ContentType: file.type || "application/octet-stream",
+        }),
+      );
+      const publicUrl = buildPublicUrl(key, `${endpoint}/${bucket}/${key}`);
+      return NextResponse.json({ ok: true, key, publicUrl });
+    } catch (e) {
+      console.error("Direct upload failed", e);
+      return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    }
   }
 
   let body: { name?: string; type?: string };
@@ -39,14 +71,14 @@ export async function POST(req: Request) {
   const ext = name?.split(".").pop() || "bin";
   const key = `uploads/${Date.now()}-${randomUUID()}.${ext}`;
 
-const command = new PutObjectCommand({
-  Bucket: bucket,
-  Key: key,
-  ContentType: contentType,
-});
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+  });
 
   const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 60 * 5 });
-  const publicUrl = publicBaseUrl ? `${publicBaseUrl}/${key}` : uploadUrl.split("?")[0];
+  const publicUrl = buildPublicUrl(key, uploadUrl);
 
   return NextResponse.json({ uploadUrl, publicUrl, key });
 }
