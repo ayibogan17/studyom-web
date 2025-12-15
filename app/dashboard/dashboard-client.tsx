@@ -1167,228 +1167,148 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 </button>
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
                   <p className="text-sm font-semibold text-gray-900">Ekipman</p>
-                  <div className="mt-2 grid gap-3">
-                    <label className="text-xs text-gray-700">
-                      Davul var mı? (model)
-                      <input
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.drumDetail ?? ""}
-                        onChange={(e) =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            hasDrum: !!e.target.value,
-                                            drumDetail: e.target.value,
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }
-                        placeholder="Örn: Mapex Saturn"
-                      />
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      Mikrofon sayısı ve model
-                      <input
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.micDetails?.join(", ") ?? ""}
-                        onChange={(e) =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            micCount: e.target.value
-                                              ? e.target.value.split(",").length
-                                              : 0,
-                                            micDetails: e.target.value
-                                              ? e.target.value.split(",").map((s) => s.trim())
-                                              : [],
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }
-                        placeholder="Örn: SM58 x2, SM57, e935"
-                      />
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      Gitar amfisi (sayı/model)
-                      <input
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.guitarAmpDetails?.join(", ") ?? ""}
-                        onChange={(e) =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            guitarAmpCount: e.target.value
-                                              ? e.target.value.split(",").length
-                                              : 0,
-                                            guitarAmpDetails: e.target.value
-                                              ? e.target.value.split(",").map((s) => s.trim())
-                                              : [],
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }
-                        placeholder="Örn: Fender Hot Rod, Marshall DSL"
-                      />
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      Bass amfisi var mı? (detay)
-                      <input
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.bassDetail ?? ""}
-                        onChange={(e) =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            hasBassAmp: !!e.target.value,
-                                            bassDetail: e.target.value,
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }
-                        placeholder="Örn: Ampeg BA-115"
-                      />
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      DI box var mı? (detay)
-                      <input
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.diDetail ?? ""}
-                        onChange={(e) =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            hasDiBox: !!e.target.value,
-                                            diDetail: e.target.value,
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }
-                        placeholder="Örn: Radial ProDI"
-                      />
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      Pedal/pedalboard sağlıyor musunuz?
-                      <input
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.pedalDetail ?? ""}
-                        onChange={(e) =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            hasPedal: !!e.target.value,
-                                            pedalDetail: e.target.value,
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }
-                        placeholder="Örn: DW 5000 çift pedal"
-                      />
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      Klavye var mı? (model)
-                      <input
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.keyboardDetail ?? ""}
-                        onChange={(e) =>
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            hasKeyboard: !!e.target.value,
-                                            keyboardDetail: e.target.value,
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          )
-                        }
-                        placeholder="Örn: Roland FP-30"
-                      />
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      Klavye sehpası var mı?
+                  <div className="mt-2 grid gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Davul var mı?</p>
                       <div className="mt-1 flex gap-2">
-                        {[
-                          { label: "Evet", value: true },
-                          { label: "Hayır", value: false },
-                        ].map((opt) => (
+                        {["Evet", "Hayır"].map((label, idx) => {
+                          const val = idx === 0;
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                equipment: {
+                                                  ...r.equipment,
+                                                  hasDrum: val,
+                                                  drumDetail: val ? r.equipment?.drumDetail ?? "" : "",
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                currentRoom.equipment?.hasDrum === val
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-gray-200 text-gray-800"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {currentRoom.equipment?.hasDrum && (
+                        <input
+                          className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                          value={currentRoom.equipment?.drumDetail ?? ""}
+                          onChange={(e) =>
+                            setStudio((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rooms: prev.rooms.map((r) =>
+                                      r.id === currentRoom.id
+                                        ? { ...r, equipment: { ...r.equipment, drumDetail: e.target.value } }
+                                        : r,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }
+                          placeholder="Örn: Mapex Saturn"
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Gitar amfiniz var mı?</p>
+                      <div className="mt-1 flex gap-2">
+                        {["Evet", "Hayır"].map((label, idx) => {
+                          const val = idx === 0;
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                equipment: {
+                                                  ...r.equipment,
+                                                  guitarAmpCount: val ? r.equipment?.guitarAmpCount ?? 1 : 0,
+                                                  guitarAmpDetails: val ? r.equipment?.guitarAmpDetails ?? [""] : [],
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                (currentRoom.equipment?.guitarAmpCount ?? 0) > 0 === val
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-gray-200 text-gray-800"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {(currentRoom.equipment?.guitarAmpCount ?? 0) > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {(currentRoom.equipment?.guitarAmpDetails ?? [""]).map((val, idx) => (
+                            <input
+                              key={idx}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                              value={val}
+                              placeholder="Örn: Fender Hot Rod"
+                              onChange={(e) =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                equipment: {
+                                                  ...r.equipment,
+                                                  guitarAmpDetails: (r.equipment?.guitarAmpDetails ?? []).map(
+                                                    (d, i) => (i === idx ? e.target.value : d),
+                                                  ),
+                                                  guitarAmpCount: (r.equipment?.guitarAmpDetails ?? []).length,
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                            />
+                          ))}
                           <button
-                            key={opt.label}
                             type="button"
+                            className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-blue-400"
                             onClick={() =>
                               setStudio((prev) =>
                                 prev
@@ -1398,7 +1318,11 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                         r.id === currentRoom.id
                                           ? {
                                               ...r,
-                                              equipment: { ...r.equipment, hasKeyboardStand: opt.value },
+                                              equipment: {
+                                                ...r.equipment,
+                                                guitarAmpDetails: [...(r.equipment?.guitarAmpDetails ?? []), ""],
+                                                guitarAmpCount: (r.equipment?.guitarAmpDetails ?? []).length + 1,
+                                              },
                                             }
                                           : r,
                                       ),
@@ -1406,47 +1330,410 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                   : prev,
                               )
                             }
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                              currentRoom.equipment?.hasKeyboardStand === opt.value
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-200 text-gray-800"
-                            }`}
                           >
-                            {opt.label}
+                            + Detay ekle
                           </button>
-                        ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Bas amfisi var mı?</p>
+                      <div className="mt-1 flex gap-2">
+                        {["Evet", "Hayır"].map((label, idx) => {
+                          const val = idx === 0;
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                equipment: {
+                                                  ...r.equipment,
+                                                  hasBassAmp: val,
+                                                  bassDetail: val ? r.equipment?.bassDetail ?? "" : "",
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                currentRoom.equipment?.hasBassAmp === val
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-gray-200 text-gray-800"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
                       </div>
-                    </label>
-                    <label className="text-xs text-gray-700">
-                      Kullanıma hazır gitar var mı? (detay)
+                      {currentRoom.equipment?.hasBassAmp && (
+                        <input
+                          className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                          value={currentRoom.equipment?.bassDetail ?? ""}
+                          onChange={(e) =>
+                            setStudio((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rooms: prev.rooms.map((r) =>
+                                      r.id === currentRoom.id
+                                        ? { ...r, equipment: { ...r.equipment, bassDetail: e.target.value } }
+                                        : r,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }
+                          placeholder="Örn: Ampeg BA-115"
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Kaç adet mikrofon var?</p>
                       <input
+                        type="number"
+                        min={0}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.guitarUseDetail ?? ""}
-                        onChange={(e) =>
+                        value={currentRoom.equipment?.micCount ?? 0}
+                        onChange={(e) => {
+                          const count = Math.max(0, Number(e.target.value) || 0);
                           setStudio((prev) =>
                             prev
                               ? {
                                   ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          equipment: {
-                                            ...r.equipment,
-                                            hasGuitarsForUse: !!e.target.value,
-                                            guitarUseDetail: e.target.value,
-                                          },
-                                        }
-                                      : r,
-                                  ),
+                                  rooms: prev.rooms.map((r) => {
+                                    if (r.id !== currentRoom.id) return r;
+                                    const prevDetails = r.equipment?.micDetails ?? [];
+                                    const nextDetails =
+                                      count === 0
+                                        ? []
+                                        : Array.from({ length: count }, (_, i) => prevDetails[i] ?? "");
+                                    return {
+                                      ...r,
+                                      equipment: { ...r.equipment, micCount: count, micDetails: nextDetails },
+                                    };
+                                  }),
                                 }
                               : prev,
-                          )
-                        }
-                        placeholder="Örn: Telecaster (takım)"
+                          );
+                        }}
                       />
-                    </label>
+                      {(currentRoom.equipment?.micCount ?? 0) > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {(currentRoom.equipment?.micDetails ?? []).map((detail, idx) => (
+                            <input
+                              key={idx}
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                              value={detail}
+                              placeholder={`Mikrofon ${idx + 1} (örn: SM58)`}
+                              onChange={(e) =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                equipment: {
+                                                  ...r.equipment,
+                                                  micDetails: (r.equipment?.micDetails ?? []).map((m, i) =>
+                                                    i === idx ? e.target.value : m,
+                                                  ),
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">DI Box var mı?</p>
+                      <div className="mt-1 flex gap-2">
+                        {["Evet", "Hayır"].map((label, idx) => {
+                          const val = idx === 0;
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? { ...r, equipment: { ...r.equipment, hasDiBox: val } }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                currentRoom.equipment?.hasDiBox === val
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-gray-200 text-gray-800"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Klavye var mı?</p>
+                      <div className="mt-1 flex gap-2">
+                        {["Evet", "Hayır"].map((label, idx) => {
+                          const val = idx === 0;
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                equipment: {
+                                                  ...r.equipment,
+                                                  hasKeyboard: val,
+                                                  keyboardDetail: val ? r.equipment?.keyboardDetail ?? "" : "",
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                currentRoom.equipment?.hasKeyboard === val
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-gray-200 text-gray-800"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {currentRoom.equipment?.hasKeyboard && (
+                        <input
+                          className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                          value={currentRoom.equipment?.keyboardDetail ?? ""}
+                          onChange={(e) =>
+                            setStudio((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rooms: prev.rooms.map((r) =>
+                                      r.id === currentRoom.id
+                                        ? { ...r, equipment: { ...r.equipment, keyboardDetail: e.target.value } }
+                                        : r,
+                                    ),
+                                  }
+                                : prev,
+                            )
+                          }
+                          placeholder="Örn: Roland FP-30"
+                        />
+                      )}
+                      {!currentRoom.equipment?.hasKeyboard && (
+                        <div className="mt-2">
+                          <p className="text-xs font-semibold text-gray-800">Klavye sehpası var mı?</p>
+                          <div className="mt-1 flex gap-2">
+                            {["Evet", "Hayır"].map((label, idx) => {
+                              const val = idx === 0;
+                              return (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={() =>
+                                    setStudio((prev) =>
+                                      prev
+                                        ? {
+                                            ...prev,
+                                            rooms: prev.rooms.map((r) =>
+                                              r.id === currentRoom.id
+                                                ? { ...r, equipment: { ...r.equipment, hasKeyboardStand: val } }
+                                                : r,
+                                            ),
+                                          }
+                                        : prev,
+                                    )
+                                  }
+                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                    currentRoom.equipment?.hasKeyboardStand === val
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-200 text-gray-800"
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800">Kullanıma hazır ekstra gitar var mı?</p>
+                      <div className="mt-1 flex gap-2">
+                        {["Evet", "Hayır"].map((label, idx) => {
+                          const val = idx === 0;
+                          return (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                equipment: {
+                                                  ...r.equipment,
+                                                  hasGuitarsForUse: val,
+                                                  micDetails: r.equipment?.micDetails ?? [],
+                                                  guitarUseDetail:
+                                                    val && r.equipment?.guitarUseDetail
+                                                      ? r.equipment.guitarUseDetail
+                                                      : "",
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                currentRoom.equipment?.hasGuitarsForUse === val
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-gray-200 text-gray-800"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {currentRoom.equipment?.hasGuitarsForUse && (
+                        <div className="mt-2 space-y-2">
+                          <p className="text-xs text-gray-700">Kaç adet gitar var?</p>
+                          <input
+                            type="number"
+                            min={1}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                            value={
+                              currentRoom.equipment?.guitarUseDetail
+                                ? currentRoom.equipment.guitarUseDetail.split("|").filter(Boolean).length
+                                : 1
+                            }
+                            onChange={(e) => {
+                              const count = Math.max(1, Number(e.target.value) || 1);
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) => {
+                                        if (r.id !== currentRoom.id) return r;
+                                        const prevList = (r.equipment?.guitarUseDetail || "")
+                                          .split("|")
+                                          .filter(Boolean);
+                                        const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "");
+                                        return {
+                                          ...r,
+                                          equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
+                                        };
+                                      }),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                          />
+                          {currentRoom.equipment?.guitarUseDetail
+                            ?.split("|")
+                            .filter(Boolean)
+                            .map((detail, idx) => (
+                              <input
+                                key={idx}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                                value={detail}
+                                placeholder={`Gitar ${idx + 1} (örn: Telecaster)`}
+                                onChange={(e) =>
+                                  setStudio((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          rooms: prev.rooms.map((r) => {
+                                            if (r.id !== currentRoom.id) return r;
+                                            const parts = (r.equipment?.guitarUseDetail || "")
+                                              .split("|")
+                                              .filter(Boolean);
+                                            parts[idx] = e.target.value;
+                                            return {
+                                              ...r,
+                                              equipment: { ...r.equipment, guitarUseDetail: parts.join("|") },
+                                            };
+                                          }),
+                                        }
+                                      : prev,
+                                  )
+                                }
+                              />
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() =>
+                      saveRoomBasics(currentRoom.id, {
+                        name: currentRoom.name,
+                        type: currentRoom.type,
+                        color: currentRoom.color,
+                        pricing: currentRoom.pricing,
+                        equipment: currentRoom.equipment,
+                      })
+                    }
+                    className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {saving ? "Kaydediliyor..." : "Ekipman bilgisi kaydet"}
+                  </button>
                 </div>
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
                   <div className="flex items-center justify-between gap-2">
