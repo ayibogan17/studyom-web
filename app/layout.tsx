@@ -40,7 +40,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="tr" className={`${inter.variable} ${interTight.variable}`}>
+    <html lang="tr" className={`${inter.variable} ${interTight.variable}`} suppressHydrationWarning>
       <body className="min-h-screen bg-[var(--color-secondary)] text-[var(--color-primary)] antialiased">
         <ThemeProvider>
           <div className="flex min-h-screen flex-col">
