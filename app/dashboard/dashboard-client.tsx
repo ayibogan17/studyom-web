@@ -179,6 +179,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [editingHours, setEditingHours] = useState(false);
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
+  const [showEquipment, setShowEquipment] = useState(true);
 
   const studioRooms = studio?.rooms ?? [];
   const orderedRooms = useMemo(() => {
@@ -1172,7 +1173,15 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 </button>
                 {currentRoom.type === "Prova odası" && (
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
-                  <p className="text-sm font-semibold text-gray-900">Ekipman</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowEquipment((v) => !v)}
+                    className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
+                  >
+                    Ekipman
+                    <span className="text-xs text-gray-500">{showEquipment ? "Gizle" : "Göster"}</span>
+                  </button>
+                  {showEquipment && (
                   <div className="mt-2 grid gap-4">
                     <div>
                       <p className="text-xs font-semibold text-gray-800">Davul var mı?</p>
@@ -1240,34 +1249,66 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
                     <div>
                       <p className="text-xs font-semibold text-gray-800">Kaç gitar amfiniz var?</p>
-                      <input
-                        type="number"
-                        min={0}
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.guitarAmpCount ?? 0}
-                        onChange={(e) => {
-                          const count = Math.max(0, Number(e.target.value) || 0);
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) => {
-                                    if (r.id !== currentRoom.id) return r;
-                                    const prevDetails = r.equipment?.guitarAmpDetails ?? [];
-                                    const nextDetails =
-                                      count === 0
-                                        ? []
-                                        : Array.from({ length: count }, (_, i) => prevDetails[i] ?? "Örn: Fender Hot Rod");
-                                    return {
-                                      ...r,
-                                      equipment: { ...r.equipment, guitarAmpCount: count, guitarAmpDetails: nextDetails },
-                                    };
-                                  }),
-                                }
-                              : prev,
-                          );
-                        }}
-                      />
+                      <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                            onClick={() => {
+                              const next = Math.max(0, (currentRoom.equipment?.guitarAmpCount ?? 0) - 1);
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) => {
+                                        if (r.id !== currentRoom.id) return r;
+                                        const prevDetails = r.equipment?.guitarAmpDetails ?? [];
+                                        const nextDetails =
+                                          next === 0
+                                            ? []
+                                            : Array.from({ length: next }, (_, i) => prevDetails[i] ?? "Örn: Fender Hot Rod");
+                                        return {
+                                          ...r,
+                                          equipment: { ...r.equipment, guitarAmpCount: next, guitarAmpDetails: nextDetails },
+                                        };
+                                      }),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                          >
+                            -
+                          </button>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {currentRoom.equipment?.guitarAmpCount ?? 0} adet
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                          onClick={() => {
+                            const next = (currentRoom.equipment?.guitarAmpCount ?? 0) + 1;
+                            setStudio((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rooms: prev.rooms.map((r) => {
+                                      if (r.id !== currentRoom.id) return r;
+                                      const prevDetails = r.equipment?.guitarAmpDetails ?? [];
+                                      const nextDetails = Array.from({ length: next }, (_, i) => prevDetails[i] ?? "Örn: Fender Hot Rod");
+                                      return {
+                                        ...r,
+                                        equipment: { ...r.equipment, guitarAmpCount: next, guitarAmpDetails: nextDetails },
+                                      };
+                                    }),
+                                  }
+                                : prev,
+                            );
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                       {(currentRoom.equipment?.guitarAmpCount ?? 0) > 0 && (
                         <div className="mt-2 space-y-2">
                           {(currentRoom.equipment?.guitarAmpDetails ?? []).map((val, idx) => (
@@ -1370,34 +1411,66 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
                     <div>
                       <p className="text-xs font-semibold text-gray-800">Kaç adet mikrofon var?</p>
-                      <input
-                        type="number"
-                        min={0}
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={currentRoom.equipment?.micCount ?? 0}
-                        onChange={(e) => {
-                          const count = Math.max(0, Number(e.target.value) || 0);
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) => {
-                                    if (r.id !== currentRoom.id) return r;
-                                    const prevDetails = r.equipment?.micDetails ?? [];
-                                    const nextDetails =
-                                      count === 0
-                                        ? []
-                                        : Array.from({ length: count }, (_, i) => prevDetails[i] ?? "");
-                                    return {
-                                      ...r,
-                                      equipment: { ...r.equipment, micCount: count, micDetails: nextDetails },
-                                    };
-                                  }),
-                                }
-                              : prev,
-                          );
-                        }}
-                      />
+                      <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                            onClick={() => {
+                              const next = Math.max(0, (currentRoom.equipment?.micCount ?? 0) - 1);
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) => {
+                                        if (r.id !== currentRoom.id) return r;
+                                        const prevDetails = r.equipment?.micDetails ?? [];
+                                        const nextDetails =
+                                          next === 0
+                                            ? []
+                                            : Array.from({ length: next }, (_, i) => prevDetails[i] ?? "");
+                                        return {
+                                          ...r,
+                                          equipment: { ...r.equipment, micCount: next, micDetails: nextDetails },
+                                        };
+                                      }),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                          >
+                            -
+                          </button>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {currentRoom.equipment?.micCount ?? 0} adet
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                          onClick={() => {
+                            const next = (currentRoom.equipment?.micCount ?? 0) + 1;
+                            setStudio((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rooms: prev.rooms.map((r) => {
+                                      if (r.id !== currentRoom.id) return r;
+                                      const prevDetails = r.equipment?.micDetails ?? [];
+                                      const nextDetails = Array.from({ length: next }, (_, i) => prevDetails[i] ?? "");
+                                      return {
+                                        ...r,
+                                        equipment: { ...r.equipment, micCount: next, micDetails: nextDetails },
+                                      };
+                                    }),
+                                  }
+                                : prev,
+                            );
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                       {(currentRoom.equipment?.micCount ?? 0) > 0 && (
                         <div className="mt-2 space-y-2">
                           {(currentRoom.equipment?.micDetails ?? []).map((detail, idx) => (
@@ -1573,37 +1646,70 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
                     <div>
                       <p className="text-xs font-semibold text-gray-800">Kullanıma hazır ekstra gitar var mı?</p>
-                      <input
-                        type="number"
-                        min={0}
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                        value={
-                          currentRoom.equipment?.guitarUseDetail
-                            ? currentRoom.equipment.guitarUseDetail.split("|").filter(Boolean).length
-                            : 0
-                        }
-                        onChange={(e) => {
-                          const count = Math.max(0, Number(e.target.value) || 0);
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) => {
-                                    if (r.id !== currentRoom.id) return r;
-                                    const prevList = (r.equipment?.guitarUseDetail || "")
-                                      .split("|")
-                                      .filter(Boolean);
-                                    const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "Örn: Telecaster (takım)");
-                                    return {
-                                      ...r,
-                                      equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
-                                    };
-                                  }),
-                                }
-                              : prev,
-                          );
-                        }}
-                      />
+                      <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                            onClick={() => {
+                              const nextCount =
+                                ((currentRoom.equipment?.guitarUseDetail || "").split("|").filter(Boolean).length ?? 0) - 1;
+                              const count = Math.max(0, nextCount);
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) => {
+                                        if (r.id !== currentRoom.id) return r;
+                                        const prevList = (r.equipment?.guitarUseDetail || "")
+                                          .split("|")
+                                          .filter(Boolean);
+                                        const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "Örn: Telecaster (takım)");
+                                        return {
+                                          ...r,
+                                          equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
+                                        };
+                                      }),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                          >
+                            -
+                          </button>
+                          <span className="text-sm font-semibold text-gray-900">
+                            {(currentRoom.equipment?.guitarUseDetail || "").split("|").filter(Boolean).length || 0} adet
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="h-8 w-8 rounded-full border border-gray-300 text-sm font-semibold text-gray-900"
+                          onClick={() => {
+                            const count =
+                              (currentRoom.equipment?.guitarUseDetail || "").split("|").filter(Boolean).length + 1;
+                            setStudio((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    rooms: prev.rooms.map((r) => {
+                                      if (r.id !== currentRoom.id) return r;
+                                      const prevList = (r.equipment?.guitarUseDetail || "")
+                                        .split("|")
+                                        .filter(Boolean);
+                                      const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "Örn: Telecaster (takım)");
+                                      return {
+                                        ...r,
+                                        equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
+                                      };
+                                    }),
+                                  }
+                                : prev,
+                            );
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
                       {currentRoom.equipment?.guitarUseDetail
                         ?.split("|")
                         .filter(Boolean)
