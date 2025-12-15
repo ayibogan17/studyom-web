@@ -160,6 +160,15 @@ const ensureSlotsForDay = (
   return { ...room, slots: { ...room.slots, [key]: generated } };
 };
 
+function toBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
@@ -180,6 +189,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [showEquipment, setShowEquipment] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const studioRooms = studio?.rooms ?? [];
   const orderedRooms = useMemo(() => {
@@ -1770,11 +1780,87 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     </div>
                     <button
                       type="button"
+                      onClick={() => fileInputRef.current?.click()}
                       className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:border-blue-400"
                     >
                       Görsel ekle
                     </button>
                   </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      if (!files.length) return;
+                      const valid = files.filter((f) => f.size <= 5 * 1024 * 1024);
+                      if (!valid.length) {
+                        setStatus("5 MB üzeri dosyalar eklenemez.");
+                        e.target.value = "";
+                        return;
+                      }
+                      try {
+                        const images = await Promise.all(valid.map((f) => toBase64(f)));
+                        setStudio((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                rooms: prev.rooms.map((r) =>
+                                  r.id === currentRoom.id
+                                    ? { ...r, images: [...(r.images ?? []), ...images] }
+                                    : r,
+                                ),
+                              }
+                            : prev,
+                        );
+                        setStatus("Görsel eklendi (kaydetmeyi unutma)");
+                      } catch (err) {
+                        console.error(err);
+                        setStatus("Görsel eklenemedi.");
+                      } finally {
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  {currentRoom.images?.length ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {currentRoom.images.map((src, idx) => (
+                        <div key={idx} className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
+                          <img src={src} alt={`Oda görsel ${idx + 1}`} className="h-28 w-full object-cover" />
+                          <div className="flex items-center justify-between px-2 py-1 text-[11px] text-gray-700">
+                            <span>{idx === 0 ? "Kapak" : `Görsel ${idx + 1}`}</span>
+                            <button
+                              type="button"
+                              className="text-red-600 hover:underline"
+                              onClick={() =>
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                images: (r.images ?? []).filter((_, i) => i !== idx),
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                )
+                              }
+                            >
+                              Sil
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-600">Henüz görsel eklenmedi.</p>
+                  )}
                 </div>
                 <div className="mt-4 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800">
                   <div className="flex items-center justify-between gap-2">
