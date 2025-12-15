@@ -609,10 +609,6 @@ export default function StudioSignupClient() {
                   </p>
                 </div>
               )}
-              <p className="mt-2 text-xs text-gray-300">
-                Formunuz ekibimiz tarafından incelenip onaylanacaktır. Giriş yapmış olduğunuz mail
-                üzerinden bilgi verilecektir. Onaylandıktan sonra giriş yapabilirsiniz.
-              </p>
             </div>
           </div>
         </section>
