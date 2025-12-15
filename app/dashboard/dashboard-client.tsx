@@ -1252,7 +1252,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                     const nextDetails =
                                       count === 0
                                         ? []
-                                        : Array.from({ length: count }, (_, i) => prevDetails[i] ?? "Buraya detay girebilirsiniz.");
+                                        : Array.from({ length: count }, (_, i) => prevDetails[i] ?? "Örn: Fender Hot Rod");
                                     return {
                                       ...r,
                                       equipment: { ...r.equipment, guitarAmpCount: count, guitarAmpDetails: nextDetails },
@@ -1270,7 +1270,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                               key={idx}
                               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
                               value={val}
-                              placeholder={`Amfi ${idx + 1} (örn: Buraya detay girebilirsiniz.)`}
+                              placeholder={`Amfi ${idx + 1} (örn: Marshall DSL)`}
                               onChange={(e) =>
                                 setStudio((prev) =>
                                   prev
@@ -1588,7 +1588,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                     const prevList = (r.equipment?.guitarUseDetail || "")
                                       .split("|")
                                       .filter(Boolean);
-                                    const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "Buraya detay girebilirsiniz.");
+                                    const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "Örn: Telecaster (takım)");
                                     return {
                                       ...r,
                                       equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
@@ -1607,7 +1607,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                             key={idx}
                             className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
                             value={detail}
-                            placeholder={`Gitar ${idx + 1} (örn: Buraya detay girebilirsiniz.)`}
+                            placeholder={`Gitar ${idx + 1} (örn: Telecaster)`}
                             onChange={(e) =>
                               setStudio((prev) =>
                                 prev
