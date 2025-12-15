@@ -1795,33 +1795,8 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     onChange={async (e) => {
                       const files = Array.from(e.target.files ?? []);
                       if (!files.length) return;
-                      const valid = files.filter((f) => f.size <= 5 * 1024 * 1024);
-                      if (!valid.length) {
-                        setStatus("5 MB üzeri dosyalar eklenemez.");
-                        e.target.value = "";
-                        return;
-                      }
-                      try {
-                        const images = await Promise.all(valid.map((f) => toBase64(f)));
-                        setStudio((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                rooms: prev.rooms.map((r) =>
-                                  r.id === currentRoom.id
-                                    ? { ...r, images: [...(r.images ?? []), ...images] }
-                                    : r,
-                                ),
-                              }
-                            : prev,
-                        );
-                        setStatus("Görsel eklendi (kaydetmeyi unutma)");
-                      } catch (err) {
-                        console.error(err);
-                        setStatus("Görsel eklenemedi.");
-                      } finally {
-                        e.target.value = "";
-                      }
+                      await uploadImages(files);
+                      e.target.value = "";
                     }}
                   />
                   {currentRoom.images?.length ? (
@@ -2029,3 +2004,47 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     </>
   );
 }
+  const uploadImages = async (files: File[]) => {
+    const valid = files.filter((f) => f.size <= 5 * 1024 * 1024);
+    if (!valid.length) {
+      setStatus("5 MB üzeri dosyalar eklenemez.");
+      return;
+    }
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of valid) {
+        const metaRes = await fetch("/api/uploads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, type: file.type }),
+        });
+        if (!metaRes.ok) {
+          const err = await metaRes.json().catch(() => ({}));
+          throw new Error(err.error || "Upload URL alınamadı");
+        }
+        const { uploadUrl, publicUrl } = (await metaRes.json()) as {
+          uploadUrl: string;
+          publicUrl: string;
+        };
+        const putRes = await fetch(uploadUrl, { method: "PUT", body: file });
+        if (!putRes.ok) {
+          throw new Error("Dosya yüklenemedi");
+        }
+        uploadedUrls.push(publicUrl);
+      }
+      setStudio((prev) =>
+        prev
+          ? {
+              ...prev,
+              rooms: prev.rooms.map((r) =>
+                r.id === currentRoom?.id ? { ...r, images: [...(r.images ?? []), ...uploadedUrls] } : r,
+              ),
+            }
+          : prev,
+      );
+      setStatus("Görseller eklendi (kaydetmeyi unutma)");
+    } catch (err) {
+      console.error(err);
+      setStatus("Görseller yüklenemedi.");
+    }
+  };
