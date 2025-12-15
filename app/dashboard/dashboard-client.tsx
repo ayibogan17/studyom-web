@@ -111,6 +111,42 @@ const parseKey = (key: string) => {
   return new Date(y, m - 1, d);
 };
 
+const loadImageElement = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Görsel yüklenemedi"));
+    img.src = src;
+  });
+
+const cropToSquare = async (src: string): Promise<Blob> => {
+  const img = await loadImageElement(src);
+  const size = Math.min(img.width, img.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas desteklenmiyor");
+  ctx.drawImage(
+    img,
+    (img.width - size) / 2,
+    (img.height - size) / 2,
+    size,
+    size,
+    0,
+    0,
+    size,
+    size,
+  );
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Kırpma başarısız"));
+    }, "image/jpeg");
+  });
+};
+
 const weekdayIndex = (d: Date) => {
   // Monday = 0 ... Sunday = 6
   return (d.getDay() + 6) % 7;
@@ -160,15 +196,6 @@ const ensureSlotsForDay = (
   return { ...room, slots: { ...room.slots, [key]: generated } };
 };
 
-function toBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
@@ -190,47 +217,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [showPalette, setShowPalette] = useState(false);
   const [showEquipment, setShowEquipment] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const uploadImages = async (files: File[]) => {
-    const valid = files.filter((f) => f.size <= 5 * 1024 * 1024);
-    if (!valid.length) {
-      setStatus("5 MB üzeri dosyalar eklenemez.");
-      return;
-    }
-    try {
-      const form = new FormData();
-      const uploadedUrls: string[] = [];
-      for (const file of valid) {
-        form.append("file", file);
-        const res = await fetch("/api/uploads", {
-          method: "POST",
-          body: form,
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Upload failed (${res.status})`);
-        }
-        const data = (await res.json()) as { publicUrl?: string };
-        if (data.publicUrl) uploadedUrls.push(data.publicUrl);
-        form.delete("file");
-      }
-      if (uploadedUrls.length) {
-        setStudio((prev) =>
-          prev
-            ? {
-                ...prev,
-                rooms: prev.rooms.map((r) =>
-                  r.id === currentRoom?.id ? { ...r, images: [...(r.images ?? []), ...uploadedUrls] } : r,
-                ),
-              }
-            : prev,
-        );
-        setStatus("Görseller eklendi (kaydetmeyi unutma)");
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus("Görseller yüklenemedi.");
-    }
-  };
 
   const studioRooms = studio?.rooms ?? [];
   const orderedRooms = useMemo(() => {
@@ -242,6 +228,118 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
+  const persistImages = async (images: string[], statusText?: string) => {
+    if (!currentRoom?.id) return;
+    setStudio((prev) =>
+      prev
+        ? {
+            ...prev,
+            rooms: prev.rooms.map((r) =>
+              r.id === currentRoom.id
+                ? {
+                    ...r,
+                    images,
+                  }
+                : r,
+            ),
+          }
+        : prev,
+    );
+    await saveRoomBasics(currentRoom.id, { images });
+    if (statusText) {
+      setStatus(statusText);
+    }
+  };
+  const uploadFile = async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/uploads", {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Upload failed (${res.status})`);
+    }
+    const data = (await res.json()) as { publicUrl?: string };
+    return data.publicUrl;
+  };
+  const updateRoomImages = (urls: string[], replaceIndex?: number) => {
+    if (!currentRoom?.id || !urls.length) return;
+    setStudio((prev) =>
+      prev
+        ? {
+            ...prev,
+            rooms: prev.rooms.map((r) => {
+              if (r.id !== currentRoom.id) return r;
+              const existing = r.images ?? [];
+              let nextImages = existing;
+              if (typeof replaceIndex === "number") {
+                nextImages = [...existing];
+                nextImages[replaceIndex] = urls[0] ?? nextImages[replaceIndex];
+              } else {
+                nextImages = [...existing, ...urls];
+              }
+              return { ...r, images: nextImages };
+            }),
+          }
+        : prev,
+    );
+  };
+  const uploadImages = async (files: File[], opts?: { replaceIndex?: number }) => {
+    if (!currentRoom?.id) {
+      setStatus("Önce bir oda seçin.");
+      return;
+    }
+    const valid = files.filter((f) => f.size <= 5 * 1024 * 1024);
+    if (!valid.length) {
+      setStatus("5 MB üzeri dosyalar eklenemez.");
+      return;
+    }
+    try {
+      const uploadedUrls: string[] = [];
+      for (const file of valid) {
+        const url = await uploadFile(file);
+        if (url) uploadedUrls.push(url);
+      }
+      if (uploadedUrls.length) {
+        const base = currentRoom?.images ?? [];
+        const nextImages =
+          opts?.replaceIndex !== undefined
+            ? base.map((img, idx) => (idx === opts.replaceIndex ? uploadedUrls[0] ?? img : img))
+            : [...base, ...uploadedUrls];
+        updateRoomImages(uploadedUrls, opts?.replaceIndex);
+        await persistImages(
+          nextImages,
+          opts?.replaceIndex !== undefined ? "Görsel güncellendi" : "Görseller eklendi",
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus("Görseller yüklenemedi.");
+    }
+  };
+  const moveImage = (from: number, to: number) => {
+    if (!currentRoom?.id) return;
+    const arr = [...(currentRoom.images ?? [])];
+    if (from < 0 || from >= arr.length || to < 0 || to >= arr.length) return;
+    const [item] = arr.splice(from, 1);
+    arr.splice(to, 0, item);
+    void persistImages(arr, "Görsel sırası kaydedildi");
+  };
+  const cropImageAt = async (idx: number) => {
+    if (!currentRoom?.images?.[idx]) return;
+    try {
+      setStatus("Görsel kare kırpılıyor...");
+      const blob = await cropToSquare(currentRoom.images[idx]);
+      const file = new File([blob], `crop-${Date.now()}.jpg`, { type: blob.type || "image/jpeg" });
+      await uploadImages([file], { replaceIndex: idx });
+      setStatus("Kare kırpma kaydedildi (kaydetmeyi unutma)");
+    } catch (err) {
+      console.error(err);
+      setStatus("Görsel kırpılamadı (CORS engeli olabilir).");
+    }
+  };
 
   // sync hours draft when studio changes
   useEffect(() => {
@@ -1844,31 +1942,59 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       {currentRoom.images.map((src, idx) => (
                         <div key={idx} className="relative overflow-hidden rounded-lg border border-gray-200 bg-white">
                           <img src={src} alt={`Oda görsel ${idx + 1}`} className="h-28 w-full object-cover" />
-                          <div className="flex items-center justify-between px-2 py-1 text-[11px] text-gray-700">
-                            <span>{idx === 0 ? "Kapak" : `Görsel ${idx + 1}`}</span>
-                            <button
-                              type="button"
-                              className="text-red-600 hover:underline"
-                              onClick={() =>
-                                setStudio((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        rooms: prev.rooms.map((r) =>
-                                          r.id === currentRoom.id
-                                            ? {
-                                                ...r,
-                                                images: (r.images ?? []).filter((_, i) => i !== idx),
-                                              }
-                                            : r,
-                                        ),
-                                      }
-                                    : prev,
-                                )
-                              }
-                            >
-                              Sil
-                            </button>
+                          <div className="flex flex-col gap-1 px-2 py-1 text-[11px] text-gray-700">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-900">
+                                {idx === 0 ? "Kapak" : `Görsel ${idx + 1}`}
+                              </span>
+                              <div className="flex flex-wrap items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => moveImage(idx, idx - 1)}
+                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === (currentRoom.images?.length ?? 0) - 1}
+                                  onClick={() => moveImage(idx, idx + 1)}
+                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => moveImage(idx, 0)}
+                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition enabled:hover:border-blue-400 disabled:opacity-50"
+                                >
+                                  Kapak yap
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => cropImageAt(idx)}
+                                  className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-semibold text-gray-800 transition hover:border-blue-400"
+                                >
+                                  Kare kırp
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-gray-600">Sırayı değiştirip kırpabilirsiniz</span>
+                              <button
+                                type="button"
+                                className="text-red-600 hover:underline"
+                                onClick={async () => {
+                                  if (!currentRoom) return;
+                                  const next = (currentRoom.images ?? []).filter((_, i) => i !== idx);
+                                  await persistImages(next, "Görsel silindi");
+                                }}
+                              >
+                                Sil
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}

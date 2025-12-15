@@ -1,4 +1,4 @@
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
@@ -52,12 +52,13 @@ export const authOptions: NextAuthOptions = {
           (u) => u.email.toLowerCase() === email && u.password === password,
         );
         if (!match) return null;
-        return {
+        const user: User & { role?: string } = {
           id: match.id,
           email: match.email,
           name: match.name,
           role: match.role,
-        } as any;
+        };
+        return user;
       },
     }),
   ],
