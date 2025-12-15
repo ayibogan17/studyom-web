@@ -219,7 +219,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         });
         if (!putRes.ok) {
           const txt = await putRes.text().catch(() => "");
-          throw new Error(txt || "Dosya yüklenemedi");
+          throw new Error(`Dosya yüklenemedi (${putRes.status}) ${txt}`);
         }
         uploadedUrls.push(publicUrl);
       }

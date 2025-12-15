@@ -39,12 +39,11 @@ export async function POST(req: Request) {
   const ext = name?.split(".").pop() || "bin";
   const key = `uploads/${Date.now()}-${randomUUID()}.${ext}`;
 
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    ContentType: contentType,
-    ACL: "public-read",
-  } as any);
+const command = new PutObjectCommand({
+  Bucket: bucket,
+  Key: key,
+  ContentType: contentType,
+});
 
   const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 60 * 5 });
   const publicUrl = publicBaseUrl ? `${publicBaseUrl}/${key}` : uploadUrl.split("?")[0];
