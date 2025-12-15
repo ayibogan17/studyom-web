@@ -333,12 +333,6 @@ export default function StudioSignupClient() {
             </p>
           </header>
 
-          {status && (
-            <div className="mb-4 rounded-xl border border-[#2D9CDB]/30 bg-[#2D9CDB]/10 px-4 py-3 text-sm text-[#2D9CDB]">
-              {status}
-            </div>
-          )}
-
           <div className="space-y-5">
             <div className="rounded-2xl border border-white/15 bg-black/25 p-4 shadow-sm">
               <p className="text-sm font-semibold text-white">Giriş yöntemi</p>
@@ -601,6 +595,20 @@ export default function StudioSignupClient() {
               >
                 {submitting ? "Kaydediliyor..." : "Üyeliği Tamamla"}
               </button>
+              {status && (
+                <div className="mt-3 rounded-xl border border-[#2D9CDB]/30 bg-[#2D9CDB]/10 px-4 py-3 text-sm text-[#2D9CDB]">
+                  <p>{status}</p>
+                  <p className="mt-1">
+                    Stüdyonuzu düzenlemeye başlamak için giriş bilgilerinizle{" "}
+                    <a
+                      href="/studio-login"
+                      className="font-semibold text-white underline underline-offset-4"
+                    >
+                      buradan giriş yapabilirsiniz.
+                    </a>
+                  </p>
+                </div>
+              )}
               <p className="mt-2 text-xs text-gray-300">
                 Formunuz ekibimiz tarafından incelenip onaylanacaktır. Giriş yapmış olduğunuz mail
                 üzerinden bilgi verilecektir. Onaylandıktan sonra giriş yapabilirsiniz.
