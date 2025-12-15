@@ -52,13 +52,19 @@ export function AppHeader() {
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setShowProd((v) => !v)}
+                    onMouseEnter={() => setShowProd(true)}
+                    onMouseLeave={() => setShowProd(false)}
                     className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
                   >
                     Üretim
+                    <span className="text-[10px] text-[var(--color-muted)]">▼</span>
                   </button>
                   {showProd && (
-                    <div className="absolute right-0 top-12 z-20 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg">
+                    <div
+                      className="absolute right-0 top-12 z-20 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
+                      onMouseEnter={() => setShowProd(true)}
+                      onMouseLeave={() => setShowProd(false)}
+                    >
                       <div className="space-y-3 text-left">
                         {productionItems.map((item) => (
                           <div key={item.title} className="rounded-xl bg-[var(--color-secondary)] p-3">
