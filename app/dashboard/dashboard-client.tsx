@@ -1233,54 +1233,43 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold text-gray-800">Gitar amfiniz var mı?</p>
-                      <div className="mt-1 flex gap-2">
-                        {["Evet", "Hayır"].map((label, idx) => {
-                          const val = idx === 0;
-                          return (
-                            <button
-                              key={label}
-                              type="button"
-                              onClick={() =>
-                                setStudio((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        rooms: prev.rooms.map((r) =>
-                                          r.id === currentRoom.id
-                                            ? {
-                                                ...r,
-                                                equipment: {
-                                                  ...r.equipment,
-                                                  guitarAmpCount: val ? r.equipment?.guitarAmpCount ?? 1 : 0,
-                                                  guitarAmpDetails: val ? r.equipment?.guitarAmpDetails ?? [""] : [],
-                                                },
-                                              }
-                                            : r,
-                                        ),
-                                      }
-                                    : prev,
-                                )
-                              }
-                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                (currentRoom.equipment?.guitarAmpCount ?? 0) > 0 === val
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-gray-200 text-gray-800"
-                              }`}
-                            >
-                              {label}
-                            </button>
+                      <p className="text-xs font-semibold text-gray-800">Kaç gitar amfiniz var?</p>
+                      <input
+                        type="number"
+                        min={0}
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={currentRoom.equipment?.guitarAmpCount ?? 0}
+                        onChange={(e) => {
+                          const count = Math.max(0, Number(e.target.value) || 0);
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) => {
+                                    if (r.id !== currentRoom.id) return r;
+                                    const prevDetails = r.equipment?.guitarAmpDetails ?? [];
+                                    const nextDetails =
+                                      count === 0
+                                        ? []
+                                        : Array.from({ length: count }, (_, i) => prevDetails[i] ?? "");
+                                    return {
+                                      ...r,
+                                      equipment: { ...r.equipment, guitarAmpCount: count, guitarAmpDetails: nextDetails },
+                                    };
+                                  }),
+                                }
+                              : prev,
                           );
-                        })}
-                      </div>
+                        }}
+                      />
                       {(currentRoom.equipment?.guitarAmpCount ?? 0) > 0 && (
                         <div className="mt-2 space-y-2">
-                          {(currentRoom.equipment?.guitarAmpDetails ?? [""]).map((val, idx) => (
+                          {(currentRoom.equipment?.guitarAmpDetails ?? []).map((val, idx) => (
                             <input
                               key={idx}
                               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
                               value={val}
-                              placeholder="Örn: Fender Hot Rod"
+                              placeholder={`Amfi ${idx + 1} (örn: Fender Hot Rod)`}
                               onChange={(e) =>
                                 setStudio((prev) =>
                                   prev
@@ -1295,7 +1284,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                                   guitarAmpDetails: (r.equipment?.guitarAmpDetails ?? []).map(
                                                     (d, i) => (i === idx ? e.target.value : d),
                                                   ),
-                                                  guitarAmpCount: (r.equipment?.guitarAmpDetails ?? []).length,
                                                 },
                                               }
                                             : r,
@@ -1306,33 +1294,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                               }
                             />
                           ))}
-                          <button
-                            type="button"
-                            className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-blue-400"
-                            onClick={() =>
-                              setStudio((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      rooms: prev.rooms.map((r) =>
-                                        r.id === currentRoom.id
-                                          ? {
-                                              ...r,
-                                              equipment: {
-                                                ...r.equipment,
-                                                guitarAmpDetails: [...(r.equipment?.guitarAmpDetails ?? []), ""],
-                                                guitarAmpCount: (r.equipment?.guitarAmpDetails ?? []).length + 1,
-                                              },
-                                            }
-                                          : r,
-                                      ),
-                                    }
-                                  : prev,
-                              )
-                            }
-                          >
-                            + Detay ekle
-                          </button>
                         </div>
                       )}
                     </div>
@@ -1606,116 +1567,68 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
                     <div>
                       <p className="text-xs font-semibold text-gray-800">Kullanıma hazır ekstra gitar var mı?</p>
-                      <div className="mt-1 flex gap-2">
-                        {["Evet", "Hayır"].map((label, idx) => {
-                          const val = idx === 0;
-                          return (
-                            <button
-                              key={label}
-                              type="button"
-                              onClick={() =>
-                                setStudio((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        rooms: prev.rooms.map((r) =>
-                                          r.id === currentRoom.id
-                                            ? {
-                                                ...r,
-                                                equipment: {
-                                                  ...r.equipment,
-                                                  hasGuitarsForUse: val,
-                                                  micDetails: r.equipment?.micDetails ?? [],
-                                                  guitarUseDetail:
-                                                    val && r.equipment?.guitarUseDetail
-                                                      ? r.equipment.guitarUseDetail
-                                                      : "",
-                                                },
-                                              }
-                                            : r,
-                                        ),
-                                      }
-                                    : prev,
-                                )
-                              }
-                              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                currentRoom.equipment?.hasGuitarsForUse === val
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-gray-200 text-gray-800"
-                              }`}
-                            >
-                              {label}
-                            </button>
+                      <input
+                        type="number"
+                        min={0}
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                        value={
+                          currentRoom.equipment?.guitarUseDetail
+                            ? currentRoom.equipment.guitarUseDetail.split("|").filter(Boolean).length
+                            : 0
+                        }
+                        onChange={(e) => {
+                          const count = Math.max(0, Number(e.target.value) || 0);
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) => {
+                                    if (r.id !== currentRoom.id) return r;
+                                    const prevList = (r.equipment?.guitarUseDetail || "")
+                                      .split("|")
+                                      .filter(Boolean);
+                                    const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "");
+                                    return {
+                                      ...r,
+                                      equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
+                                    };
+                                  }),
+                                }
+                              : prev,
                           );
-                        })}
-                      </div>
-                      {currentRoom.equipment?.hasGuitarsForUse && (
-                        <div className="mt-2 space-y-2">
-                          <p className="text-xs text-gray-700">Kaç adet gitar var?</p>
+                        }}
+                      />
+                      {currentRoom.equipment?.guitarUseDetail
+                        ?.split("|")
+                        .filter(Boolean)
+                        .map((detail, idx) => (
                           <input
-                            type="number"
-                            min={1}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                            value={
-                              currentRoom.equipment?.guitarUseDetail
-                                ? currentRoom.equipment.guitarUseDetail.split("|").filter(Boolean).length
-                                : 1
-                            }
-                            onChange={(e) => {
-                              const count = Math.max(1, Number(e.target.value) || 1);
+                            key={idx}
+                            className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
+                            value={detail}
+                            placeholder={`Gitar ${idx + 1} (örn: Telecaster)`}
+                            onChange={(e) =>
                               setStudio((prev) =>
                                 prev
                                   ? {
                                       ...prev,
                                       rooms: prev.rooms.map((r) => {
                                         if (r.id !== currentRoom.id) return r;
-                                        const prevList = (r.equipment?.guitarUseDetail || "")
+                                        const parts = (r.equipment?.guitarUseDetail || "")
                                           .split("|")
                                           .filter(Boolean);
-                                        const next = Array.from({ length: count }, (_, i) => prevList[i] ?? "");
+                                        parts[idx] = e.target.value;
                                         return {
                                           ...r,
-                                          equipment: { ...r.equipment, guitarUseDetail: next.join("|") },
+                                          equipment: { ...r.equipment, guitarUseDetail: parts.join("|") },
                                         };
                                       }),
                                     }
                                   : prev,
-                              );
-                            }}
+                              )
+                            }
                           />
-                          {currentRoom.equipment?.guitarUseDetail
-                            ?.split("|")
-                            .filter(Boolean)
-                            .map((detail, idx) => (
-                              <input
-                                key={idx}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                                value={detail}
-                                placeholder={`Gitar ${idx + 1} (örn: Telecaster)`}
-                                onChange={(e) =>
-                                  setStudio((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          rooms: prev.rooms.map((r) => {
-                                            if (r.id !== currentRoom.id) return r;
-                                            const parts = (r.equipment?.guitarUseDetail || "")
-                                              .split("|")
-                                              .filter(Boolean);
-                                            parts[idx] = e.target.value;
-                                            return {
-                                              ...r,
-                                              equipment: { ...r.equipment, guitarUseDetail: parts.join("|") },
-                                            };
-                                          }),
-                                        }
-                                      : prev,
-                                  )
-                                }
-                              />
-                            ))}
-                        </div>
-                      )}
+                        ))}
                     </div>
                   </div>
                   <button
