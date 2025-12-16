@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     }
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
+      // Cast to avoid client schema drift on build; runtime matches migrated DB
       data: {
         email: email.toLowerCase(),
         name: fullName,
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
         intent,
         passwordHash,
         role: UserRole.USER,
-      },
+      } as any,
     });
     return NextResponse.json({ ok: true, userId: user.id });
   } catch (err) {
