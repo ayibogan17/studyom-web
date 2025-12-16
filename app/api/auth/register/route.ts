@@ -25,18 +25,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Bu e-posta zaten kayıtlı" }, { status: 409 });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      // Cast to avoid client schema drift on build; runtime matches migrated DB
-      data: {
-        email: email.toLowerCase(),
-        name: fullName,
-        fullName,
-        city,
-        intent,
-        passwordHash,
-        role: UserRole.USER,
-      } as any,
-    });
+    let user;
+    try {
+      user = await prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          name: fullName,
+          fullName,
+          city,
+          intent,
+          passwordHash,
+          role: UserRole.USER,
+        },
+      });
+    } catch (e) {
+      // Eğer şema henüz deploy edilmediyse, minimum alanlarla tekrar dene
+      if (e instanceof Prisma.PrismaClientValidationError && `${e.message}`.includes("Unknown argument")) {
+        user = await prisma.user.create({
+          data: {
+            email: email.toLowerCase(),
+            name: fullName,
+            passwordHash,
+            role: UserRole.USER,
+          },
+        });
+      } else {
+        throw e;
+      }
+    }
     return NextResponse.json({ ok: true, userId: user.id });
   } catch (err) {
     console.error("Register error:", err);
