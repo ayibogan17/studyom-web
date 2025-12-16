@@ -1,9 +1,9 @@
-import LoginClient from "./LoginClient";
+import { LoginForm } from "./_components/LoginForm";
 
 export const metadata = {
-  title: "Giriş Yap | Studyom",
+  title: "Giriş Yap | Stüdyom",
 };
 
 export default function LoginPage() {
-  return <LoginClient />;
+  return <LoginForm />;
 }

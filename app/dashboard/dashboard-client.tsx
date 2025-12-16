@@ -906,6 +906,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     return withSlots.slots[key] || [];
   })();
 
+
   if (!studio) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-gray-600">
