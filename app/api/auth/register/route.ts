@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 
 const schema = z.object({
   email: z.string().email(),
@@ -39,7 +39,11 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: true, userId: user.id });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Beklenmedik hata" }, { status: 500 });
+    console.error("Register error:", err);
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      return NextResponse.json({ error: `DB hatası: ${err.code}` }, { status: 500 });
+    }
+    const message = err instanceof Error ? err.message : "Beklenmedik hata";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
