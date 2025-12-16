@@ -167,7 +167,12 @@ export function SignupForm() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(json.error || "Kayıt başarısız");
+        const msg =
+          res.status === 409
+            ? "Bu e-posta zaten kayıtlı. Giriş yapmayı deneyin."
+            : json.error || "Kayıt başarısız";
+        setStatus(msg);
+        return;
       }
       await signIn("credentials", {
         email: values.email,
