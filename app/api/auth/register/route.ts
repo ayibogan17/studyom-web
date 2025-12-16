@@ -26,8 +26,8 @@ export async function POST(req: Request) {
     }
     const passwordHash = await bcrypt.hash(password, 10);
     let user;
-    try {
-      user = await prisma.user.create({
+    user = await prisma.user
+      .create({
         data: {
           email: email.toLowerCase(),
           name: fullName,
@@ -37,22 +37,22 @@ export async function POST(req: Request) {
           passwordHash,
           role: UserRole.USER,
         },
-      });
-    } catch (e) {
-      // Eğer şema henüz deploy edilmediyse, minimum alanlarla tekrar dene
-      if (e instanceof Prisma.PrismaClientValidationError && `${e.message}`.includes("Unknown argument")) {
-        user = await prisma.user.create({
-          data: {
-            email: email.toLowerCase(),
-            name: fullName,
-            passwordHash,
-            role: UserRole.USER,
-          },
-        });
-      } else {
+      })
+      .catch(async (e) => {
+        const msg = `${(e as Error).message}`;
+        // Eğer şema henüz deploy edilmediyse, minimum alanlarla tekrar dene
+        if (msg.includes("Unknown argument `fullName`")) {
+          return prisma.user.create({
+            data: {
+              email: email.toLowerCase(),
+              name: fullName,
+              passwordHash,
+              role: UserRole.USER,
+            },
+          });
+        }
         throw e;
-      }
-    }
+      });
     return NextResponse.json({ ok: true, userId: user.id });
   } catch (err) {
     console.error("Register error:", err);
