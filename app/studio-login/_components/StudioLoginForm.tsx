@@ -182,7 +182,7 @@ export function StudioLoginForm({ redirect }: StudioLoginFormProps) {
 
           <Separator label="veya" />
 
-          <OAuthButtons />
+          <OAuthButtons callbackUrl={defaultRedirect} />
 
           <Separator label="veya" />
 

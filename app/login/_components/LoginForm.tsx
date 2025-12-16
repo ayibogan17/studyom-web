@@ -40,7 +40,7 @@ export function LoginForm() {
     const res = await signIn("credentials", {
       email: values.email,
       password: values.password,
-      callbackUrl: "/dashboard",
+      callbackUrl: "/studyo",
       redirect: false,
     });
     setLoading(false);
@@ -92,7 +92,7 @@ export function LoginForm() {
             </p>
             <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Stüdyom hesabınla giriş yap</h1>
             <p className="text-sm text-[var(--color-muted)]">
-              Rezervasyonlarını yönetmek ve stüdyo aramak için giriş yap.
+              Müzisyenler, hocalar, teknisyenler ve stüdyo sahipleri burada.
             </p>
           </header>
 

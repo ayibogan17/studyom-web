@@ -95,10 +95,7 @@ export function AppHeader() {
             </div>
           ))}
           <Button asChild size="sm" variant="secondary">
-            <Link href="/login">Müzisyen Girişi</Link>
-          </Button>
-          <Button asChild size="sm" variant="secondary">
-            <Link href="/studio-login">Stüdyo Girişi</Link>
+            <Link href="/login">Giriş</Link>
           </Button>
         </nav>
         <button
@@ -144,10 +141,7 @@ export function AppHeader() {
             </div>
           ))}
           <Button asChild full size="sm" variant="secondary">
-            <Link href="/login">Müzisyen Girişi</Link>
-          </Button>
-          <Button asChild full size="sm" variant="secondary">
-            <Link href="/studio-login">Stüdyo Girişi</Link>
+            <Link href="/login">Giriş</Link>
           </Button>
         </div>
       </div>

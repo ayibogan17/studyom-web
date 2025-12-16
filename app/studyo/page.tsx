@@ -17,7 +17,6 @@ type Studio = {
     provinceName: string;
     districtId: string;
     districtName: string;
-    neighborhoodId?: string;
   };
   roomTypes: string[];
   pricePerHour?: number;
@@ -36,14 +35,12 @@ function pickAddress(geo: TRGeo, provinceName: string, districtName: string) {
     province.districts[0];
 
   if (!district) return null;
-  const neighborhood = district.neighborhoods?.[0]?.id;
 
   return {
     provinceId: province.id,
     provinceName: province.name,
     districtId: district.id,
     districtName: district.name,
-    neighborhoodId: neighborhood,
   };
 }
 
@@ -135,8 +132,7 @@ export default function StudioListPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilters((prev) =>
       prev.province === next.province &&
-      prev.district === next.district &&
-      prev.neighborhood === next.neighborhood
+      prev.district === next.district
         ? prev
         : next,
     );
@@ -148,7 +144,6 @@ export default function StudioListPage() {
     return studios.filter((studio) => {
       if (studio.address.provinceId !== filters.province) return false;
       if (studio.address.districtId !== filters.district) return false;
-      if (filters.neighborhood && studio.address.neighborhoodId !== filters.neighborhood) return false;
       return true;
     });
   }, [filters, studios]);

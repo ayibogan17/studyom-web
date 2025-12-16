@@ -141,7 +141,7 @@ export function StudioSignupForm() {
     formState: { errors, isValid },
     getValues,
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver<FormValues>(schema),
     mode: "onChange",
     defaultValues: {
       method: "email",

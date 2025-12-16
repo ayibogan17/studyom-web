@@ -3,7 +3,6 @@ import { slugify } from "./geo";
 export type StudioFilters = {
   province: string;
   district: string;
-  neighborhood?: string;
 };
 
 export const defaultFilters: StudioFilters = {
@@ -28,16 +27,13 @@ export function parseFiltersFromSearchParams(
 ): StudioFilters {
   const provinceRaw = getParamValue(params, "il") || "";
   const districtRaw = getParamValue(params, "ilce") || "";
-  const neighborhoodRaw = getParamValue(params, "mahalle") || undefined;
 
   const province = provinceRaw ? slugify(provinceRaw) : "";
   const district = districtRaw ? slugify(districtRaw) : "";
-  const neighborhood = neighborhoodRaw ? slugify(neighborhoodRaw) : undefined;
 
   return {
     province,
     district,
-    neighborhood,
   };
 }
 
@@ -46,7 +42,6 @@ export function buildQueryString(filters: StudioFilters): string {
 
   if (filters.province) params.set("il", filters.province);
   if (filters.district) params.set("ilce", filters.district);
-  if (filters.neighborhood) params.set("mahalle", filters.neighborhood);
 
   return params.toString();
 }
