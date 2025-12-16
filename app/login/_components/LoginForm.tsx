@@ -46,7 +46,11 @@ export function LoginForm() {
     setLoading(false);
 
     if (res?.error) {
-      setStatus("Giriş başarısız. Bilgileri kontrol edin.");
+      if (res.error === "EMAIL_NOT_VERIFIED") {
+        setStatus("E-posta doğrulaması gerekli. Mail kutunu kontrol et ve tekrar dene.");
+      } else {
+        setStatus("Giriş başarısız. Bilgileri kontrol edin.");
+      }
       return;
     }
 
