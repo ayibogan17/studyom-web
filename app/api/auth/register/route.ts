@@ -34,22 +34,18 @@ export async function POST(req: Request) {
     const emailNormalized = email.toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: emailNormalized } });
     if (existing) {
-      // Eğer eski kayıtta passwordHash yoksa (örn. Google ile gelen veya hatalı kayıt), şifreyi güncelle
-      if (!existing.passwordHash) {
-        const passwordHash = await bcrypt.hash(password, 10);
-        const updated = await prisma.user.update({
-          where: { email: emailNormalized },
-          data: {
-            passwordHash,
-            name: existing.name || fullName,
-            fullName: existing.fullName || fullName,
-            city: existing.city || city,
-            intent: existing.intent?.length ? existing.intent : intent,
-          },
-        });
-        return NextResponse.json({ ok: true, userId: updated.id, updated: true });
-      }
-      return NextResponse.json({ error: "Bu e-posta zaten kayıtlı" }, { status: 409 });
+      const passwordHash = await bcrypt.hash(password, 10);
+      const updated = await prisma.user.update({
+        where: { email: emailNormalized },
+        data: {
+          passwordHash,
+          name: fullName,
+          fullName,
+          city,
+          intent,
+        },
+      });
+      return NextResponse.json({ ok: true, userId: updated.id, updated: true });
     }
     const passwordHash = await bcrypt.hash(password, 10);
     let user;
