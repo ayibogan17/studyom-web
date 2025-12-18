@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
+import { prisma } from "@/lib/prisma";
 import { getTeacherBySlug } from "@/lib/teachers";
 
 export const runtime = "nodejs";
@@ -73,6 +74,23 @@ Not: Ders ve stüdyo ayarlamaları öğretmenle doğrudan yapılır. Studyom ara
     }
 
     cooldownMap.set(cooldownKey, Date.now());
+
+    // Kaydı veri tabanına işle (admin görünümü için)
+    try {
+      await prisma.teacherLead.create({
+        data: {
+          teacherSlug,
+          teacherName: teacher.displayName,
+          studentName,
+          studentEmail,
+          city,
+          preferredLessonType: preferredLessonType ?? null,
+          message,
+        },
+      });
+    } catch (err) {
+      console.error("teacher lead save failed", err);
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

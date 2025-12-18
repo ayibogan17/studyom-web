@@ -1,6 +1,7 @@
 // app/api/lead/route.ts
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { prisma } from "@/lib/prisma";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const leadTo = process.env.LEAD_TO || "info@studyom.net"; // sana düşecek adres
@@ -90,6 +91,20 @@ https://studyom.net`,
         userResult.error?.message ||
         "Resend send failed.";
       throw new Error(message);
+    }
+
+    // Admin portalda görüntülenmesi için kaydı tut
+    try {
+      await prisma.lead.create({
+        data: {
+          name: name || null,
+          email,
+          note: note || null,
+          source: "contact",
+        },
+      });
+    } catch (err) {
+      console.error("Lead save failed", err);
     }
 
     return NextResponse.json({ ok: true });

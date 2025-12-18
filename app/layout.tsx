@@ -5,6 +5,7 @@ import { AppHeader } from "@/components/design-system/components/shared/app-head
 import { AppFooter } from "@/components/design-system/components/shared/app-footer";
 import { ThemeProvider } from "@/components/design-system/providers/theme-provider";
 import { AppToaster } from "@/components/design-system/components/shared/app-toaster";
+import { AuthProvider } from "@/components/design-system/providers/auth-provider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -43,12 +44,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="tr" className={`dark ${inter.variable} ${interTight.variable}`} suppressHydrationWarning>
       <body className="min-h-screen bg-[var(--color-secondary)] text-[var(--color-primary)] antialiased">
         <ThemeProvider>
-          <div className="flex min-h-screen flex-col">
-            <AppHeader />
-            <main className="flex-1">{children}</main>
-            <AppFooter />
-          </div>
-          <AppToaster />
+          <AuthProvider>
+            <div className="flex min-h-screen flex-col">
+              <AppHeader />
+              <main className="flex-1">{children}</main>
+              <AppFooter />
+            </div>
+            <AppToaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

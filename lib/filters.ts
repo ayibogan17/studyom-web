@@ -2,7 +2,7 @@ import { slugify } from "./geo";
 
 export type StudioFilters = {
   province: string;
-  district: string;
+  district?: string;
 };
 
 export const defaultFilters: StudioFilters = {

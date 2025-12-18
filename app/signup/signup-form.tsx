@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Loader2, Lock, Mail, User as UserIcon, MapPin } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail, User as UserIcon, MapPin, Chrome } from "lucide-react";
 import { signIn } from "next-auth/react";
+import { Button } from "@/components/design-system/components/ui/button";
 
 const cityOptions = [
   "İstanbul",
@@ -100,18 +101,37 @@ const intentOptions = [
 
 const schema = z
   .object({
+    method: z.enum(["email", "google"]),
     fullName: z.string().min(2, "Ad Soyad gerekli").max(60),
-    email: z.string().email("Geçerli bir e-posta girin"),
-    password: z.string().min(8, "En az 8 karakter").max(72),
-    confirm: z.string().min(8, "En az 8 karakter"),
+    email: z.string().email("Geçerli bir e-posta girin").optional().or(z.literal("")),
+    password: z.string().min(8, "En az 8 karakter").max(72).optional().or(z.literal("")),
+    confirm: z.string().min(8, "En az 8 karakter").optional().or(z.literal("")),
     city: z.string().min(2, "Şehir seçin"),
     intent: z.array(z.string()).min(1, "En az bir seçim yapın"),
     tos: z.boolean().refine((v) => v === true, "Şartları kabul edin"),
-    kvkk: z.boolean().refine((v) => v === true, "KVKK metnini kabul edin"),
   })
-  .refine((data) => data.password === data.confirm, {
-    message: "Şifreler eşleşmiyor",
-    path: ["confirm"],
+  .superRefine((data, ctx) => {
+    if (data.method === "google") {
+      return;
+    }
+    if (!data.email) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "E-posta gerekli", path: ["email"] });
+    } else {
+      const emailCheck = z.string().email().safeParse(data.email);
+      if (!emailCheck.success) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Geçerli bir e-posta girin", path: ["email"] });
+      }
+    }
+    if (!data.password || data.password.length < 8) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Şifre en az 8 karakter olmalı",
+        path: ["password"],
+      });
+    }
+    if (data.password !== data.confirm) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Şifreler eşleşmiyor", path: ["confirm"] });
+    }
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -132,6 +152,7 @@ export function SignupForm() {
     resolver: zodResolver(schema),
     mode: "onChange",
     defaultValues: {
+      method: "email",
       fullName: "",
       email: "",
       password: "",
@@ -139,11 +160,11 @@ export function SignupForm() {
       city: "",
       intent: [],
       tos: false,
-      kvkk: false,
     },
   });
 
   const selectedIntent = watch("intent");
+  const method = watch("method");
 
   const toggleIntent = (value: string, checked: boolean) => {
     const next = checked ? [...selectedIntent, value] : selectedIntent.filter((v) => v !== value);
@@ -153,14 +174,41 @@ export function SignupForm() {
   const onSubmit = async (values: FormValues) => {
     setStatus(null);
     setLoading(true);
+
+    if (values.method === "google") {
+      try {
+        const res = await signIn("google", { callbackUrl: "/onboarding", redirect: true });
+        if (res?.error) {
+          setStatus("Google ile giriş başarısız. Tekrar deneyin.");
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("Google ile giriş sırasında hata oluştu.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
+      const email = (values.email ?? "").trim().toLowerCase();
+      const password = values.password ?? "";
+      if (!email) {
+        setStatus("E-posta gerekli");
+        return;
+      }
+      if (!password) {
+        setStatus("Şifre gerekli");
+        return;
+      }
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: values.fullName.trim(),
-          email: values.email.trim().toLowerCase(),
-          password: values.password,
+          email,
+          password,
           city: values.city,
           intent: values.intent,
         }),
@@ -175,8 +223,8 @@ export function SignupForm() {
         return;
       }
       await signIn("credentials", {
-        email: values.email,
-        password: values.password,
+        email,
+        password,
         callbackUrl: "/onboarding",
       });
     } catch (err) {
@@ -206,7 +254,28 @@ export function SignupForm() {
             </div>
           ) : null}
 
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit(onSubmit)}>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant={method === "google" ? "primary" : "secondary"}
+              onClick={() => setValue("method", "google", { shouldValidate: true })}
+              className="w-full sm:w-1/2"
+            >
+              <Chrome size={16} />
+              Google ile devam et
+            </Button>
+            <Button
+              type="button"
+              variant={method === "email" ? "primary" : "secondary"}
+              onClick={() => setValue("method", "email", { shouldValidate: true })}
+              className="w-full sm:w-1/2"
+            >
+              E-posta ile devam et
+            </Button>
+          </div>
+          <Divider label={method === "google" ? "Google ile devam" : "E-posta ile devam"} />
+
+          <form className="mt-2 space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <Field label="Ad Soyad" error={errors.fullName?.message}>
               <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
                 <UserIcon size={16} className="text-[var(--color-muted)]" />
@@ -220,65 +289,69 @@ export function SignupForm() {
               </div>
             </Field>
 
-            <Field label="E-posta" error={errors.email?.message}>
-              <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
-                <Mail size={16} className="text-[var(--color-muted)]" />
-                <input
-                  type="email"
-                  autoComplete="email"
-                  aria-invalid={!!errors.email}
-                  className="h-full w-full bg-transparent text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:outline-none"
-                  placeholder="ornek@mail.com"
-                  {...register("email")}
-                />
-              </div>
-            </Field>
+            {method === "email" && (
+              <>
+                <Field label="E-posta" error={errors.email?.message}>
+                  <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
+                    <Mail size={16} className="text-[var(--color-muted)]" />
+                    <input
+                      type="email"
+                      autoComplete="email"
+                      aria-invalid={!!errors.email}
+                      className="h-full w-full bg-transparent text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:outline-none"
+                      placeholder="ornek@mail.com"
+                      {...register("email")}
+                    />
+                  </div>
+                </Field>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Şifre" error={errors.password?.message}>
-                <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
-                  <Lock size={16} className="text-[var(--color-muted)]" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    aria-invalid={!!errors.password}
-                    className="h-full w-full bg-transparent text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:outline-none"
-                    placeholder="••••••••"
-                    {...register("password")}
-                  />
-                  <button
-                    type="button"
-                    className="text-[var(--color-muted)] transition hover:text-[var(--color-primary)]"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label="Şifre görünürlüğünü değiştir"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </Field>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Şifre" error={errors.password?.message}>
+                    <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
+                      <Lock size={16} className="text-[var(--color-muted)]" />
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
+                        aria-invalid={!!errors.password}
+                        className="h-full w-full bg-transparent text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:outline-none"
+                        placeholder="••••••••"
+                        {...register("password")}
+                      />
+                      <button
+                        type="button"
+                        className="text-[var(--color-muted)] transition hover:text-[var(--color-primary)]"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label="Şifre görünürlüğünü değiştir"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </Field>
 
-              <Field label="Şifreyi doğrula" error={errors.confirm?.message}>
-                <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
-                  <Lock size={16} className="text-[var(--color-muted)]" />
-                  <input
-                    type={showConfirm ? "text" : "password"}
-                    autoComplete="new-password"
-                    aria-invalid={!!errors.confirm}
-                    className="h-full w-full bg-transparent text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:outline-none"
-                    placeholder="••••••••"
-                    {...register("confirm")}
-                  />
-                  <button
-                    type="button"
-                    className="text-[var(--color-muted)] transition hover:text-[var(--color-primary)]"
-                    onClick={() => setShowConfirm((v) => !v)}
-                    aria-label="Şifre görünürlüğünü değiştir"
-                  >
-                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                  <Field label="Şifreyi doğrula" error={errors.confirm?.message}>
+                    <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
+                      <Lock size={16} className="text-[var(--color-muted)]" />
+                      <input
+                        type={showConfirm ? "text" : "password"}
+                        autoComplete="new-password"
+                        aria-invalid={!!errors.confirm}
+                        className="h-full w-full bg-transparent text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:outline-none"
+                        placeholder="••••••••"
+                        {...register("confirm")}
+                      />
+                      <button
+                        type="button"
+                        className="text-[var(--color-muted)] transition hover:text-[var(--color-primary)]"
+                        onClick={() => setShowConfirm((v) => !v)}
+                        aria-label="Şifre görünürlüğünü değiştir"
+                      >
+                        {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </Field>
                 </div>
-              </Field>
-            </div>
+              </>
+            )}
 
             <Field label="Şehir" error={errors.city?.message}>
               <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
@@ -324,28 +397,20 @@ export function SignupForm() {
                   className="mt-1 h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
                   {...register("tos")}
                 />
-                <span>
-                  <Link href="/gizlilik" className="font-semibold hover:text-[var(--color-accent)]">
-                    Kullanım Şartları
-                  </Link>
-                  {" / "}
-                  <Link href="/kvkk" className="font-semibold hover:text-[var(--color-accent)]">
-                    KVKK
-                  </Link>{" "}
+                <span className="whitespace-normal">
+                  <span className="whitespace-nowrap">
+                    <Link href="/gizlilik" className="font-semibold hover:text-[var(--color-accent)]">
+                      Kullanım Şartları
+                    </Link>
+                    {" / "}
+                    <Link href="/kvkk" className="font-semibold hover:text-[var(--color-accent)]">
+                      KVKK
+                    </Link>
+                  </span>{" "}
                   metnini okudum, kabul ediyorum.
                 </span>
               </label>
               {errors.tos ? <span className="block text-xs text-[var(--color-danger)]">{errors.tos.message}</span> : null}
-
-              <label className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
-                  {...register("kvkk")}
-                />
-                <span>Veri işleme aydınlatma metnini okudum.</span>
-              </label>
-              {errors.kvkk ? <span className="block text-xs text-[var(--color-danger)]">{errors.kvkk.message}</span> : null}
             </div>
 
             <button
@@ -354,7 +419,7 @@ export function SignupForm() {
               className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-accent)] text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : null}
-              Üye Ol
+              {method === "google" ? "Google ile devam et" : "Üye Ol"}
             </button>
           </form>
 
@@ -376,6 +441,16 @@ function Field({ label, error, children }: { label: string; error?: string; chil
       <label className="block text-sm font-medium text-[var(--color-primary)]">{label}</label>
       {children}
       {error ? <span className="text-xs text-[var(--color-danger)]">{error}</span> : null}
+    </div>
+  );
+}
+
+function Divider({ label }: { label: string }) {
+  return (
+    <div className="my-2 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">
+      <span className="h-px w-full bg-[var(--color-border)]" />
+      <span>{label}</span>
+      <span className="h-px w-full bg-[var(--color-border)]" />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import TeachersPageClient from "./teachers-page-client";
 
 export const metadata: Metadata = {
@@ -13,5 +14,9 @@ export default function TeachersPage({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  return <TeachersPageClient searchParams={searchParams} />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-secondary)]" />}>
+      <TeachersPageClient searchParams={searchParams} />
+    </Suspense>
+  );
 }

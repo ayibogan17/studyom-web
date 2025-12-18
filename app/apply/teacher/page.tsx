@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
-import { Section } from "@/components/design-system/components/shared/section";
-import { Card } from "@/components/design-system/components/ui/card";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+import { TeacherApplyClient } from "./teacher-client";
 
 export const metadata: Metadata = {
   title: "Öğretmen Başvurusu | Studyom",
-  description: "Yakında burada öğretmen başvuru formu olacak.",
+  description: "Öğretmen rolü için başvuru formu.",
 };
 
-export default function TeacherApplyPage() {
-  return (
-    <main className="bg-[var(--color-secondary)]">
-      <Section containerClassName="max-w-3xl">
-        <Card className="space-y-3 p-5">
-          <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Öğretmen Başvurusu</h1>
-          <p className="text-sm text-[var(--color-muted)]">Coming next — başvuru formu eklenecek. TODO: formu bağla.</p>
-        </Card>
-      </Section>
-    </main>
-  );
+export default async function TeacherApplyPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    redirect("/login");
+  }
+  return <TeacherApplyClient />;
 }

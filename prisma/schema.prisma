@@ -18,6 +18,7 @@ model User {
   isTeacher     Boolean   @default(false)
   isProducer    Boolean   @default(false)
   isStudioOwner Boolean   @default(false)
+  isDisabled    Boolean   @default(false)
   emailVerified DateTime?
   passwordHash  String?
   image     String?
@@ -75,6 +76,7 @@ model Studio {
   ownerEmail    String
   phone         String?
   openingHours  Json?
+  isActive      Boolean        @default(true)
   owner         User?          @relation(fields: [ownerEmail], references: [email])
   rooms         Room[]
   notifications Notification[]
@@ -132,6 +134,50 @@ model Rating {
   studioId  String
   studio    Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+}
+
+model TeacherApplication {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  data      Json
+  status    String
+  createdAt DateTime @default(now())
+
+  @@map("TeacherApplication")
+}
+
+model TeacherLead {
+  id                    String   @id @default(cuid())
+  teacherSlug           String
+  teacherName           String?
+  studentName           String
+  studentEmail          String
+  city                  String
+  preferredLessonType   String?
+  message               String
+  status                String   @default("new")
+  createdAt             DateTime @default(now())
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String
+  note      String?
+  source    String?  // e.g., "contact", "teacher"
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  entityType String
+  entityId   String
+  action     String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
 }
 
 enum UserRole {

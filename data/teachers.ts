@@ -1,5 +1,3 @@
-import { slugify } from "@/lib/geo";
-
 export type LessonType = "online" | "in-person" | "both";
 
 export type Teacher = {
@@ -157,10 +155,7 @@ const teachers: Teacher[] = [
     isActive: true,
     updatedAt: "2025-01-02",
   },
-].map((t) => ({
-  ...t,
-  slug: t.slug || slugify(t.displayName),
-}));
+];
 
 export function getTeachersMock(): Teacher[] {
   return teachers.filter((t) => t.isActive);

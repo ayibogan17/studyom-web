@@ -10,9 +10,6 @@ export function AppFooter() {
           <p className="text-[var(--color-muted)]">Şehrindeki prova ve kayıt stüdyoları tek platformda.</p>
         </div>
         <div className="flex flex-wrap gap-4 text-[var(--color-primary)]">
-          <Link href="/studyo" className="hover:text-[var(--color-accent)]">
-            Stüdyolar
-          </Link>
           <Link href="/hakkinda" className="hover:text-[var(--color-accent)]">
             Hakkında
           </Link>

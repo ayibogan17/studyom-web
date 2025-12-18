@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
-import { Section } from "@/components/design-system/components/shared/section";
-import { Card } from "@/components/design-system/components/ui/card";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+import { StudioNewClient } from "./studio-new-client";
 
 export const metadata: Metadata = {
-  title: "Stüdyo Ekle | Studyom",
-  description: "Yakında burada stüdyo ekleme akışı olacak.",
+  title: "Yeni Stüdyo Başvurusu | Studyom",
+  description: "Stüdyonu yayınlamak için ilk adımı at.",
 };
 
-export default function StudioNewPage() {
-  return (
-    <main className="bg-[var(--color-secondary)]">
-      <Section containerClassName="max-w-3xl">
-        <Card className="space-y-3 p-5">
-          <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Stüdyonu ekle</h1>
-          <p className="text-sm text-[var(--color-muted)]">Coming next — stüdyo ekleme formu eklenecek. TODO: akışı bağla.</p>
-        </Card>
-      </Section>
-    </main>
-  );
+export default async function StudioNewPage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    redirect("/signup");
+  }
+
+  return <StudioNewClient />;
 }
+

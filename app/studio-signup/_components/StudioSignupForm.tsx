@@ -9,26 +9,9 @@ import { AddressSelect } from "@/components/shared/AddressSelect";
 import { OAuthButtons } from "@/components/shared/OAuthButtons";
 import { loadGeo, type TRGeo } from "@/lib/geo";
 
-type FormValues = {
-  method: "email" | "google";
-  email?: string;
-  password?: string;
-  confirm?: string;
-  fullName: string;
-  studioName: string;
-  phone: string;
-  province: string;
-  district: string;
-  neighborhood?: string;
-  mapsUrl: string;
-  address: string;
-  website?: string;
-  extraInfo?: string;
-};
-
 const phoneDigits = (value: string) => value.replace(/\D/g, "");
 
-const schema: z.ZodType<FormValues> = z
+const schema = z
   .object({
     method: z.enum(["email", "google"]),
     email: z.string().email("Geçerli bir e-posta girin").optional(),
@@ -38,8 +21,7 @@ const schema: z.ZodType<FormValues> = z
     studioName: z.string().min(2, "Stüdyo adı zorunlu"),
     phone: z
       .string()
-      .transform((v) => phoneDigits(v))
-      .refine((v) => /^(?:90)?5\d{9}$/.test(v), {
+      .refine((v) => /^(?:90)?5\d{9}$/.test(phoneDigits(v)), {
         message: "Format: +90 5xx xxx xx xx",
       }),
     province: z.string().min(1, "Şehir seçin"),
@@ -47,18 +29,8 @@ const schema: z.ZodType<FormValues> = z
     neighborhood: z.string().optional(),
     mapsUrl: z.string().min(1, "Google Maps linki gerekli").url("Geçerli bir link girin"),
     address: z.string().min(10, "Adres en az 10 karakter olmalı"),
-    website: z
-      .string()
-      .url("Geçerli bir URL girin")
-      .optional()
-      .or(z.literal(""))
-      .transform((v) => (v ? v : undefined)),
-    extraInfo: z
-      .string()
-      .max(1000, "En fazla 1000 karakter")
-      .optional()
-      .or(z.literal(""))
-      .transform((v) => (v ? v : undefined)),
+    website: z.string().url("Geçerli bir URL girin").optional().or(z.literal("")),
+    extraInfo: z.string().max(1000, "En fazla 1000 karakter").optional().or(z.literal("")),
   })
   .superRefine((val, ctx) => {
     if (val.method === "email") {
@@ -76,6 +48,8 @@ const schema: z.ZodType<FormValues> = z
       }
     }
   });
+
+type FormValues = z.infer<typeof schema>;
 
 type MapsPreview = { lat: number; lng: number } | null;
 
@@ -141,7 +115,7 @@ export function StudioSignupForm() {
     formState: { errors, isValid },
     getValues,
   } = useForm<FormValues>({
-    resolver: zodResolver<FormValues>(schema),
+    resolver: zodResolver(schema),
     mode: "onChange",
     defaultValues: {
       method: "email",
@@ -189,8 +163,8 @@ export function StudioSignupForm() {
         address: values.address.trim(),
         googleMapsUrl: values.mapsUrl.trim(),
         email: values.method === "email" ? values.email?.trim() : undefined,
-        website: values.website?.trim(),
-        verificationNote: values.extraInfo?.trim(),
+        website: values.website?.trim() || undefined,
+        verificationNote: values.extraInfo?.trim() || undefined,
         coords: coords ?? undefined,
       };
 

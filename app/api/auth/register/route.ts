@@ -48,8 +48,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, userId: updated.id, updated: true });
     }
     const passwordHash = await bcrypt.hash(password, 10);
-    let user;
-    user = await prisma.user
+    const user = await prisma.user
       .create({
         data: {
           email: emailNormalized,
@@ -78,6 +77,24 @@ export async function POST(req: Request) {
         }
         throw e;
       });
+
+    // Hoş geldin maili
+    if (resendApiKey) {
+      try {
+        const resend = new Resend(resendApiKey);
+        const profileLink = `${baseUrl || "http://localhost:3000"}/profile`;
+        await resend.emails.send({
+          from: leadFrom,
+          to: [emailNormalized],
+          subject: "Studyom'a hoşgeldin!",
+          html: `<p>Merhaba ${fullName},</p>
+<p>Studyom'a hoşgeldin! Şimdi profilini düzenleyebilirsin: <a href="${profileLink}">${profileLink}</a></p>
+<p>İyi müzikler,<br/>Studyom Ekibi</p>`,
+        });
+      } catch (mailErr) {
+        console.error("welcome email error:", mailErr);
+      }
+    }
 
     // Doğrulama tokenı oluştur ve mail gönder
     try {

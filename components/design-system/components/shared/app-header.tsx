@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Menu, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/cn";
@@ -34,8 +35,32 @@ const productionItems = [
 export function AppHeader() {
   const [open, setOpen] = useState(false);
   const [showProd, setShowProd] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const profileRef = useRef<HTMLDivElement | null>(null);
+  const { data: session } = useSession();
   const handleProdOpen = () => setShowProd(true);
   const handleProdClose = () => setShowProd(false);
+  type HeaderUser = {
+    name?: string | null;
+    email?: string | null;
+    city?: string | null;
+    intent?: string[];
+    fullName?: string | null;
+    emailVerified?: Date | string | null;
+  };
+  const profile = session?.user as HeaderUser | undefined;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!showProfile) return;
+      const target = e.target as Node;
+      if (profileRef.current && !profileRef.current.contains(target)) {
+        setShowProfile(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showProfile]);
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur">
@@ -46,6 +71,11 @@ export function AppHeader() {
           </Link>
         </div>
         <nav className="relative hidden items-center gap-6 text-sm font-medium text-[var(--color-primary)] md:flex">
+          {session && (
+            <span className="text-sm font-semibold text-[var(--color-primary)]">
+              Hoş geldin, {profile?.fullName || profile?.name || session.user?.email}
+            </span>
+          )}
           <Button asChild size="sm">
             <Link href="/studyo">Stüdyo Bul</Link>
           </Button>
@@ -94,9 +124,21 @@ export function AppHeader() {
               </Link>
             </div>
           ))}
-          <Button asChild size="sm" variant="secondary">
-            <Link href="/login">Giriş</Link>
-          </Button>
+          {!session && (
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/login">Giriş</Link>
+            </Button>
+          )}
+          {session && (
+            <div className="relative" ref={profileRef}>
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+              >
+                Profilim
+              </Link>
+            </div>
+          )}
         </nav>
         <button
           className="md:hidden"
@@ -113,6 +155,11 @@ export function AppHeader() {
         )}
       >
         <div className="flex flex-col gap-3 text-sm font-medium text-[var(--color-primary)]">
+          {session && (
+            <span className="text-sm font-semibold text-[var(--color-primary)]">
+              Hoş geldin, {profile?.fullName || profile?.name || session.user?.email}
+            </span>
+          )}
           <Button asChild full size="sm">
             <Link href="/studyo">Stüdyo Bul</Link>
           </Button>
@@ -140,9 +187,32 @@ export function AppHeader() {
               </Link>
             </div>
           ))}
-          <Button asChild full size="sm" variant="secondary">
-            <Link href="/login">Giriş</Link>
-          </Button>
+          {!session && (
+            <Button asChild full size="sm" variant="secondary">
+              <Link href="/login">Giriş</Link>
+            </Button>
+          )}
+          {session && (
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-primary)]">
+              <p className="font-semibold">
+                {profile?.fullName || session.user?.name || session.user?.email}
+              </p>
+              <p className="text-[var(--color-muted)]">{session.user?.email}</p>
+              {profile?.city && <p className="mt-1">Şehir: {profile.city}</p>}
+              {profile?.intent && profile.intent.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {profile.intent.map((i) => (
+                    <span key={i} className="rounded-full bg-[var(--color-secondary)] px-2 py-1 text-[12px]">
+                      {i}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="mt-1 text-xs text-[var(--color-muted)]">
+                {profile?.emailVerified ? "E-posta doğrulandı" : "E-posta doğrulaması bekleniyor"}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </header>

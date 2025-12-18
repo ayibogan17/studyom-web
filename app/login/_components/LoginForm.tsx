@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +22,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const searchParams = useSearchParams();
   const {
     register,
     handleSubmit,
@@ -34,28 +36,68 @@ export function LoginForm() {
 
   const email = watch("email");
 
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (!error) return;
+    if (error === "EMAIL_NOT_VERIFIED") {
+      setStatus("E-posta doğrulaması gerekli. Mail kutunu kontrol et ve tekrar dene.");
+      return;
+    }
+    if (error === "disabled" || error === "ACCOUNT_DISABLED") {
+      setStatus("Hesap pasif. Lütfen destekle iletişime geçin.");
+      return;
+    }
+    if (error === "OAuthAccountNotLinked") {
+      setStatus("Bu e-posta ile daha önce şifre oluşturulmuş. Şifre ile giriş yapın veya şifre sıfırlayın.");
+      return;
+    }
+    setStatus("Giriş başarısız. Bilgileri kontrol edin.");
+  }, [searchParams]);
+
   const onSubmit = async (values: FormValues) => {
     setLoading(true);
     setStatus(null);
-    const res = await signIn("credentials", {
-      email: values.email,
-      password: values.password,
-      callbackUrl: "/studyo",
-      redirect: false,
-    });
-    setLoading(false);
+    const callbackUrl =
+      typeof window !== "undefined" ? `${window.location.origin}/profile` : "/profile";
+    try {
+      const res = await signIn("credentials", {
+        email: values.email,
+        password: values.password,
+        callbackUrl,
+        redirect: false,
+      });
 
-    if (res?.error) {
-      if (res.error === "EMAIL_NOT_VERIFIED") {
-        setStatus("E-posta doğrulaması gerekli. Mail kutunu kontrol et ve tekrar dene.");
-      } else {
-        setStatus("Giriş başarısız. Bilgileri kontrol edin.");
+      console.log("signIn result", res);
+
+      if (!res) {
+        setStatus("Giriş başarısız. Tekrar deneyin (cevap yok).");
+        setLoading(false);
+        return;
       }
-      return;
-    }
 
-    if (res?.url) {
-      window.location.assign(res.url);
+      // signIn redirect:false => res.ok true ise res.url var
+      if (res.error) {
+        if (res.error === "EMAIL_NOT_VERIFIED") {
+          setStatus("E-posta doğrulaması gerekli. Mail kutunu kontrol et ve tekrar dene.");
+        } else if (res.error === "ACCOUNT_DISABLED" || res.error === "disabled") {
+          setStatus("Hesap pasif. Lütfen destekle iletişime geçin.");
+        } else {
+          setStatus("E-posta veya şifre hatalı.");
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (res.url) {
+        window.location.assign(res.url);
+        return;
+      }
+
+      window.location.assign(callbackUrl);
+    } catch (err) {
+      console.error("signIn exception", err);
+      setStatus("Giriş sırasında hata oluştu. Tekrar deneyin.");
+      setLoading(false);
     }
   };
 
