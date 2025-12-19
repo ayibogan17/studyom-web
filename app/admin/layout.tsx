@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 const navItems = [
+  { href: "/admin/applications", label: "Başvurular" },
   { href: "/admin", label: "Özet" },
   { href: "/admin/studios", label: "Stüdyolar" },
   { href: "/admin/users", label: "Kullanıcılar" },

@@ -146,6 +146,16 @@ model TeacherApplication {
   @@map("TeacherApplication")
 }
 
+model ProducerApplication {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  data      Json
+  status    String
+  createdAt DateTime @default(now())
+
+  @@map("ProducerApplication")
+}
+
 model TeacherLead {
   id                    String   @id @default(cuid())
   teacherSlug           String

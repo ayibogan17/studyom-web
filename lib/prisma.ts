@@ -22,6 +22,13 @@ async function ensureAdminSchema(client: PrismaClient) {
     'ALTER TABLE "TeacherApplication" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT \'pending\'',
   );
 
+  await client.$executeRawUnsafe(
+    'CREATE TABLE IF NOT EXISTS "ProducerApplication" ("id" SERIAL PRIMARY KEY, "userId" TEXT NOT NULL, "data" JSONB NOT NULL, "status" TEXT NOT NULL, "createdAt" TIMESTAMPTZ DEFAULT now())',
+  );
+  await client.$executeRawUnsafe(
+    'ALTER TABLE "ProducerApplication" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT \'pending\'',
+  );
+
   // Teacher leads table
   await client.$executeRawUnsafe(
     'CREATE TABLE IF NOT EXISTS "TeacherLead" ("id" TEXT PRIMARY KEY, "teacherSlug" TEXT NOT NULL, "teacherName" TEXT, "studentName" TEXT NOT NULL, "studentEmail" TEXT NOT NULL, "city" TEXT NOT NULL, "preferredLessonType" TEXT, "message" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT \'new\', "createdAt" TIMESTAMPTZ DEFAULT now())',
@@ -50,12 +57,19 @@ function createPrismaClient() {
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 globalForPrisma.prisma = prisma;
 
-// Run one-time schema ensure on startup to keep client schema in sync with DB.
-globalForPrisma.prismaInit =
-  globalForPrisma.prismaInit ||
-  ensureAdminSchema(prisma).catch((err) => {
-    console.error("Prisma admin schema init failed:", err);
-  });
+const shouldInitSchema =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PHASE !== "phase-production-build" &&
+  process.env.SKIP_PRISMA_INIT !== "true";
 
-// Await init so subsequent imports have columns ready
-await globalForPrisma.prismaInit;
+if (shouldInitSchema) {
+  // Run one-time schema ensure on startup to keep client schema in sync with DB.
+  globalForPrisma.prismaInit =
+    globalForPrisma.prismaInit ||
+    ensureAdminSchema(prisma).catch((err) => {
+      console.error("Prisma admin schema init failed:", err);
+    });
+
+  // Await init so subsequent imports have columns ready
+  await globalForPrisma.prismaInit;
+}

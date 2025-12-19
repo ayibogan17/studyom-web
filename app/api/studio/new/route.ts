@@ -101,6 +101,7 @@ export async function POST(req: Request) {
         ownerEmail: email,
         phone: data.phone,
         openingHours,
+        isActive: false,
         notifications: {
           create: [
             { message: "Başvuru durumu: pending_review" },

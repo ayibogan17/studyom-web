@@ -6,14 +6,28 @@ import { Section } from "@/components/design-system/components/shared/section";
 export const revalidate = 0;
 
 async function getStats() {
-  const [userCount, studioCount, teacherAppCount, teacherLeadCount, leadCount] = await Promise.all([
+  const [userCount, studioCount, teacherAppCount, producerAppCount, teacherLeadCount, leadCount] = await Promise.all([
     prisma.user.count(),
     prisma.studio.count(),
     prisma.teacherApplication.count(),
+    countProducerApplications(),
     prisma.teacherLead.count(),
     prisma.lead.count(),
   ]);
-  return { userCount, studioCount, teacherAppCount, teacherLeadCount, leadCount };
+  return { userCount, studioCount, teacherAppCount, producerAppCount, teacherLeadCount, leadCount };
+}
+
+async function countProducerApplications() {
+  try {
+    const rows = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*)::bigint AS count FROM "ProducerApplication"
+    `;
+    const value = rows[0]?.count;
+    return typeof value === "bigint" ? Number(value) : Number(value ?? 0);
+  } catch (err) {
+    console.error("producer application count failed", err);
+    return 0;
+  }
 }
 
 export default async function AdminHomePage() {
@@ -38,6 +52,7 @@ export default async function AdminHomePage() {
         <StatCard label="Kullanıcı" value={stats.userCount} />
         <StatCard label="Stüdyo" value={stats.studioCount} />
         <StatCard label="Hoca başvurusu" value={stats.teacherAppCount} />
+        <StatCard label="Üretici başvurusu" value={stats.producerAppCount} />
         <StatCard label="Hoca lead" value={stats.teacherLeadCount} />
         <StatCard label="Genel lead" value={stats.leadCount} />
       </div>
