@@ -101,6 +101,7 @@ function StudioApplications({ initial }: { initial: StudioRow[] }) {
 function RoleApplications({ initial, apiBase }: { initial: AppRow[]; apiBase: string }) {
   const [rows, setRows] = useState(initial);
   const [saving, setSaving] = useState<number | null>(null);
+  const [openRow, setOpenRow] = useState<number | null>(null);
 
   const updateStatus = async (id: number, status: string) => {
     setSaving(id);
@@ -137,22 +138,36 @@ function RoleApplications({ initial, apiBase }: { initial: AppRow[]; apiBase: st
                 {row.user?.city || "-"} · {new Date(row.createdAt).toLocaleString("tr-TR")}
               </p>
             </div>
-            <select
-              className="rounded-md border border-[var(--color-border)] bg-transparent px-2 py-1 text-sm"
-              value={row.status}
-              disabled={saving === row.id}
-              onChange={(e) => updateStatus(row.id, e.target.value)}
-            >
-              {statuses.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                className="rounded-md border border-[var(--color-border)] bg-transparent px-2 py-1 text-sm"
+                value={row.status}
+                disabled={saving === row.id}
+                onChange={(e) => updateStatus(row.id, e.target.value)}
+              >
+                {statuses.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpenRow(openRow === row.id ? null : row.id)}
+              >
+                {openRow === row.id ? "Detay gizle" : "Detaylar"}
+              </Button>
+            </div>
           </div>
           <div className="mt-2 text-sm text-[var(--color-primary)]">
             {row.data?.statement || "Açıklama yok."}
           </div>
+          {openRow === row.id ? (
+            <pre className="mt-2 whitespace-pre-wrap rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-2 text-[10px] text-[var(--color-primary)]">
+              {JSON.stringify(row.data, null, 2)}
+            </pre>
+          ) : null}
         </div>
       ))}
     </div>

@@ -19,8 +19,44 @@ export default async function AdminStudiosPage() {
       address: true,
       ownerEmail: true,
       phone: true,
+      openingHours: true,
       isActive: true,
       createdAt: true,
+      updatedAt: true,
+      rooms: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          color: true,
+          pricingModel: true,
+          flatRate: true,
+          minRate: true,
+          dailyRate: true,
+          hourlyRate: true,
+          equipmentJson: true,
+          featuresJson: true,
+          extrasJson: true,
+          imagesJson: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+      notifications: {
+        select: {
+          id: true,
+          message: true,
+          createdAt: true,
+        },
+      },
+      ratings: {
+        select: {
+          id: true,
+          value: true,
+          comment: true,
+          createdAt: true,
+        },
+      },
     },
   });
 

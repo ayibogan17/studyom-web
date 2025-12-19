@@ -14,12 +14,18 @@ export default async function AdminUsersPage() {
     select: {
       id: true,
       email: true,
+      name: true,
       role: true,
       city: true,
       fullName: true,
       intent: true,
       isDisabled: true,
+      isTeacher: true,
+      isProducer: true,
+      isStudioOwner: true,
+      emailVerified: true,
       createdAt: true,
+      updatedAt: true,
     },
   });
 
