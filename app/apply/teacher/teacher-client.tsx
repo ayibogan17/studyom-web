@@ -231,7 +231,11 @@ export function TeacherApplyClient() {
         return;
       }
       setStatus("Başvurun alındı. İnceleme süresince öğretmen olarak listelenmezsin.");
-      router.replace("/profile");
+      if (typeof window !== "undefined") {
+        window.location.assign("/profile");
+      } else {
+        router.replace("/profile");
+      }
     } catch (err) {
       console.error(err);
       setStatus("Beklenmedik hata");
@@ -572,11 +576,14 @@ export function TeacherApplyClient() {
               ) : null}
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={!isValid || loading} className="gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" disabled={loading} className="gap-2">
                 {loading ? <span className="animate-spin">⏳</span> : null}
                 Başvuruyu Gönder
               </Button>
+              {!isValid && !loading ? (
+                <p className="text-xs text-[var(--color-muted)]">Zorunlu alanları doldurun.</p>
+              ) : null}
               <p className="text-xs text-[var(--color-muted)]">
                 Başvurun alındıktan sonra inceleme süresince öğretmen olarak listelenmezsin.
               </p>

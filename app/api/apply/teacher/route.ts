@@ -73,7 +73,15 @@ const schema = z
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  const userId = (session?.user as { id?: string })?.id;
+  const sessionUser = session?.user as { id?: string; email?: string | null } | undefined;
+  let userId = sessionUser?.id;
+  if (!userId && sessionUser?.email) {
+    const dbUser = await prisma.user.findUnique({
+      where: { email: sessionUser.email.toLowerCase() },
+      select: { id: true },
+    });
+    userId = dbUser?.id;
+  }
   if (!userId) {
     return NextResponse.json({ error: "Giriş yapın" }, { status: 401 });
   }
