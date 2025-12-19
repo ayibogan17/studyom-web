@@ -9,11 +9,14 @@ type AdminInfo = {
   role: string;
 };
 
-const adminSeedEmail = process.env.ADMIN_SEED_EMAIL?.toLowerCase().trim();
+const adminSeedEmails = (process.env.ADMIN_SEED_EMAIL || "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 
 async function promoteSeedAdmin(email: string) {
-  if (!adminSeedEmail) return null;
-  if (email.toLowerCase() !== adminSeedEmail) return null;
+  if (adminSeedEmails.length === 0) return null;
+  if (!adminSeedEmails.includes(email.toLowerCase())) return null;
   try {
     const updated = await prisma.user.update({
       where: { email },
@@ -39,7 +42,7 @@ export async function requireAdmin(): Promise<AdminInfo> {
     select: { id: true, email: true, role: true, isDisabled: true },
   });
 
-  if ((!user || user.role !== "ADMIN") && adminSeedEmail) {
+  if ((!user || user.role !== "ADMIN") && adminSeedEmails.length > 0) {
     // Try bootstrap
     user = (await promoteSeedAdmin(email)) ?? user;
   }
