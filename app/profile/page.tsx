@@ -28,6 +28,33 @@ export default async function ProfilePage() {
         ? await prisma.user.findUnique({ where: { email: sessionUser.email.toLowerCase() } })
         : null;
 
+  const userId = dbUser?.id;
+  const userEmail = dbUser?.email;
+  const [teacherApp, producerApp, studioCount, studioActiveCount] = userId
+    ? await Promise.all([
+        prisma.teacherApplication.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          select: { status: true },
+        }),
+        getProducerApplicationStatus(userId),
+        userEmail
+          ? prisma.studio.count({ where: { ownerEmail: userEmail } })
+          : Promise.resolve(0),
+        userEmail
+          ? prisma.studio.count({ where: { ownerEmail: userEmail, isActive: true } })
+          : Promise.resolve(0),
+      ])
+    : [null, null, 0, 0];
+
+  const mapStatus = (status?: string | null) => {
+    if (status === "approved") return "approved" as const;
+    if (status === "pending") return "pending" as const;
+    return "none" as const;
+  };
+  const teacherStatus = teacherApp ? mapStatus(teacherApp.status) : dbUser?.isTeacher ? "pending" : "none";
+  const producerStatus = producerApp ? mapStatus(producerApp.status) : dbUser?.isProducer ? "pending" : "none";
+
   return (
     <ProfileClient
       user={{
@@ -38,11 +65,31 @@ export default async function ProfilePage() {
         emailVerified: Boolean(dbUser?.emailVerified),
         createdAt: dbUser?.createdAt ?? null,
         roles: {
-          teacher: dbUser?.isTeacher ? "pending" : "none",
-          producer: dbUser?.isProducer ? "pending" : "none",
-          studio: dbUser?.isStudioOwner ? "pending" : "none",
+          teacher: teacherStatus,
+          producer: producerStatus,
+          studio:
+            studioActiveCount > 0
+              ? "approved"
+              : studioCount > 0 || dbUser?.isStudioOwner
+                ? "pending"
+                : "none",
         },
       }}
     />
   );
+}
+
+async function getProducerApplicationStatus(userId: string): Promise<{ status: string } | null> {
+  try {
+    const rows = await prisma.$queryRaw<{ status: string }[]>`
+      SELECT status FROM "ProducerApplication"
+      WHERE "userId" = ${userId}
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (err) {
+    console.error("producer application lookup failed", err);
+    return null;
+  }
 }

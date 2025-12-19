@@ -99,6 +99,7 @@ export function StudioNewClient() {
     formState: { errors, isValid },
     watch,
     setValue,
+    trigger,
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as any,
     mode: "onChange",
@@ -186,6 +187,39 @@ export function StudioNewClient() {
   };
 
   const equipment = watch("equipment");
+  const stepFields: Record<number, (keyof FormValues)[]> = {
+    1: [
+      "phone",
+      "applicantRole",
+      "studioName",
+      "city",
+      "district",
+      "neighborhood",
+      "address",
+      "mapsUrl",
+      "contactMethods",
+    ],
+    2: [
+      "roomsCount",
+      "roomTypes",
+      "isFlexible",
+      "weekdayHours",
+      "weekendHours",
+      "bookingMode",
+      "equipment",
+      "equipmentHighlight",
+      "priceRange",
+      "priceVaries",
+    ],
+    3: ["linkPortfolio", "linkGoogle", "ackAuthority", "ackPlatform"],
+  };
+
+  const handleNextStep = async () => {
+    const fields = stepFields[step] ?? [];
+    const ok = await trigger(fields, { shouldFocus: true });
+    if (!ok) return;
+    nextStep();
+  };
 
   return (
     <main className="bg-[var(--color-secondary)] pb-16 pt-10">
@@ -627,7 +661,7 @@ export function StudioNewClient() {
               <span />
             )}
             {step < 3 ? (
-              <Button type="button" variant="primary" onClick={nextStep}>
+              <Button type="button" variant="primary" onClick={handleNextStep}>
                 Sonraki
               </Button>
             ) : (

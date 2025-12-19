@@ -19,10 +19,16 @@ export default async function AdminApplicationsPage() {
         name: true,
         city: true,
         district: true,
+        address: true,
         ownerEmail: true,
         phone: true,
+        openingHours: true,
         createdAt: true,
         isActive: true,
+        notifications: {
+          select: { message: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        },
       },
     }),
     prisma.teacherApplication.findMany({

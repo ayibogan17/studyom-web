@@ -1,0 +1,9 @@
+-- Add read state to studio notifications
+ALTER TABLE "Notification"
+ADD COLUMN IF NOT EXISTS "isRead" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "TeacherLead"
+ADD COLUMN IF NOT EXISTS "isRead" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "Lead"
+ADD COLUMN IF NOT EXISTS "isRead" BOOLEAN NOT NULL DEFAULT false;

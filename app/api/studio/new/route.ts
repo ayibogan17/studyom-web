@@ -113,6 +113,8 @@ export async function POST(req: Request) {
               .map(([k]) => k)
               .join(", ") || "Belirtilmedi"}` },
             data.equipmentHighlight ? { message: `Öne çıkan ekipman: ${data.equipmentHighlight}` } : undefined,
+            data.linkPortfolio ? { message: `Instagram/Web: ${data.linkPortfolio}` } : undefined,
+            data.linkGoogle ? { message: `Google Business: ${data.linkGoogle}` } : undefined,
             data.mapsUrl ? { message: `Maps: ${data.mapsUrl}` } : undefined,
             data.contactHours ? { message: `İletişim saatleri: ${data.contactHours}` } : undefined,
             { message: `Fiyat aralığı: ${data.priceRange}${data.priceVaries ? " (odaya göre değişir)" : ""}` },

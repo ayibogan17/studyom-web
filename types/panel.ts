@@ -48,6 +48,7 @@ export type Equipment = {
   drumChinaDetail?: string;
   hasDrumSplash?: boolean;
   drumSplashDetail?: string;
+  hasDrumCowbell?: boolean;
   hasTwinPedal?: boolean;
   micCount: number;
   micDetails: string[];
@@ -91,6 +92,7 @@ export type Extras = {
   offersOther: boolean;
   otherDetail?: string;
   acceptsCourses?: boolean; // for drum/vokal inline toggle
+  alsoTypes?: string[];
   vocalHasEngineer?: boolean;
   vocalLiveAutotune?: boolean;
   vocalRawIncluded?: boolean;

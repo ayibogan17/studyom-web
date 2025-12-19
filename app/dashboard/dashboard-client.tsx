@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import { ChevronDown, Key } from "lucide-react";
 
 import { SignOutButton } from "@/components/sign-out-button";
 import { Equipment, OpeningHours, Room, Slot, Studio } from "@/types/panel";
@@ -21,6 +22,65 @@ const longDays = [
   "Cumartesi",
   "Pazar",
 ];
+
+const contactMethodOptions = ["Phone", "WhatsApp", "Email"] as const;
+const roomTypeOptions = ["Prova odası", "Kayıt odası", "Vokal kabini", "Kontrol odası", "Prodüksiyon odası"] as const;
+const roomTypeOptionsUi = ["Prova odası", "Vokal kabini", "Kayıt kabini", "Davul kabini", "Etüt odası"] as const;
+const bookingModes = ["Onaylı talep (ben onaylarım)", "Direkt rezervasyon (sonra açılabilir)"] as const;
+const priceRanges = ["500–750", "750–1000", "1000–1500", "1500+"] as const;
+
+type ContactMethod = (typeof contactMethodOptions)[number];
+type RoomTypeOption = (typeof roomTypeOptions)[number];
+type BookingMode = (typeof bookingModes)[number];
+type PriceRange = (typeof priceRanges)[number];
+
+const contactMethodLabels: Record<ContactMethod, string> = {
+  Phone: "Telefon",
+  WhatsApp: "WhatsApp",
+  Email: "E-posta",
+};
+
+type RoomSectionProps = {
+  title: string;
+  description?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  className?: string;
+};
+
+function RoomSection({
+  title,
+  description,
+  open,
+  onToggle,
+  children,
+  className,
+}: RoomSectionProps) {
+  return (
+    <div
+      className={`rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm ${
+        className ?? ""
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-4 text-left"
+      >
+        <div>
+          <p className="text-sm font-semibold text-gray-900">{title}</p>
+          {description ? <p className="mt-1 text-xs text-gray-600">{description}</p> : null}
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 text-gray-500 transition ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open ? <div className="mt-3 space-y-3">{children}</div> : null}
+    </div>
+  );
+}
 
 const defaultEquipment: Room["equipment"] = {
   hasDrum: false,
@@ -49,6 +109,7 @@ const defaultEquipment: Room["equipment"] = {
   drumChinaDetail: "",
   hasDrumSplash: false,
   drumSplashDetail: "",
+  hasDrumCowbell: false,
   hasTwinPedal: false,
   micCount: 0,
   micDetails: [],
@@ -92,6 +153,7 @@ const defaultExtras: Room["extras"] = {
   offersOther: false,
   otherDetail: "",
   acceptsCourses: false,
+  alsoTypes: [],
   vocalHasEngineer: false,
   vocalLiveAutotune: false,
   vocalRawIncluded: false,
@@ -110,12 +172,154 @@ const defaultExtras: Room["extras"] = {
 
 const guitarList = (val?: string | null) => (val ? val.split("|") : []);
 
+type BasicInfoForm = {
+  studioName: string;
+  phone: string;
+  city: string;
+  district: string;
+  neighborhood: string;
+  address: string;
+  mapsUrl: string;
+  contactMethods: ContactMethod[];
+  contactHours: string;
+  roomsCount: number;
+  roomTypes: RoomTypeOption[];
+  bookingMode: BookingMode;
+  equipment: {
+    drum: boolean;
+    guitarAmp: boolean;
+    bassAmp: boolean;
+    pa: boolean;
+    mic: boolean;
+  };
+  equipmentHighlight: string;
+  priceRange: PriceRange;
+  priceVaries: boolean;
+  linkPortfolio: string;
+  linkGoogle: string;
+};
+
+const equipmentLabels: Record<keyof BasicInfoForm["equipment"], string> = {
+  drum: "Davul seti",
+  guitarAmp: "Gitar amfisi",
+  bassAmp: "Bas amfisi",
+  pa: "PA / Ses sistemi",
+  mic: "Mikrofon",
+};
+
+const defaultBasicForm: BasicInfoForm = {
+  studioName: "",
+  phone: "",
+  city: "",
+  district: "",
+  neighborhood: "",
+  address: "",
+  mapsUrl: "",
+  contactMethods: ["Phone"],
+  contactHours: "",
+  roomsCount: 1,
+  roomTypes: [],
+  bookingMode: "Onaylı talep (ben onaylarım)",
+  equipment: {
+    drum: false,
+    guitarAmp: false,
+    bassAmp: false,
+    pa: false,
+    mic: false,
+  },
+  equipmentHighlight: "",
+  priceRange: "500–750",
+  priceVaries: false,
+  linkPortfolio: "",
+  linkGoogle: "",
+};
+
+const parseNotificationValue = (notifications: string[], prefix: string) => {
+  const found = notifications.find((note) => note.startsWith(prefix));
+  if (!found) return "";
+  return found.slice(prefix.length).trim();
+};
+
+const parseAddressParts = (value?: string | null) => {
+  const raw = value?.trim() ?? "";
+  if (!raw) return { neighborhood: "", address: "" };
+  const parts = raw.split(" - ");
+  if (parts.length >= 2) {
+    const [neighborhood, ...rest] = parts;
+    return { neighborhood: neighborhood.trim(), address: rest.join(" - ").trim() };
+  }
+  return { neighborhood: "", address: raw };
+};
+
+const parseBasicInfoFromStudio = (studio: Studio | null): BasicInfoForm => {
+  if (!studio) return { ...defaultBasicForm };
+  const notes = studio.notifications ?? [];
+  const { neighborhood, address } = parseAddressParts(studio.address);
+
+  const contactMethodsRaw = parseNotificationValue(notes, "İletişim tercihleri:");
+  const contactMethods = contactMethodsRaw
+    ? contactMethodsRaw.split(",").map((m) => m.trim()).filter((m) => contactMethodOptions.includes(m as ContactMethod))
+    : [];
+
+  const roomInfo = parseNotificationValue(notes, "Oda sayısı:");
+  const roomsCountMatch = roomInfo.match(/(\d+)/);
+  const roomsCount = roomsCountMatch ? Number(roomsCountMatch[1]) : defaultBasicForm.roomsCount;
+  const roomTypesMatch = roomInfo.match(/tipler:\s*(.*)/i);
+  const roomTypesRaw = roomTypesMatch ? roomTypesMatch[1].split(",").map((t) => t.trim()) : [];
+  const roomTypes = roomTypesRaw.filter((t) => roomTypeOptions.includes(t as RoomTypeOption)) as RoomTypeOption[];
+
+  const equipmentSignal = parseNotificationValue(notes, "Ekipman sinyali:");
+  const equipmentTokens = equipmentSignal
+    ? equipmentSignal.split(",").map((t) => t.trim()).filter(Boolean)
+    : [];
+  const equipment = {
+    drum: equipmentTokens.includes("drum"),
+    guitarAmp: equipmentTokens.includes("guitarAmp"),
+    bassAmp: equipmentTokens.includes("bassAmp"),
+    pa: equipmentTokens.includes("pa"),
+    mic: equipmentTokens.includes("mic"),
+  };
+
+  const bookingModeRaw = parseNotificationValue(notes, "Booking modu:");
+  const bookingMode = bookingModes.includes(bookingModeRaw as BookingMode)
+    ? (bookingModeRaw as BookingMode)
+    : defaultBasicForm.bookingMode;
+
+  const priceRaw = parseNotificationValue(notes, "Fiyat aralığı:");
+  const priceVaries = priceRaw.includes("odaya göre");
+  const priceRangeCandidate = priceRaw.split("(")[0].trim();
+  const priceRange = priceRanges.includes(priceRangeCandidate as PriceRange)
+    ? (priceRangeCandidate as PriceRange)
+    : defaultBasicForm.priceRange;
+
+  return {
+    studioName: studio.name ?? "",
+    phone: studio.phone ?? "",
+    city: studio.city ?? "",
+    district: studio.district ?? "",
+    neighborhood,
+    address,
+    mapsUrl: parseNotificationValue(notes, "Maps:"),
+    contactMethods: contactMethods.length ? (contactMethods as ContactMethod[]) : defaultBasicForm.contactMethods,
+    contactHours: parseNotificationValue(notes, "İletişim saatleri:"),
+    roomsCount: Number.isNaN(roomsCount) ? defaultBasicForm.roomsCount : roomsCount,
+    roomTypes,
+    bookingMode,
+    equipment,
+    equipmentHighlight: parseNotificationValue(notes, "Öne çıkan ekipman:"),
+    priceRange,
+    priceVaries,
+    linkPortfolio: parseNotificationValue(notes, "Instagram/Web:"),
+    linkGoogle: parseNotificationValue(notes, "Google Business:"),
+  };
+};
+
 function normalizeRoom(room: Room): Room {
   return {
     ...room,
     equipment: room.equipment ?? { ...defaultEquipment },
     features: room.features ?? { ...defaultFeatures },
-    extras: room.extras ?? { ...defaultExtras },
+    extras: { ...defaultExtras, ...(room.extras ?? {}) },
     images: room.images ?? [],
     slots: room.slots ?? {},
   };
@@ -269,8 +473,16 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const [editingHours, setEditingHours] = useState(false);
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
-  const [showEquipment, setShowEquipment] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [basicForm, setBasicForm] = useState<BasicInfoForm>(() =>
+    parseBasicInfoFromStudio(initialStudio ?? null),
+  );
+  const [showBasicInfo, setShowBasicInfo] = useState(false);
+  const [basicUnlocked, setBasicUnlocked] = useState(false);
+  const [basicTouched, setBasicTouched] = useState(false);
+  const [basicSaving, setBasicSaving] = useState(false);
+  const [basicStatus, setBasicStatus] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const studioRooms = studio?.rooms ?? [];
@@ -283,8 +495,70 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
-  const isRehearsalLike =
-    currentRoom?.type === "Prova odası" || currentRoom?.type === "Kayıt kabini";
+  const selectedRoomTypes = currentRoom
+    ? Array.from(
+        new Set([currentRoom.type, ...(currentRoom.extras?.alsoTypes ?? [])].filter(Boolean)),
+      )
+    : [];
+  const activeRoomTypes = new Set(selectedRoomTypes);
+  const hasRoomType = (type: Room["type"]) => activeRoomTypes.has(type);
+  const isRehearsalLike = hasRoomType("Prova odası") || hasRoomType("Kayıt kabini");
+  const showCourses =
+    hasRoomType("Prova odası") ||
+    hasRoomType("Vokal kabini") ||
+    hasRoomType("Davul kabini") ||
+    hasRoomType("Etüt odası");
+  const coursesTitle = hasRoomType("Etüt odası") ? "Hocalara açık mısınız?" : "Kurslara açık mısınız?";
+  const coursesDescription = "Hocalar odalarınızı ders vermek için kullanabilir.";
+  const showExtras =
+    hasRoomType("Vokal kabini") ||
+    hasRoomType("Davul kabini") ||
+    hasRoomType("Kayıt kabini");
+  const rehearsalEquipmentTitle =
+    hasRoomType("Prova odası") && hasRoomType("Kayıt kabini")
+      ? "Prova / Kayıt ekipmanları"
+      : hasRoomType("Kayıt kabini") && !hasRoomType("Prova odası")
+        ? "Kayıt kabini ekipmanları"
+        : "Prova ekipmanları";
+  const sectionKey = (suffix: string) => (currentRoom ? `${currentRoom.id}:${suffix}` : suffix);
+  const isSectionOpen = (suffix: string) => openSections[sectionKey(suffix)] ?? false;
+  const toggleSection = (suffix: string) => {
+    const key = sectionKey(suffix);
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+  const updateRoomTypes = (nextTypes: Room["type"][]) => {
+    if (!currentRoom) return;
+    const unique = Array.from(new Set(nextTypes));
+    if (!unique.length) return;
+    const primary = unique.includes(currentRoom.type) ? currentRoom.type : unique[0];
+    const also = unique.filter((t) => t !== primary);
+    setStudio((prev) =>
+      prev
+        ? {
+            ...prev,
+            rooms: prev.rooms.map((r) =>
+              r.id === currentRoom.id
+                ? {
+                    ...r,
+                    type: primary,
+                    extras: { ...(r.extras ?? defaultExtras), alsoTypes: also },
+                  }
+                : r,
+            ),
+          }
+        : prev,
+    );
+    if (saving) return;
+    void saveRoomBasics(currentRoom.id, {
+      name: currentRoom.name,
+      type: primary,
+      color: currentRoom.color,
+      pricing: currentRoom.pricing,
+      equipment: currentRoom.equipment,
+      features: currentRoom.features,
+      extras: { ...currentRoom.extras, alsoTypes: also },
+    });
+  };
   const persistImages = async (images: string[], statusText?: string) => {
     if (!currentRoom?.id) return;
     setStudio((prev) =>
@@ -391,17 +665,42 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     }
   }, [studio?.openingHours]);
 
+  useEffect(() => {
+    if (!studio || basicTouched) return;
+    setBasicForm(parseBasicInfoFromStudio(studio));
+  }, [studio, basicTouched]);
+
+  const updateBasicField = <K extends keyof BasicInfoForm>(key: K, value: BasicInfoForm[K]) => {
+    setBasicTouched(true);
+    setBasicForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toggleBasicArray = <K extends "contactMethods" | "roomTypes">(
+    key: K,
+    value: BasicInfoForm[K][number],
+  ) => {
+    setBasicTouched(true);
+    setBasicForm((prev) => {
+      const current = prev[key] as string[];
+      const exists = current.includes(value as string);
+      const next = exists ? current.filter((v) => v !== value) : [...current, value as string];
+      return { ...prev, [key]: next } as BasicInfoForm;
+    });
+  };
+
+  const toggleEquipment = (key: keyof BasicInfoForm["equipment"]) => {
+    setBasicTouched(true);
+    setBasicForm((prev) => ({
+      ...prev,
+      equipment: { ...prev.equipment, [key]: !prev.equipment[key] },
+    }));
+  };
+
   const ImagesBlock = () => {
     if (!currentRoom) return null;
     return (
-      <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Görseller</p>
-            <p className="text-xs text-gray-600">
-              Max 5 MB, ilk görsel kapak olur. Yatay (landscape) görseller daha iyi görünür.
-            </p>
-          </div>
+      <>
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -489,22 +788,15 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         ) : (
           <p className="text-xs text-gray-600">Henüz görsel eklenmedi.</p>
         )}
-      </div>
+      </>
     );
   };
 
-  const CoursesBlock = ({
-    title = "Kurslara açık mısınız?",
-    description = "Hocalar uygun odaları önerir.",
-  }: { title?: string; description?: string }) => {
+  const CoursesBlock = () => {
     if (!currentRoom) return null;
     return (
-      <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
+      <>
         <div className="flex items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">{title}</p>
-            <p className="text-xs text-gray-600">{description}</p>
-          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -573,7 +865,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         >
           {saving ? "Kaydediliyor..." : "Kurs ayarını kaydet"}
         </button>
-      </div>
+      </>
     );
   };
 
@@ -702,6 +994,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   };
 
   const saveStudioMeta = async (data: {
+    name?: string;
     city?: string;
     district?: string;
     address?: string;
@@ -732,6 +1025,51 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
       setStatus("Kaydedilemedi");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveBasicInfo = async () => {
+    if (!studio) return;
+    setBasicSaving(true);
+    setBasicStatus(null);
+    try {
+      const cleanedPhone = basicForm.phone.replace(/\D/g, "");
+      const fullAddress = basicForm.neighborhood
+        ? `${basicForm.neighborhood} - ${basicForm.address}`.trim()
+        : basicForm.address.trim();
+      const payload = {
+        ...basicForm,
+        phone: cleanedPhone,
+        roomsCount: Number(basicForm.roomsCount) || 1,
+      };
+      const res = await fetch("/api/studio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studio: {
+            name: payload.studioName,
+            city: payload.city,
+            district: payload.district,
+            address: fullAddress,
+            phone: payload.phone,
+          },
+          application: payload,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json?.studio) {
+        setStudio(normalizeStudio(json.studio));
+        setBasicForm(parseBasicInfoFromStudio(json.studio));
+        setBasicTouched(false);
+        setBasicStatus("Kaydedildi");
+      } else {
+        setBasicStatus(json?.error || "Kaydedilemedi");
+      }
+    } catch (err) {
+      console.error(err);
+      setBasicStatus("Kaydedilemedi");
+    } finally {
+      setBasicSaving(false);
     }
   };
 
@@ -866,7 +1204,9 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText("https://studyom.net/studio/demo");
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://studyom.net";
+      await navigator.clipboard.writeText(`${baseUrl}/studyo`);
+      setStatus("Stüdyo bağlantısı kopyalandı.");
     } catch (e) {
       console.error("Link kopyalanamadı", e);
     }
@@ -882,7 +1222,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
       pricing: r.pricing,
       equipment: r.equipment ?? defaultEquipment,
       features: r.features ?? defaultFeatures,
-      extras: r.extras ?? defaultExtras,
+      extras: { ...defaultExtras, ...(r.extras ?? {}) },
       images: r.images ?? [],
     }));
 
@@ -919,29 +1259,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
     <>
       <div className="bg-gradient-to-b from-white via-blue-50/40 to-white">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-          <header className="mb-6 flex flex-col gap-3 rounded-3xl border border-black/5 bg-white/80 p-6 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                Stüdyo paneli
-              </p>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Hoş geldin{userName ? `, ${userName}` : ""}!
-              </h1>
-              <p className="text-sm text-gray-600">
-                Flutter panelindeki akışın web uyarlaması. Slotları düzenleyebilir,
-                kurs aç/kapa yapabilir ve açılış saatlerini görebilirsin. Veriler
-                demo/moktur.
-              </p>
-              {userEmail && (
-                <p className="text-sm text-gray-700">
-                  Giriş yaptığın e-posta:{" "}
-                  <span className="font-semibold">{userEmail}</span>
-                </p>
-              )}
-            </div>
-            <SignOutButton />
-          </header>
-
           {status && (
             <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               {status}
@@ -953,62 +1270,63 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
               { key: "calendar", label: "Takvim" },
               ...orderedRooms.map((r) => ({ key: `room-${r.id}`, label: r.name || "Oda" })),
             ].map((item) => (
+              <button
+                key={item.key}
+                draggable={item.key.startsWith("room-")}
+                onDragStart={() => {
+                  if (item.key.startsWith("room-")) setDragRoomId(item.key.replace("room-", ""));
+                }}
+                onDragOver={(e) => {
+                  if (!item.key.startsWith("room-")) return;
+                  e.preventDefault();
+                }}
+                onDrop={() => {
+                  if (!item.key.startsWith("room-")) return;
+                  const targetId = item.key.replace("room-", "");
+                  if (!dragRoomId || dragRoomId === targetId) return;
+                  const newOrder = [...orderedRooms];
+                  const from = newOrder.findIndex((r) => r.id === dragRoomId);
+                  const to = newOrder.findIndex((r) => r.id === targetId);
+                  if (from === -1 || to === -1) return;
+                  const [moved] = newOrder.splice(from, 1);
+                  newOrder.splice(to, 0, moved);
+                  const withOrder = newOrder.map((r, idx) => ({ ...r, order: idx }));
+                  setStudio((prev) => (prev ? { ...prev, rooms: withOrder } : prev));
+                  persistRoomOrder(withOrder);
+                  setDragRoomId(null);
+                }}
+                onDragEnd={() => setDragRoomId(null)}
+                onClick={() => handleTabChange(item.key)}
+                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                  activeTab === item.key
+                    ? "border-blue-500 bg-blue-500 text-white shadow-sm"
+                    : "border-blue-100 bg-white text-gray-800 hover:border-blue-200"
+                }`}
+              >
+                {item.key.startsWith("room-") && (
+                  <span
+                    className="mr-2 inline-block h-3 w-3 rounded-full border border-white/70"
+                    style={{
+                      backgroundColor:
+                        orderedRooms.find((r) => `room-${r.id}` === item.key)?.color ?? "#1D4ED8",
+                    }}
+                    aria-hidden
+                  />
+                )}
+                <span className="truncate">{item.label}</span>
+              </button>
+            ))}
             <button
-              key={item.key}
-              draggable={item.key.startsWith("room-")}
-              onDragStart={() => {
-                if (item.key.startsWith("room-")) setDragRoomId(item.key.replace("room-", ""));
-              }}
-              onDragOver={(e) => {
-                if (!item.key.startsWith("room-")) return;
-                e.preventDefault();
-              }}
-              onDrop={() => {
-                if (!item.key.startsWith("room-")) return;
-                const targetId = item.key.replace("room-", "");
-                if (!dragRoomId || dragRoomId === targetId) return;
-                const newOrder = [...orderedRooms];
-                const from = newOrder.findIndex((r) => r.id === dragRoomId);
-                const to = newOrder.findIndex((r) => r.id === targetId);
-                if (from === -1 || to === -1) return;
-                const [moved] = newOrder.splice(from, 1);
-                newOrder.splice(to, 0, moved);
-                const withOrder = newOrder.map((r, idx) => ({ ...r, order: idx }));
-                setStudio((prev) => (prev ? { ...prev, rooms: withOrder } : prev));
-                persistRoomOrder(withOrder);
-                setDragRoomId(null);
-              }}
-              onDragEnd={() => setDragRoomId(null)}
-              onClick={() => handleTabChange(item.key)}
-              className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                activeTab === item.key
-                  ? "border-blue-500 bg-blue-500 text-white shadow-sm"
-                  : "border-blue-100 bg-white text-gray-800 hover:border-blue-200"
-              }`}
+              onClick={addRoom}
+              className="rounded-full border border-dashed border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-700"
             >
-              {item.key.startsWith("room-") && (
-                <span
-                  className="mr-2 inline-block h-3 w-3 rounded-full border border-white/70"
-                  style={{
-                    backgroundColor:
-                      orderedRooms.find((r) => `room-${r.id}` === item.key)?.color ?? "#1D4ED8",
-                  }}
-                  aria-hidden
-                />
-              )}
-              <span className="truncate">{item.label}</span>
+              + Oda ekle
             </button>
-          ))}
-          <button
-            onClick={addRoom}
-            className="rounded-full border border-dashed border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-700"
-          >
-            + Oda ekle
-          </button>
-        </nav>
+          </nav>
 
         {activeTab === "panel" && (
-          <section className="grid gap-4 lg:grid-cols-3">
+          <>
+            <section className="grid gap-4 lg:grid-cols-3">
             <button
               onClick={() => setShowRatings(true)}
               className="rounded-2xl border border-green-100 bg-green-50/80 p-4 text-left transition hover:border-green-200 hover:shadow-sm"
@@ -1032,15 +1350,22 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
             </div>
 
             <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
-              <p className="text-sm font-semibold text-blue-900">Bildirimler</p>
-              <ul className="mt-2 space-y-1 text-sm text-blue-800">
-                {studio.notifications.slice(0, 3).map((n, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500" />
-                    <span>{n}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="text-sm font-semibold text-blue-900">Rezervasyon istekleri</p>
+              {studio.notifications.filter((n) => /rezervasyon|talep/i.test(n)).length ? (
+                <ul className="mt-2 space-y-1 text-sm text-blue-800">
+                  {studio.notifications
+                    .filter((n) => /rezervasyon|talep/i.test(n))
+                    .slice(0, 3)
+                    .map((n, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500" />
+                        <span>{n}</span>
+                      </li>
+                    ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-xs text-blue-700">Henüz rezervasyon isteği yok.</p>
+              )}
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 lg:col-span-2">
@@ -1146,9 +1471,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
 
             <div className="rounded-2xl border border-purple-100 bg-purple-50/80 p-4">
               <p className="text-sm font-semibold text-purple-900">Hızlı paylaşım</p>
-              <p className="mt-2 text-sm text-purple-800">
-                Demo stüdyo linki panoya kopyalanır.
-              </p>
+              <p className="mt-2 text-sm text-purple-800">Stüdyo linki panoya kopyalanır.</p>
               <button
                 onClick={copyLink}
                 className="mt-3 w-full rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700"
@@ -1156,10 +1479,302 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 Linki kopyala
               </button>
             </div>
-          </section>
+            </section>
+
+            <section className="mt-6 rounded-3xl border border-black/5 bg-white/80 p-6 shadow-sm backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Temel bilgiler</p>
+                  <p className="text-xs text-gray-600">
+                    Başvurudaki bilgileri buradan düzenleyebilirsin.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowBasicInfo((prev) => !prev)}
+                    className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
+                  >
+                    {showBasicInfo ? "Gizle" : "Düzenle"}
+                    <ChevronDown
+                      className={`h-4 w-4 transition ${showBasicInfo ? "rotate-180" : ""}`}
+                      aria-hidden
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBasicUnlocked((prev) => !prev)}
+                    aria-pressed={basicUnlocked}
+                    aria-label={basicUnlocked ? "Düzenlemeyi kilitle" : "Düzenlemeyi aç"}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                      basicUnlocked
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-gray-200 text-gray-800 hover:border-blue-300"
+                    }`}
+                  >
+                    <Key className="h-4 w-4" aria-hidden />
+                  </button>
+                  {showBasicInfo && (
+                    <button
+                      onClick={saveBasicInfo}
+                      disabled={basicSaving || !basicUnlocked}
+                      className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {basicSaving ? "Kaydediliyor..." : "Kaydet"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {showBasicInfo && (
+                <>
+                  {basicStatus && (
+                    <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-800">
+                      {basicStatus}
+                    </div>
+                  )}
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Stüdyo adı
+                      <input
+                        value={basicForm.studioName}
+                        onChange={(e) => updateBasicField("studioName", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Telefon
+                      <input
+                        value={basicForm.phone}
+                        onChange={(e) => updateBasicField("phone", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Şehir
+                      <input
+                        value={basicForm.city}
+                        onChange={(e) => updateBasicField("city", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      İlçe
+                      <input
+                        value={basicForm.district}
+                        onChange={(e) => updateBasicField("district", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Mahalle
+                      <input
+                        value={basicForm.neighborhood}
+                        onChange={(e) => updateBasicField("neighborhood", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700 md:col-span-2">
+                      Açık adres
+                      <textarea
+                        value={basicForm.address}
+                        onChange={(e) => updateBasicField("address", e.target.value)}
+                        rows={3}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700 md:col-span-2">
+                      Google Maps linki
+                      <input
+                        value={basicForm.mapsUrl}
+                        onChange={(e) => updateBasicField("mapsUrl", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-gray-900">İletişim tercihleri</p>
+                      <div className="flex flex-wrap gap-3 text-sm text-gray-700">
+                        {contactMethodOptions.map((method) => (
+                          <label key={method} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={basicForm.contactMethods.includes(method)}
+                              onChange={() => toggleBasicArray("contactMethods", method)}
+                              disabled={!basicUnlocked}
+                            />
+                            {contactMethodLabels[method]}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      İletişim saatleri
+                      <input
+                        value={basicForm.contactHours}
+                        onChange={(e) => updateBasicField("contactHours", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Oda sayısı
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={basicForm.roomsCount}
+                        onChange={(e) =>
+                          updateBasicField("roomsCount", Math.max(1, Number(e.target.value) || 1))
+                        }
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-gray-900">Oda tipleri</p>
+                      <div className="flex flex-wrap gap-3 text-sm text-gray-700">
+                        {roomTypeOptions.map((room) => (
+                          <label key={room} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={basicForm.roomTypes.includes(room)}
+                              onChange={() => toggleBasicArray("roomTypes", room)}
+                              disabled={!basicUnlocked}
+                            />
+                            {room}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Booking modu
+                      <select
+                        value={basicForm.bookingMode}
+                        onChange={(e) => updateBasicField("bookingMode", e.target.value as BookingMode)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      >
+                        {bookingModes.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {mode}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-gray-900">Ekipman setleri</p>
+                      <div className="flex flex-wrap gap-3 text-sm text-gray-700">
+                        {Object.keys(equipmentLabels).map((key) => (
+                          <label key={key} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={basicForm.equipment[key as keyof BasicInfoForm["equipment"]]}
+                              onChange={() => toggleEquipment(key as keyof BasicInfoForm["equipment"])}
+                              disabled={!basicUnlocked}
+                            />
+                            {equipmentLabels[key as keyof BasicInfoForm["equipment"]]}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Öne çıkan ekipman
+                      <input
+                        value={basicForm.equipmentHighlight}
+                        onChange={(e) => updateBasicField("equipmentHighlight", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex flex-col gap-2 text-sm text-gray-700">
+                        Fiyat aralığı
+                        <select
+                          value={basicForm.priceRange}
+                          onChange={(e) => updateBasicField("priceRange", e.target.value as PriceRange)}
+                          disabled={!basicUnlocked}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                        >
+                          {priceRanges.map((range) => (
+                            <option key={range} value={range}>
+                              {range}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={basicForm.priceVaries}
+                          onChange={() => updateBasicField("priceVaries", !basicForm.priceVaries)}
+                          disabled={!basicUnlocked}
+                        />
+                        Fiyatlar odaya göre değişir
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Instagram / Web
+                      <input
+                        value={basicForm.linkPortfolio}
+                        onChange={(e) => updateBasicField("linkPortfolio", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-2 text-sm text-gray-700">
+                      Google işletme linki
+                      <input
+                        value={basicForm.linkGoogle}
+                        onChange={(e) => updateBasicField("linkGoogle", e.target.value)}
+                        disabled={!basicUnlocked}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                      />
+                    </label>
+                  </div>
+                </>
+              )}
+            </section>
+          </>
         )}
 
-        {activeTab === "calendar" && currentRoom && (
+        {activeTab === "calendar" && (
+          !currentRoom ? (
+            <section className="mt-2 rounded-3xl border border-black/5 bg-white/80 p-5 text-sm text-gray-700 shadow-sm backdrop-blur">
+              <p className="font-semibold text-gray-900">Takvim için önce oda ekleyin.</p>
+              <p className="mt-1 text-xs text-gray-600">
+                Oda ekledikten sonra takvim üzerinden saat ve slot düzenleyebilirsiniz.
+              </p>
+              <button
+                onClick={addRoom}
+                className="mt-3 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
+              >
+                Oda ekle
+              </button>
+            </section>
+          ) : (
           <section className="mt-2 rounded-3xl border border-black/5 bg-white/80 p-5 shadow-sm backdrop-blur">
             <div className="mb-2 flex items-center gap-2 text-xs text-gray-600">
               <span
@@ -1361,12 +1976,14 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
               </div>
             )}
           </section>
+          )
         )}
 
         {activeTab.startsWith("room-") && currentRoom && (
           <section className="mt-4 grid gap-5 max-w-6xl mx-auto">
             <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-semibold text-gray-800">Oda ismi:</span>
                 <input
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500 focus:border-blue-400 focus:outline-none"
                   value={currentRoom.name}
@@ -1383,30 +2000,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                     )
                   }
                 />
-                <select
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
-                  value={currentRoom.type}
-                  onChange={(e) =>
-                    setStudio((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            rooms: prev.rooms.map((r) =>
-                              r.id === currentRoom.id ? { ...r, type: e.target.value } : r,
-                            ),
-                          }
-                        : prev,
-                    )
-                  }
-                >
-                  {["Prova odası", "Vokal kabini", "Kayıt kabini", "Davul kabini", "Etüt odası"].map(
-                    (t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ),
-                  )}
-                </select>
                 <div className="flex items-center gap-2">
                   <span
                     className="inline-block h-8 w-8 rounded-full border border-gray-200"
@@ -1449,28 +2042,103 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                   </div>
                 )}
               </div>
+              <div className="mt-3 rounded-xl border border-gray-200 bg-white px-3 py-2">
+                <p className="text-xs font-semibold text-gray-800">Bu oda hangi amaçta?</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {roomTypeOptionsUi.map((type) => {
+                    const active = selectedRoomTypes.includes(type);
+                    return (
+                      <label
+                        key={type}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                          active ? "border-blue-600 bg-blue-600 text-white" : "border-gray-200 text-gray-800"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5"
+                          checked={active}
+                          onChange={(e) => {
+                            const next = new Set(selectedRoomTypes);
+                            if (e.target.checked) {
+                              next.add(type);
+                            } else {
+                              next.delete(type);
+                            }
+                            if (!next.size) return;
+                            updateRoomTypes(Array.from(next));
+                          }}
+                        />
+                        <span>{type}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <h2 className="mt-3 text-2xl font-bold text-gray-900">
                 {currentRoom.name}
               </h2>
               <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-4 text-gray-900 shadow-sm space-y-3">
-                <p className="text-sm font-semibold text-gray-900">Fiyatlandırma</p>
-                <div className="grid gap-3 text-sm text-gray-900 sm:grid-cols-2 sm:items-center">
-                  <label className="flex items-center gap-2">
-                    <span>Ücretlendirme</span>
-                    <select
-                      className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:outline-none"
+                <RoomSection
+                  title="Fiyatlandırma"
+                  open={isSectionOpen("pricing")}
+                  onToggle={() => toggleSection("pricing")}
+                >
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
+                    <label className="flex items-center gap-2">
+                      <span>Ücretlendirme</span>
+                      <select
+                        className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:outline-none"
+                        value={
+                          currentRoom.pricing.model === "daily" ||
+                          currentRoom.pricing.model === "hourly"
+                            ? currentRoom.pricing.model
+                            : "hourly"
+                        }
+                        onChange={(e) => {
+                          const nextModel = e.target.value as Room["pricing"]["model"];
+                          const rate =
+                            nextModel === "daily"
+                              ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate ?? ""
+                              : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate ?? "";
+                          setStudio((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  rooms: prev.rooms.map((r) =>
+                                    r.id === currentRoom.id
+                                      ? {
+                                          ...r,
+                                          pricing: {
+                                            ...r.pricing,
+                                            model: nextModel,
+                                            dailyRate: nextModel === "daily" ? rate : "",
+                                            hourlyRate: nextModel === "hourly" ? rate : "",
+                                            flatRate: "",
+                                            minRate: "",
+                                          },
+                                        }
+                                      : r,
+                                  ),
+                                }
+                              : prev,
+                          );
+                        }}
+                      >
+                        <option value="daily">Günlük</option>
+                        <option value="hourly">Saatlik</option>
+                      </select>
+                    </label>
+                    <input
+                      className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-400 focus:outline-none"
+                      placeholder="Ücret"
                       value={
-                        currentRoom.pricing.model === "daily" ||
-                        currentRoom.pricing.model === "hourly"
-                          ? currentRoom.pricing.model
-                          : "hourly"
+                        currentRoom.pricing.model === "daily"
+                          ? currentRoom.pricing.dailyRate ?? ""
+                          : currentRoom.pricing.hourlyRate ?? ""
                       }
                       onChange={(e) => {
-                        const nextModel = e.target.value as Room["pricing"]["model"];
-                        const rate =
-                          nextModel === "daily"
-                            ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate ?? ""
-                            : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate ?? "";
+                        const val = e.target.value;
                         setStudio((prev) =>
                           prev
                             ? {
@@ -1481,9 +2149,10 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                         ...r,
                                         pricing: {
                                           ...r.pricing,
-                                          model: nextModel,
-                                          dailyRate: nextModel === "daily" ? rate : "",
-                                          hourlyRate: nextModel === "hourly" ? rate : "",
+                                          dailyRate:
+                                            (r.pricing.model === "daily" ? val : r.pricing.dailyRate) ?? "",
+                                          hourlyRate:
+                                            (r.pricing.model === "hourly" ? val : r.pricing.hourlyRate) ?? "",
                                           flatRate: "",
                                           minRate: "",
                                         },
@@ -1494,74 +2163,32 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                             : prev,
                         );
                       }}
-                    >
-                      <option value="daily">Günlük</option>
-                      <option value="hourly">Saatlik</option>
-                    </select>
-                  </label>
-                  <input
-                    className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-400 focus:outline-none"
-                    placeholder="Ücret"
-                    value={
-                      currentRoom.pricing.model === "daily"
-                        ? currentRoom.pricing.dailyRate ?? ""
-                        : currentRoom.pricing.hourlyRate ?? ""
+                    />
+                  </div>
+                  <button
+                    disabled={saving}
+                    onClick={() =>
+                      saveRoomBasics(currentRoom.id, {
+                        name: currentRoom.name,
+                        type: currentRoom.type,
+                        color: currentRoom.color,
+                        pricing: currentRoom.pricing,
+                        extras: currentRoom.extras,
+                      })
                     }
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setStudio((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              rooms: prev.rooms.map((r) =>
-                                r.id === currentRoom.id
-                                  ? {
-                                      ...r,
-                                      pricing: {
-                                        ...r.pricing,
-                                        dailyRate:
-                                          (r.pricing.model === "daily" ? val : r.pricing.dailyRate) ?? "",
-                                        hourlyRate:
-                                          (r.pricing.model === "hourly" ? val : r.pricing.hourlyRate) ?? "",
-                                        flatRate: "",
-                                        minRate: "",
-                                      },
-                                    }
-                                  : r,
-                              ),
-                            }
-                          : prev,
-                      );
-                    }}
-                  />
-                </div>
-                <button
-                  disabled={saving}
-                  onClick={() =>
-                    saveRoomBasics(currentRoom.id, {
-                      name: currentRoom.name,
-                      type: currentRoom.type,
-                      color: currentRoom.color,
-                      pricing: currentRoom.pricing,
-                    })
-                  }
-                  className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm"
-                >
-                  {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
-                </button>
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm"
+                  >
+                    {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
+                  </button>
+                </RoomSection>
                 {isRehearsalLike && (
-                  <div className="mt-4 space-y-4 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => setShowEquipment((v) => !v)}
-                      className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
-                    >
-                      Ekipman
-                      <span className="text-xs text-gray-500">{showEquipment ? "Gizle" : "Göster"}</span>
-                    </button>
-                    {showEquipment && (
-                      <>
-                    <div className="mt-2 grid gap-4 lg:grid-cols-2">
+                  <RoomSection
+                    className="mt-4"
+                    title={rehearsalEquipmentTitle}
+                    open={isSectionOpen("equipment")}
+                    onToggle={() => toggleSection("equipment")}
+                  >
+                    <div className="grid gap-4 lg:grid-cols-2">
                     <div className="lg:col-span-2">
                       <p className="text-xs font-semibold text-gray-800">Davul var mı?</p>
                       <div className="mt-1 flex gap-2">
@@ -2132,20 +2759,17 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                           className="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
                         >
                           {saving ? "Kaydediliyor..." : "Ekipman bilgisi kaydet"}
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  </button>
+                  </RoomSection>
                 )}
-                {currentRoom.type === "Prova odası" && (
+                {hasRoomType("Vokal kabini") && (
                   <>
-                    <ImagesBlock />
-                    <CoursesBlock />
-                  </>
-                )}
-                {currentRoom.type === "Vokal kabini" && (
-                  <>
-                    <div className="mt-4 space-y-4 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
+                    <RoomSection
+                      className="mt-4"
+                      title="Vokal kabini ekipmanları"
+                      open={isSectionOpen("vocal-info")}
+                      onToggle={() => toggleSection("vocal-info")}
+                    >
                       <div>
                         <p className="text-sm font-semibold text-gray-900">Mikrofonlar</p>
                         <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
@@ -2334,63 +2958,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                           </div>
                         ))}
                       </div>
-                      <div className="grid gap-3 md:grid-cols-3">
-                        {[
-                          {
-                            label: "Edit hizmeti",
-                            value: currentRoom.extras?.vocalEditService ?? "none",
-                            keyName: "vocalEditService",
-                          },
-                          {
-                            label: "Mix/Mastering hizmeti",
-                            value: currentRoom.extras?.vocalMixService ?? "none",
-                            keyName: "vocalMixService",
-                          },
-                          {
-                            label: "Prodüksiyon hizmeti",
-                            value: currentRoom.extras?.vocalProductionService ?? "none",
-                            keyName: "vocalProductionService",
-                          },
-                        ].map((item) => (
-                          <div key={item.keyName} className="space-y-1 rounded-lg border border-gray-200 bg-white p-3">
-                            <p className="text-xs font-semibold text-gray-800">{item.label}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {[
-                                { label: "Yok", value: "none" },
-                                { label: "Dahil", value: "included" },
-                                { label: "Ekstra", value: "extra" },
-                              ].map((opt) => (
-                                <button
-                                  key={opt.value}
-                                  type="button"
-                                  onClick={() =>
-                                    setStudio((prev) =>
-                                      prev
-                                        ? {
-                                            ...prev,
-                                            rooms: prev.rooms.map((r) =>
-                                              r.id === currentRoom.id
-                                                ? {
-                                                    ...r,
-                                                    extras: { ...r.extras, [item.keyName]: opt.value as typeof item.value },
-                                                  }
-                                                : r,
-                                            ),
-                                          }
-                                        : prev,
-                                    )
-                                  }
-                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                    item.value === opt.value ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-800"
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
                       <button
                         type="button"
                         disabled={saving}
@@ -2409,17 +2976,18 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       >
                         {saving ? "Kaydediliyor..." : "Vokal bilgisi kaydet"}
                       </button>
-                    </div>
-                    <ImagesBlock />
-                    <CoursesBlock />
+                    </RoomSection>
                   </>
                 )}
-                {currentRoom.type === "Davul kabini" && (
+                {hasRoomType("Davul kabini") && (
                   <>
-                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
-                      <p className="text-xs text-gray-700">
-                        Detayları doldurmak zorunda değilsiniz. Ama davulcuları bilirsiniz.
-                      </p>
+                    <RoomSection
+                      className="mt-4"
+                      title="Davul ekipmanı"
+                      description="Detayları doldurmak zorunda değilsiniz. Ama davulcuları bilirsiniz."
+                      open={isSectionOpen("drum-equipment")}
+                      onToggle={() => toggleSection("drum-equipment")}
+                    >
                       <div className="grid gap-3 md:grid-cols-2">
                         {(
                           [
@@ -2495,6 +3063,41 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                         ))}
                       </div>
                       <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs font-semibold text-gray-800">
+                        <p className="mb-2">Cowbell var mı?</p>
+                        <div className="flex gap-2">
+                          {["Evet", "Hayır"].map((label, idx) => {
+                            const val = idx === 0;
+                            return (
+                              <button
+                                key={label}
+                                type="button"
+                                onClick={() =>
+                                  setStudio((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          rooms: prev.rooms.map((r) =>
+                                            r.id === currentRoom.id
+                                              ? { ...r, equipment: { ...r.equipment, hasDrumCowbell: val } }
+                                              : r,
+                                          ),
+                                        }
+                                      : prev,
+                                  )
+                                }
+                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                  currentRoom.equipment?.hasDrumCowbell === val
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-gray-200 text-gray-800"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs font-semibold text-gray-800">
                         <p className="mb-2">Twin pedal</p>
                         <div className="flex gap-2">
                           {["Var", "Yok"].map((label, idx) => {
@@ -2543,86 +3146,18 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       >
                         {saving ? "Kaydediliyor..." : "Ekipmanları kaydet"}
                       </button>
-                    </div>
-                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
-                      <p className="text-sm font-semibold text-gray-900">Ekstralar</p>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {(
-                          [
-                            { label: "Profesyonel davul kaydı imkanı", key: "drumProRecording", values: ["none", "included", "extra"] },
-                            { label: "Video çekimi", key: "drumVideo", values: ["none", "included", "extra"] },
-                            { label: "Davul prodüksiyonu", key: "drumProduction", values: ["none", "extra"] },
-                            { label: "Davul mix/mastering", key: "drumMix", values: ["none", "extra"] },
-                          ] as {
-                            label: string;
-                            key: "drumProRecording" | "drumVideo" | "drumProduction" | "drumMix";
-                            values: ("none" | "included" | "extra")[];
-                          }[]
-                        ).map((item) => {
-                          const currentVal = (currentRoom.extras?.[item.key] as string | undefined) ?? "none";
-                          return (
-                          <div key={item.key} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
-                            <p className="text-xs font-semibold text-gray-800">{item.label}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {item.values.map((val) => (
-                                <button
-                                  key={val}
-                                  type="button"
-                                  onClick={() =>
-                                    setStudio((prev) =>
-                                      prev
-                                        ? {
-                                            ...prev,
-                                            rooms: prev.rooms.map((r) =>
-                                              r.id === currentRoom.id
-                                                ? { ...r, extras: { ...r.extras, [item.key]: val } }
-                                                : r,
-                                            ),
-                                        }
-                                      : prev,
-                                    )
-                                  }
-                                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                    currentVal === val
-                                      ? "bg-blue-600 text-white"
-                                      : "bg-gray-200 text-gray-800"
-                                  }`}
-                                >
-                                  {val === "none" ? "Yok" : val === "included" ? "Dahil" : "Ekstra"}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          );
-                        })}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={() =>
-                          saveRoomBasics(currentRoom.id, {
-                            name: currentRoom.name,
-                            type: currentRoom.type,
-                            color: currentRoom.color,
-                            pricing: currentRoom.pricing,
-                            extras: currentRoom.extras,
-                          })
-                        }
-                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        {saving ? "Kaydediliyor..." : "Ekstraları kaydet"}
-                      </button>
-                    </div>
-                    <ImagesBlock />
-                    <CoursesBlock />
+                    </RoomSection>
                   </>
                 )}
-                {currentRoom.type === "Etüt odası" && (
+                {hasRoomType("Etüt odası") && (
                   <>
-                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
-                      <p className="text-sm font-semibold text-gray-900">
-                        Lütfen odanızı, amacını ve ekipmanları tanımlayın.
-                      </p>
+                    <RoomSection
+                      className="mt-4"
+                      title="Etüt odası bilgileri"
+                      description="Lütfen odanızı, amacını ve ekipmanları tanımlayın."
+                      open={isSectionOpen("etut-info")}
+                      onToggle={() => toggleSection("etut-info")}
+                    >
                       <textarea
                         className="min-h-[120px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
                         value={currentRoom.extras?.practiceDescription ?? ""}
@@ -2658,15 +3193,17 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       >
                         {saving ? "Kaydediliyor..." : "Etüt bilgisi kaydet"}
                       </button>
-                    </div>
-                    <ImagesBlock />
-                    <CoursesBlock title="Hocalara açık mısınız?" description="Hocalar uygun odaları önerir." />
+                    </RoomSection>
                   </>
                 )}
-                {currentRoom.type === "Kayıt kabini" && (
+                {hasRoomType("Kayıt kabini") && (
                   <>
-                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
-                      <p className="text-sm font-semibold text-gray-900">DAW ve kayıt bilgileri</p>
+                    <RoomSection
+                      className="mt-4"
+                      title="DAW ve kayıt bilgileri"
+                      open={isSectionOpen("recording-info")}
+                      onToggle={() => toggleSection("recording-info")}
+                    >
                       <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
                         <p className="text-xs font-semibold text-gray-800">Mevcut olan DAW&apos;ları seçin:</p>
                         <div className="flex flex-wrap gap-2">
@@ -2781,134 +3318,273 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       >
                         {saving ? "Kaydediliyor..." : "Kayıt bilgisi kaydet"}
                       </button>
-                    </div>
-                    <div className="mt-4 space-y-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-800 shadow-sm">
-                      <p className="text-sm font-semibold text-gray-900">Ekstralar</p>
-                      <p className="text-xs text-gray-600">Ekstra olarak sunabildiğiniz hizmetler</p>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
-                          <p className="text-xs font-semibold text-gray-800">Edit / Mix / Mastering hizmeti</p>
-                          <div className="flex gap-2">
-                            {(["none", "extra"] as const).map((val) => (
-                              <button
-                                key={val}
-                                type="button"
-                                onClick={() =>
-                                  setStudio((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          rooms: prev.rooms.map((r) =>
-                                            r.id === currentRoom.id
-                                              ? { ...r, extras: { ...r.extras, recordingMixService: val } }
-                                              : r,
-                                          ),
-                                        }
-                                      : prev,
-                                )
-                              }
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                  (currentRoom.extras?.recordingMixService ?? "none") === val
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-200 text-gray-800"
-                                }`}
-                              >
-                                {val === "none" ? "Yok" : "Ekstra"}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
-                          <p className="text-xs font-semibold text-gray-800">Prodüksiyon hizmeti</p>
-                          <div className="flex gap-2">
-                            {(["none", "extra"] as const).map((val) => (
-                              <button
-                                key={val}
-                                type="button"
-                                onClick={() =>
-                                  setStudio((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          rooms: prev.rooms.map((r) =>
-                                            r.id === currentRoom.id
-                                              ? {
-                                                  ...r,
-                                                  extras: { ...r.extras, recordingProduction: val, recordingProductionAreas: [] },
-                                                }
-                                              : r,
-                                          ),
-                                        }
-                                      : prev,
-                                  )
-                                }
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                  (currentRoom.extras?.recordingProduction ?? "none") === val
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-200 text-gray-800"
-                                }`}
-                              >
-                                {val === "none" ? "Yok" : "Ekstra"}
-                              </button>
-                            ))}
-                          </div>
-                          {(currentRoom.extras?.recordingProduction ?? "none") === "extra" && (
-                            <div className="mt-2 space-y-2">
-                              {["Beat yapımı", "Enstrüman ekleme"].map((label) => {
-                                const active = currentRoom.extras?.recordingProductionAreas?.includes(label);
-                                return (
-                                  <label key={label} className="flex items-center gap-2 text-xs font-semibold text-gray-800">
-                                    <input
-                                      type="checkbox"
-                                      className="h-4 w-4"
-                                      checked={active}
-                                      onChange={(e) =>
-                                        setStudio((prev) =>
-                                          prev
-                                            ? {
-                                                ...prev,
-                                                rooms: prev.rooms.map((r) => {
-                                                  if (r.id !== currentRoom.id) return r;
-                                                  const set = new Set(r.extras?.recordingProductionAreas ?? []);
-                                                  if (e.target.checked) set.add(label);
-                                                  else set.delete(label);
-                                                  return {
-                                                    ...r,
-                                                    extras: { ...r.extras, recordingProductionAreas: Array.from(set) },
-                                                  };
-                                                }),
-                                              }
-                                            : prev,
-                                        )
-                                      }
-                                    />
-                                    {label}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={() =>
-                          saveRoomBasics(currentRoom.id, {
-                            name: currentRoom.name,
-                            type: currentRoom.type,
-                            color: currentRoom.color,
-                            pricing: currentRoom.pricing,
-                            extras: currentRoom.extras,
-                          })
-                        }
-                        className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        {saving ? "Kaydediliyor..." : "Ekstraları kaydet"}
-                      </button>
-                    </div>
-                    <ImagesBlock />
+                    </RoomSection>
                   </>
+                )}
+                {showExtras && (
+                  <RoomSection
+                    className="mt-4"
+                    title="Ekstralar"
+                    open={isSectionOpen("extras")}
+                    onToggle={() => toggleSection("extras")}
+                  >
+                    <div className="space-y-4">
+                      {hasRoomType("Vokal kabini") && (
+                        <div className="space-y-3">
+                          <p className="text-sm font-semibold text-gray-900">Vokal kabini</p>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {(
+                              [
+                                { label: "Edit hizmeti", key: "vocalEditService" },
+                                { label: "Mix / Mastering hizmeti", key: "vocalMixService" },
+                                { label: "Prodüksiyon hizmeti", key: "vocalProductionService" },
+                              ] as {
+                                label: string;
+                                key: "vocalEditService" | "vocalMixService" | "vocalProductionService";
+                              }[]
+                            ).map((item) => {
+                              const currentVal = (currentRoom.extras?.[item.key] as string | undefined) ?? "none";
+                              return (
+                                <div key={item.key} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                                  <p className="text-xs font-semibold text-gray-800">{item.label}</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {(["none", "included", "extra"] as const).map((val) => (
+                                      <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() =>
+                                          setStudio((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  rooms: prev.rooms.map((r) =>
+                                                    r.id === currentRoom.id
+                                                      ? { ...r, extras: { ...r.extras, [item.key]: val } }
+                                                      : r,
+                                                  ),
+                                                }
+                                              : prev,
+                                          )
+                                        }
+                                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                          currentVal === val
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-gray-200 text-gray-800"
+                                        }`}
+                                      >
+                                        {val === "none" ? "Yok" : val === "included" ? "Dahil" : "Ekstra"}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {hasRoomType("Davul kabini") && (
+                        <div className="space-y-3">
+                          <p className="text-sm font-semibold text-gray-900">Davul kabini</p>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {(
+                              [
+                                { label: "Profesyonel davul kaydı imkanı", key: "drumProRecording", values: ["none", "included", "extra"] },
+                                { label: "Video çekimi", key: "drumVideo", values: ["none", "included", "extra"] },
+                                { label: "Davul prodüksiyonu", key: "drumProduction", values: ["none", "extra"] },
+                                { label: "Davul mix/mastering", key: "drumMix", values: ["none", "extra"] },
+                              ] as {
+                                label: string;
+                                key: "drumProRecording" | "drumVideo" | "drumProduction" | "drumMix";
+                                values: ("none" | "included" | "extra")[];
+                              }[]
+                            ).map((item) => {
+                              const currentVal = (currentRoom.extras?.[item.key] as string | undefined) ?? "none";
+                              return (
+                                <div key={item.key} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                                  <p className="text-xs font-semibold text-gray-800">{item.label}</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {item.values.map((val) => (
+                                      <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() =>
+                                          setStudio((prev) =>
+                                            prev
+                                              ? {
+                                                  ...prev,
+                                                  rooms: prev.rooms.map((r) =>
+                                                    r.id === currentRoom.id
+                                                      ? { ...r, extras: { ...r.extras, [item.key]: val } }
+                                                      : r,
+                                                  ),
+                                                }
+                                              : prev,
+                                          )
+                                        }
+                                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                          currentVal === val
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-gray-200 text-gray-800"
+                                        }`}
+                                      >
+                                        {val === "none" ? "Yok" : val === "included" ? "Dahil" : "Ekstra"}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {hasRoomType("Kayıt kabini") && (
+                        <div className="space-y-3">
+                          <p className="text-sm font-semibold text-gray-900">Kayıt kabini</p>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                              <p className="text-xs font-semibold text-gray-800">Edit / Mix / Mastering hizmeti</p>
+                              <div className="flex gap-2">
+                                {(["none", "extra"] as const).map((val) => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() =>
+                                      setStudio((prev) =>
+                                        prev
+                                          ? {
+                                              ...prev,
+                                              rooms: prev.rooms.map((r) =>
+                                                r.id === currentRoom.id
+                                                  ? { ...r, extras: { ...r.extras, recordingMixService: val } }
+                                                  : r,
+                                              ),
+                                            }
+                                          : prev,
+                                      )
+                                    }
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                      (currentRoom.extras?.recordingMixService ?? "none") === val
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-gray-200 text-gray-800"
+                                    }`}
+                                  >
+                                    {val === "none" ? "Yok" : "Ekstra"}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                              <p className="text-xs font-semibold text-gray-800">Prodüksiyon hizmeti</p>
+                              <div className="flex gap-2">
+                                {(["none", "extra"] as const).map((val) => (
+                                  <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() =>
+                                      setStudio((prev) =>
+                                        prev
+                                          ? {
+                                              ...prev,
+                                              rooms: prev.rooms.map((r) =>
+                                                r.id === currentRoom.id
+                                                  ? {
+                                                      ...r,
+                                                      extras: { ...r.extras, recordingProduction: val, recordingProductionAreas: [] },
+                                                    }
+                                                  : r,
+                                              ),
+                                            }
+                                          : prev,
+                                      )
+                                    }
+                                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                                      (currentRoom.extras?.recordingProduction ?? "none") === val
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-gray-200 text-gray-800"
+                                    }`}
+                                  >
+                                    {val === "none" ? "Yok" : "Ekstra"}
+                                  </button>
+                                ))}
+                              </div>
+                              {(currentRoom.extras?.recordingProduction ?? "none") === "extra" && (
+                                <div className="mt-2 space-y-2">
+                                  {["Beat yapımı", "Enstrüman ekleme"].map((label) => {
+                                    const active = currentRoom.extras?.recordingProductionAreas?.includes(label);
+                                    return (
+                                      <label key={label} className="flex items-center gap-2 text-xs font-semibold text-gray-800">
+                                        <input
+                                          type="checkbox"
+                                          className="h-4 w-4"
+                                          checked={active}
+                                          onChange={(e) =>
+                                            setStudio((prev) =>
+                                              prev
+                                                ? {
+                                                    ...prev,
+                                                    rooms: prev.rooms.map((r) => {
+                                                      if (r.id !== currentRoom.id) return r;
+                                                      const set = new Set(r.extras?.recordingProductionAreas ?? []);
+                                                      if (e.target.checked) set.add(label);
+                                                      else set.delete(label);
+                                                      return {
+                                                        ...r,
+                                                        extras: { ...r.extras, recordingProductionAreas: Array.from(set) },
+                                                      };
+                                                    }),
+                                                  }
+                                                : prev,
+                                            )
+                                          }
+                                        />
+                                        {label}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() =>
+                        saveRoomBasics(currentRoom.id, {
+                          name: currentRoom.name,
+                          type: currentRoom.type,
+                          color: currentRoom.color,
+                          pricing: currentRoom.pricing,
+                          extras: currentRoom.extras,
+                        })
+                      }
+                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                    >
+                      {saving ? "Kaydediliyor..." : "Ekstraları kaydet"}
+                    </button>
+                  </RoomSection>
+                )}
+                <RoomSection
+                  className="mt-4"
+                  title="Görseller"
+                  description="Max 5 MB, ilk görsel kapak olur. Yatay (landscape) görseller daha iyi görünür."
+                  open={isSectionOpen("images")}
+                  onToggle={() => toggleSection("images")}
+                >
+                  <ImagesBlock />
+                </RoomSection>
+                {showCourses && (
+                  <RoomSection
+                    className="mt-4"
+                    title={coursesTitle}
+                    description={coursesDescription}
+                    open={isSectionOpen("courses")}
+                    onToggle={() => toggleSection("courses")}
+                  >
+                    <CoursesBlock />
+                  </RoomSection>
                 )}
                 <button
                   disabled={saving || orderedRooms.length <= 1}
@@ -2946,13 +3622,6 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 </button>
               </div>
 
-              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm text-gray-700">
-                <p className="font-semibold text-gray-900">Oda içerikleri temizlendi</p>
-                <p className="mt-1">
-                  Bu sekmede şimdilik sadece ad, tür, renk ve fiyat alanları kaldı. Yeni UI eklenene kadar
-                  başka bölüm yok.
-                </p>
-              </div>
             </div>
           </section>
         )}
@@ -2963,7 +3632,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Yorumlar (demo)</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Yorumlar</h3>
               <button
                 onClick={() => setShowRatings(false)}
                 className="rounded-full border border-gray-200 px-3 py-1 text-sm"
@@ -2982,8 +3651,8 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       {r.toFixed(1)}
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">Demo yorum {i + 1}</p>
-                      <p className="text-xs text-gray-700">Gerçek yorumlar entegrasyon sonrası gelecek.</p>
+                      <p className="text-sm font-semibold text-gray-900">Yorum {i + 1}</p>
+                      <p className="text-xs text-gray-700">Yorum detayı bulunmuyor.</p>
                     </div>
                   </div>
                 ))

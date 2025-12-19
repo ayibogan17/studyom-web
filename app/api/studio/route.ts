@@ -3,11 +3,9 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { mockStudio } from "@/data/panelMock";
 import {
   Prisma,
   PricingModel,
-  SlotStatus,
   type Room as PrismaRoom,
   type Slot as PrismaSlot,
   type Studio as PrismaStudio,
@@ -15,9 +13,7 @@ import {
   type Rating as PrismaRating,
 } from "@prisma/client";
 import type { Equipment, Extras, Features, OpeningHours } from "@/types/panel";
-
-const statusToDb = (s: "empty" | "confirmed") =>
-  s === "confirmed" ? SlotStatus.CONFIRMED : SlotStatus.EMPTY;
+import { z } from "zod";
 
 const defaultEquipment: Equipment = {
   hasDrum: false,
@@ -46,6 +42,7 @@ const defaultEquipment: Equipment = {
   drumChinaDetail: "",
   hasDrumSplash: false,
   drumSplashDetail: "",
+  hasDrumCowbell: false,
   hasTwinPedal: false,
   micCount: 0,
   micDetails: [] as string[],
@@ -89,6 +86,7 @@ const defaultExtras: Extras = {
   offersOther: false,
   otherDetail: "",
   acceptsCourses: false,
+  alsoTypes: [],
   vocalHasEngineer: false,
   vocalLiveAutotune: false,
   vocalRawIncluded: false,
@@ -111,6 +109,43 @@ const defaultOpeningHours: OpeningHours[] = Array.from({ length: 7 }, () => ({
   closeTime: "21:00",
 }));
 
+const contactMethodOptions = ["Phone", "WhatsApp", "Email"] as const;
+const roomTypeOptions = ["Prova odası", "Kayıt odası", "Vokal kabini", "Kontrol odası", "Prodüksiyon odası"] as const;
+const bookingModes = ["Onaylı talep (ben onaylarım)", "Direkt rezervasyon (sonra açılabilir)"] as const;
+const priceRanges = ["500–750", "750–1000", "1000–1500", "1500+"] as const;
+const urlOptional = z.string().trim().optional().or(z.literal(""));
+
+const applicationSchema = z.object({
+  studioName: z.string().trim().min(2).max(80),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/\D/g, ""))
+    .refine((v) => /^(?:90)?5\d{9}$/.test(v), "Telefon formatı hatalı"),
+  city: z.string().trim().min(2),
+  district: z.string().trim().min(1),
+  neighborhood: z.string().trim().min(1),
+  address: z.string().trim().min(10),
+  mapsUrl: z.string().trim().url("Geçerli link"),
+  contactMethods: z.array(z.enum(contactMethodOptions)).min(1),
+  contactHours: z.string().trim().max(80).optional().or(z.literal("")),
+  roomsCount: z.number().int().min(1).max(10),
+  roomTypes: z.array(z.enum(roomTypeOptions)).min(1),
+  bookingMode: z.enum(bookingModes),
+  equipment: z.object({
+    drum: z.boolean(),
+    guitarAmp: z.boolean(),
+    bassAmp: z.boolean(),
+    pa: z.boolean(),
+    mic: z.boolean(),
+  }),
+  equipmentHighlight: z.string().trim().max(200).optional().or(z.literal("")),
+  priceRange: z.enum(priceRanges),
+  priceVaries: z.boolean(),
+  linkPortfolio: urlOptional,
+  linkGoogle: urlOptional,
+});
+
 const pricingToDb = (model: string): PricingModel => {
   switch (model) {
     case "daily":
@@ -124,11 +159,6 @@ const pricingToDb = (model: string): PricingModel => {
       return PricingModel.FLAT;
   }
 };
-
-function normalizeDateKey(key: string) {
-  // Treat as midnight UTC to avoid TZ drift
-  return new Date(`${key}T00:00:00.000Z`);
-}
 
 type StudioWithRelations = PrismaStudio & {
   openingHours?: Prisma.JsonValue | null;
@@ -147,7 +177,6 @@ type StudioWithRelations = PrismaStudio & {
 function mapStudioToResponse(studio: StudioWithRelations) {
   const openingHours =
     (studio.openingHours as OpeningHours[] | null | undefined) ??
-    mockStudio.openingHours ??
     defaultOpeningHours;
 
   return {
@@ -179,19 +208,16 @@ function mapStudioToResponse(studio: StudioWithRelations) {
         },
         equipment:
           (room.equipmentJson as Equipment | null | undefined) ??
-          mockStudio.rooms.find((r) => r.name === room.name)?.equipment ??
           defaultEquipment,
         features:
           (room.featuresJson as Features | null | undefined) ??
-          mockStudio.rooms.find((r) => r.name === room.name)?.features ??
           defaultFeatures,
-        extras:
-          (room.extrasJson as Extras | null | undefined) ??
-          mockStudio.rooms.find((r) => r.name === room.name)?.extras ??
-          defaultExtras,
+        extras: {
+          ...defaultExtras,
+          ...((room.extrasJson as Extras | null | undefined) ?? {}),
+        },
         images:
           (room.imagesJson as string[] | null | undefined) ??
-          mockStudio.rooms.find((r) => r.name === room.name)?.images ??
           [],
         slots: room.slots?.reduce<Record<string, { timeLabel: string; status: "empty" | "confirmed"; name?: string }[]>>(
           (acc, slot) => {
@@ -210,66 +236,6 @@ function mapStudioToResponse(studio: StudioWithRelations) {
   };
 }
 
-async function seedFromMock(email: string, name?: string | null) {
-  await prisma.user.upsert({
-    where: { email },
-    update: { name: name ?? undefined, role: "STUDIO" },
-    create: { email, name: name ?? undefined, role: "STUDIO" },
-  });
-
-  const created = await prisma.studio.create({
-    data: {
-      name: mockStudio.name,
-      city: mockStudio.city,
-      district: mockStudio.district,
-      address: mockStudio.address,
-      phone: mockStudio.phone,
-      ownerEmail: email,
-      openingHours: (mockStudio.openingHours ?? defaultOpeningHours) as Prisma.InputJsonValue,
-      notifications: {
-        create: mockStudio.notifications.map((message) => ({ message })),
-      },
-      ratings: {
-        create: mockStudio.ratings.map((value) => ({ value })),
-      },
-      rooms: {
-        create: mockStudio.rooms.map((room, idx) => ({
-          name: room.name,
-          type: room.type,
-          color: room.color,
-          order: idx,
-          pricingModel: pricingToDb(room.pricing.model),
-          flatRate: room.pricing.flatRate,
-          minRate: room.pricing.minRate,
-          dailyRate: room.pricing.dailyRate,
-          hourlyRate: room.pricing.hourlyRate,
-          equipmentJson: room.equipment,
-          featuresJson: room.features,
-          extrasJson: room.extras,
-          imagesJson: room.images,
-          slots: {
-            create: Object.entries(room.slots).flatMap(([key, slots]) =>
-              slots.map((slot) => ({
-                date: normalizeDateKey(key),
-                timeLabel: slot.timeLabel,
-                status: statusToDb(slot.status),
-                customerName: slot.name ?? undefined,
-              })),
-            ),
-          },
-        })),
-      },
-    },
-    include: {
-      rooms: { include: { slots: true } },
-      notifications: true,
-      ratings: true,
-    },
-  });
-
-  return created;
-}
-
 export async function GET() {
   const session = await getServerSession(authOptions);
 
@@ -280,7 +246,7 @@ export async function GET() {
   const email = session.user.email;
   const name = session.user.name;
 
-  const user = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email },
     update: { name: name ?? undefined, role: "STUDIO" },
     create: { email, name: name ?? undefined, role: "STUDIO" },
@@ -296,7 +262,7 @@ export async function GET() {
   })) as StudioWithRelations | null;
 
   if (!studio) {
-    studio = (await seedFromMock(email, user.name)) as StudioWithRelations;
+    return NextResponse.json({ ok: false, error: "Studio not found" }, { status: 404 });
   }
 
   return NextResponse.json({
@@ -333,12 +299,14 @@ export async function PATCH(req: Request) {
 
   type Body = {
     studio?: {
+      name?: string;
       city?: string;
       district?: string;
       address?: string;
       phone?: string;
       openingHours?: OpeningHours[];
     };
+    application?: z.infer<typeof applicationSchema>;
     rooms?: UpdateRoomPayload[];
   };
 
@@ -357,17 +325,90 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Studio not found" }, { status: 404 });
   }
 
+  const studioUpdateData: Prisma.StudioUpdateInput = {};
+
   if (body.studio) {
-    const { city, district, address, phone, openingHours } = body.studio;
+    const { name, city, district, address, phone, openingHours } = body.studio;
+    if (name !== undefined) studioUpdateData.name = name;
+    if (city !== undefined) studioUpdateData.city = city;
+    if (district !== undefined) studioUpdateData.district = district;
+    if (address !== undefined) studioUpdateData.address = address;
+    if (phone !== undefined) studioUpdateData.phone = phone;
+    if (openingHours !== undefined) {
+      studioUpdateData.openingHours = (openingHours ?? studio.openingHours ?? defaultOpeningHours) as Prisma.InputJsonValue;
+    }
+  }
+
+  if (body.application) {
+    const parsed = applicationSchema.safeParse(body.application);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
+    }
+    const data = parsed.data;
+    const fullAddress = `${data.neighborhood} - ${data.address}`.trim();
+    studioUpdateData.name = data.studioName;
+    studioUpdateData.city = data.city;
+    studioUpdateData.district = data.district;
+    studioUpdateData.address = fullAddress;
+    studioUpdateData.phone = data.phone;
+
+    const prefixes = [
+      "İletişim tercihleri:",
+      "Booking modu:",
+      "Oda sayısı:",
+      "Ekipman sinyali:",
+      "Öne çıkan ekipman:",
+      "Instagram/Web:",
+      "Google Business:",
+      "Maps:",
+      "İletişim saatleri:",
+      "Fiyat aralığı:",
+      "Manuel inceleme:",
+    ];
+
+    await prisma.notification.deleteMany({
+      where: {
+        studioId: studio.id,
+        OR: prefixes.map((prefix) => ({ message: { startsWith: prefix } })),
+      },
+    });
+
+    const equipmentSignal =
+      Object.entries(data.equipment)
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+        .join(", ") || "Belirtilmedi";
+
+    const needsManualReview = !data.linkPortfolio && !data.linkGoogle;
+
+    const notificationsToCreate = [
+      { message: `İletişim tercihleri: ${data.contactMethods.join(", ")}` },
+      { message: `Booking modu: ${data.bookingMode}` },
+      { message: `Oda sayısı: ${data.roomsCount}, tipler: ${data.roomTypes.join(", ")}` },
+      { message: `Ekipman sinyali: ${equipmentSignal}` },
+      data.equipmentHighlight ? { message: `Öne çıkan ekipman: ${data.equipmentHighlight}` } : undefined,
+      data.linkPortfolio ? { message: `Instagram/Web: ${data.linkPortfolio}` } : undefined,
+      data.linkGoogle ? { message: `Google Business: ${data.linkGoogle}` } : undefined,
+      data.mapsUrl ? { message: `Maps: ${data.mapsUrl}` } : undefined,
+      data.contactHours ? { message: `İletişim saatleri: ${data.contactHours}` } : undefined,
+      { message: `Fiyat aralığı: ${data.priceRange}${data.priceVaries ? " (odaya göre değişir)" : ""}` },
+      needsManualReview ? { message: "Manuel inceleme: evet (doğrulama linki yok)" } : undefined,
+    ].filter(Boolean) as { message: string }[];
+
+    if (notificationsToCreate.length) {
+      await prisma.notification.createMany({
+        data: notificationsToCreate.map((item) => ({
+          studioId: studio.id,
+          message: item.message,
+        })),
+      });
+    }
+  }
+
+  if (Object.keys(studioUpdateData).length > 0) {
     await prisma.studio.update({
       where: { id: studio.id },
-      data: {
-        city,
-        district,
-        address,
-        phone,
-        openingHours: (openingHours ?? studio.openingHours ?? defaultOpeningHours) as Prisma.InputJsonValue,
-      },
+      data: studioUpdateData,
     });
   }
 

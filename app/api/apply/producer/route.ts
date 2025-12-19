@@ -3,7 +3,6 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 
 const productionAreas = [
   "Davul yazımı",
@@ -106,15 +105,13 @@ export async function POST(req: Request) {
   };
 
   try {
-    await prisma.$executeRawUnsafe(
-      'CREATE TABLE IF NOT EXISTS "ProducerApplication" ("id" SERIAL PRIMARY KEY, "userId" TEXT NOT NULL, "data" JSONB NOT NULL, "status" TEXT NOT NULL, "createdAt" TIMESTAMPTZ DEFAULT now())'
-    );
-
-    await prisma.$executeRaw(
-      Prisma.sql`INSERT INTO "ProducerApplication" ("userId", "data", "status") VALUES (${userId}, ${JSON.stringify(
-        appData,
-      )}, 'pending')`
-    );
+    await prisma.producerApplication.create({
+      data: {
+        userId,
+        data: appData,
+        status: "pending",
+      },
+    });
 
     await prisma.user.update({ where: { id: userId }, data: { isProducer: true } });
 

@@ -16,12 +16,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "E-posta gerekli" }, { status: 400 });
   }
 
-  // Basit bir demo: gerçek reset linki yerine yönlendirme bilgisi
+  // Geçici akış: gerçek reset linki yerine yönlendirme bilgisi
   const resetLink = `${process.env.NEXT_PUBLIC_SITE_URL || "https://studyom.net"}/reset?email=${encodeURIComponent(email)}`;
 
   if (!resend) {
     console.warn("RESEND_API_KEY tanımlı değil, reset maili gönderilmedi.");
-    return NextResponse.json({ ok: true, message: "Demo: env eksik, loga yazıldı" });
+    return NextResponse.json({ ok: true, message: "İşlem alındı" });
   }
 
   try {

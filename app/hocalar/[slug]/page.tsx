@@ -4,11 +4,13 @@ import { Card } from "@/components/design-system/components/ui/card";
 import { Section } from "@/components/design-system/components/shared/section";
 import { TeacherContactForm } from "@/components/design-system/components/teachers/teacher-contact-form";
 import { getTeacherBySlug } from "@/lib/teachers";
+import { getApprovedTeachers } from "@/lib/teacher-db";
 
 type Params = { slug: string };
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const teacher = getTeacherBySlug(params.slug);
+  const approved = await getApprovedTeachers();
+  const teacher = getTeacherBySlug(params.slug, approved) ?? getTeacherBySlug(params.slug);
   if (!teacher) {
     return {
       title: "Hoca bulunamadı | Studyom",
@@ -20,8 +22,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export default function TeacherDetailPage({ params }: { params: Params }) {
-  const teacher = getTeacherBySlug(params.slug);
+export default async function TeacherDetailPage({ params }: { params: Params }) {
+  const approved = await getApprovedTeachers();
+  const teacher = getTeacherBySlug(params.slug, approved) ?? getTeacherBySlug(params.slug);
   if (!teacher) return notFound();
 
   return (

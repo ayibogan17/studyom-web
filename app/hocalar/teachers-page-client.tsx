@@ -10,6 +10,7 @@ import { Button } from "@/components/design-system/components/ui/button";
 import { Card } from "@/components/design-system/components/ui/card";
 import { listTeachers, teacherFilterOptions, type TeacherFilters } from "@/lib/teachers";
 import { loadGeo, slugify, type TRGeo } from "@/lib/geo";
+import type { Teacher } from "@/data/teachers";
 
 function parseFilters(params: URLSearchParams): TeacherFilters {
   const norm = (v: string | null) => v || "";
@@ -23,11 +24,16 @@ function parseFilters(params: URLSearchParams): TeacherFilters {
   };
 }
 
-export default function TeachersPageClient({}: { searchParams: Record<string, string | string[] | undefined> }) {
+export default function TeachersPageClient({
+  initialTeachers,
+}: {
+  searchParams: Record<string, string | string[] | undefined>;
+  initialTeachers: Teacher[];
+}) {
   const searchParams = useSearchParams();
   const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
-  const teachers = useMemo(() => listTeachers(filters), [filters]);
-  const { instruments, levels } = teacherFilterOptions();
+  const teachers = useMemo(() => listTeachers(filters, initialTeachers), [filters, initialTeachers]);
+  const { instruments, levels } = teacherFilterOptions(initialTeachers);
   const geo = useMemo(() => loadGeo(), []);
 
   const provincesOrdered: TRGeo = useMemo(() => {

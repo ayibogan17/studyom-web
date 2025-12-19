@@ -42,7 +42,7 @@ export default function Home() {
       <Section className="bg-[var(--color-secondary)]">
         <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
-            <p className="text-sm font-semibold text-[var(--color-primary)]">Takvim (demo)</p>
+            <p className="text-sm font-semibold text-[var(--color-primary)]">Takvim</p>
             <BookingCalendar />
           </div>
           <Card className="space-y-4">

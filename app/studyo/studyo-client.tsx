@@ -8,6 +8,39 @@ import { StudioCard } from "@/components/design-system/components/shared/studio-
 import { EmptyState } from "@/components/design-system/components/shared/empty-state";
 import { loadGeo, slugify, type TRGeo } from "@/lib/geo";
 import { buildQueryString, parseFiltersFromSearchParams, type StudioFilters } from "@/lib/filters";
+import type { Equipment, Extras, Features, Pricing } from "@/types/panel";
+
+export type ServerStudio = {
+  id: string;
+  name: string;
+  province: string;
+  district: string;
+  roomTypes: string[];
+  rooms: Array<{
+    name: string;
+    type: string;
+    pricingModel: string | null;
+    flatRate: string | null;
+    minRate: string | null;
+    dailyRate: string | null;
+    hourlyRate: string | null;
+    equipmentJson: unknown;
+    featuresJson: unknown;
+    extrasJson: unknown;
+  }>;
+  pricePerHour?: number;
+  badges?: string[];
+  imageUrl?: string;
+};
+
+type StudioRoom = {
+  name: string;
+  type: string;
+  pricing: Pricing;
+  equipment: Equipment;
+  features: Features;
+  extras: Extras;
+};
 
 type Studio = {
   name: string;
@@ -18,9 +51,179 @@ type Studio = {
     districtName: string;
   };
   roomTypes: string[];
+  rooms: StudioRoom[];
   pricePerHour?: number;
   badges?: string[];
   imageUrl?: string;
+};
+
+const roomTypeAliases: Record<string, string> = {
+  prova: "prova-odasi",
+  "prova-odasi": "prova-odasi",
+  kayit: "kayit-kabini",
+  "kayit-odasi": "kayit-kabini",
+  "kayit-kabini": "kayit-kabini",
+  "vokal-kabini": "vokal-kabini",
+  "davul-odasi": "davul-kabini",
+  "davul-kabini": "davul-kabini",
+  "etut-odasi": "etut-odasi",
+  "kontrol-odasi": "kayit-kabini",
+  "produksiyon-odasi": "kayit-kabini",
+};
+
+const normalizeRoomType = (value: string) => {
+  const slug = slugify(value);
+  return roomTypeAliases[slug] ?? slug;
+};
+
+const defaultEquipment: Equipment = {
+  hasDrum: false,
+  drumDetail: "",
+  hasDrumKick: false,
+  drumKickDetail: "",
+  hasDrumSnare: false,
+  drumSnareDetail: "",
+  hasDrumToms: false,
+  drumTomsDetail: "",
+  hasDrumFloorTom: false,
+  drumFloorTomDetail: "",
+  hasDrumHihat: false,
+  drumHihatDetail: "",
+  hasDrumRide: false,
+  drumRideDetail: "",
+  hasDrumCrash1: false,
+  drumCrash1Detail: "",
+  hasDrumCrash2: false,
+  drumCrash2Detail: "",
+  hasDrumCrash3: false,
+  drumCrash3Detail: "",
+  hasDrumCrash4: false,
+  drumCrash4Detail: "",
+  hasDrumChina: false,
+  drumChinaDetail: "",
+  hasDrumSplash: false,
+  drumSplashDetail: "",
+  hasDrumCowbell: false,
+  hasTwinPedal: false,
+  micCount: 0,
+  micDetails: [],
+  guitarAmpCount: 0,
+  guitarAmpDetails: [],
+  hasBassAmp: false,
+  bassDetail: "",
+  hasDiBox: false,
+  diDetail: "",
+  hasPedal: false,
+  pedalDetail: "",
+  hasKeyboard: false,
+  keyboardDetail: "",
+  hasKeyboardStand: false,
+  hasGuitarsForUse: false,
+  guitarUseDetail: "",
+};
+
+const defaultFeatures: Features = {
+  micCount: 0,
+  micDetails: [],
+  musicianMicAllowed: false,
+  hasControlRoom: false,
+  hasHeadphones: false,
+  headphonesDetail: "",
+  hasTechSupport: false,
+  dawList: [],
+  recordingEngineerIncluded: false,
+  providesLiveAutotune: false,
+  rawTrackIncluded: false,
+  editServiceLevel: "none",
+  mixServiceLevel: "none",
+  productionServiceLevel: "none",
+};
+
+const defaultExtras: Extras = {
+  offersMixMaster: false,
+  engineerPortfolioUrl: "",
+  offersProduction: false,
+  productionAreas: [],
+  offersOther: false,
+  otherDetail: "",
+  acceptsCourses: false,
+  alsoTypes: [],
+  vocalHasEngineer: false,
+  vocalLiveAutotune: false,
+  vocalRawIncluded: false,
+  vocalEditService: "none",
+  vocalMixService: "none",
+  vocalProductionService: "none",
+  drumProRecording: "none",
+  drumVideo: "none",
+  drumProduction: "none",
+  drumMix: "none",
+  practiceDescription: "",
+  recordingMixService: "none",
+  recordingProduction: "none",
+  recordingProductionAreas: [],
+};
+
+const parseJson = <T,>(value: unknown, fallback: T): T => {
+  if (value && typeof value === "object") return value as T;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as T;
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
+const normalizeEquipment = (value: unknown): Equipment => ({
+  ...defaultEquipment,
+  ...(parseJson<Partial<Equipment>>(value, {}) ?? {}),
+});
+
+const normalizeFeatures = (value: unknown): Features => ({
+  ...defaultFeatures,
+  ...(parseJson<Partial<Features>>(value, {}) ?? {}),
+});
+
+const normalizeExtras = (value: unknown): Extras => ({
+  ...defaultExtras,
+  ...(parseJson<Partial<Extras>>(value, {}) ?? {}),
+});
+
+const roomTypeSlugs = (room: StudioRoom) => {
+  const types = [room.type, ...(room.extras.alsoTypes ?? [])].filter(Boolean);
+  return types.map((type) => normalizeRoomType(type));
+};
+
+const hasRoomType = (room: StudioRoom, slug: string) => roomTypeSlugs(room).includes(slug);
+
+const guitarList = (val?: string | null) => (val ? val.split("|").map((v) => v.trim()).filter(Boolean) : []);
+
+const parseNumber = (value?: string | null) => {
+  if (!value) return undefined;
+  const cleaned = value.toString().replace(/[^\d.,]/g, "").replace(",", ".");
+  const parsed = Number.parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const matchYesNo = (value: boolean | undefined, filter?: string) => {
+  if (!filter) return true;
+  if (filter === "yes") return Boolean(value);
+  if (filter === "no") return !value;
+  return true;
+};
+
+const matchMin = (value: number | undefined, min?: string) => {
+  const parsed = parseNumber(min ?? "");
+  if (parsed === undefined) return true;
+  return (value ?? 0) >= parsed;
+};
+
+const matchService = (value: string | undefined, filter?: string) => {
+  if (!filter) return true;
+  return (value ?? "none") === filter;
 };
 
 function pickAddress(geo: TRGeo, provinceName: string, districtName: string) {
@@ -104,10 +307,22 @@ function buildMockStudios(geo: TRGeo): Studio[] {
     .map((studio) => {
       const address = pickAddress(geo, studio.province, studio.district);
       if (!address) return null;
+      const rooms: StudioRoom[] = studio.roomTypes.map((type, idx) => ({
+        name: `${studio.name} Oda ${idx + 1}`,
+        type,
+        pricing: {
+          model: "hourly",
+          hourlyRate: studio.price.toString(),
+        },
+        equipment: { ...defaultEquipment },
+        features: { ...defaultFeatures },
+        extras: { ...defaultExtras },
+      }));
       return {
         name: studio.name,
         address,
         roomTypes: studio.roomTypes,
+        rooms,
         pricePerHour: studio.price,
         badges: studio.badges,
         imageUrl: studio.imageUrl,
@@ -116,32 +331,270 @@ function buildMockStudios(geo: TRGeo): Studio[] {
     .filter(Boolean) as Studio[];
 }
 
-export function StudyoClientPage() {
+export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: ServerStudio[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
 
   const geo = useMemo(() => loadGeo(), []);
-  const studios = useMemo(() => buildMockStudios(geo), [geo]);
+  const studios = useMemo(() => {
+    const mappedServer = serverStudios
+      .map((studio) => {
+        const address = pickAddress(geo, studio.province, studio.district);
+        if (!address) return null;
+        const rooms: StudioRoom[] = studio.rooms.map((room) => {
+          const modelRaw = (room.pricingModel ?? "").toString().toLowerCase();
+          const model: Pricing["model"] =
+            modelRaw === "daily" || modelRaw === "hourly" || modelRaw === "flat" || modelRaw === "variable"
+              ? modelRaw
+              : "hourly";
+          return {
+            name: room.name,
+            type: room.type,
+            pricing: {
+              model,
+              flatRate: room.flatRate ?? "",
+              minRate: room.minRate ?? "",
+              dailyRate: room.dailyRate ?? "",
+              hourlyRate: room.hourlyRate ?? "",
+            },
+            equipment: normalizeEquipment(room.equipmentJson),
+            features: normalizeFeatures(room.featuresJson),
+            extras: normalizeExtras(room.extrasJson),
+          };
+        });
+        return {
+          name: studio.name,
+          address,
+          roomTypes: studio.roomTypes,
+          rooms,
+          pricePerHour: studio.pricePerHour,
+          badges: studio.badges,
+          imageUrl: studio.imageUrl,
+        } satisfies Studio;
+      })
+      .filter(Boolean) as Studio[];
+    return [...buildMockStudios(geo), ...mappedServer];
+  }, [geo, serverStudios]);
   const [filters, setFilters] = useState<StudioFilters>(() => parseFiltersFromSearchParams(searchParams));
 
   useEffect(() => {
     const next = parseFiltersFromSearchParams(searchParams);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFilters((prev) => (prev.province === next.province && prev.district === next.district ? prev : next));
+    setFilters((prev) => ({
+      ...prev,
+      ...next,
+      advanced: prev.advanced ?? {},
+    }));
   }, [searchParamsString, searchParams]);
 
+  const hasAdvancedFilters = useMemo(() => {
+    const advanced = filters.advanced ?? {};
+    return Object.values(advanced).some((value) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return value !== undefined && value !== "";
+    });
+  }, [filters.advanced]);
+
   const filteredStudios = useMemo(() => {
-    if (!filters.province) return [];
+    const advanced = filters.advanced ?? {};
+
+    if (!filters.province && !filters.roomType && !hasAdvancedFilters) return [];
+
     return studios.filter((studio) => {
-      if (studio.address.provinceId !== filters.province) return false;
+      if (filters.province && studio.address.provinceId !== filters.province) return false;
       if (filters.district && studio.address.districtId !== filters.district) return false;
+      if (filters.roomType) {
+        const normalized = studio.roomTypes.map((type) => normalizeRoomType(type));
+        if (!normalized.includes(filters.roomType)) return false;
+      }
+
+      if (!hasAdvancedFilters) return true;
+
+      const rooms = studio.rooms;
+      if (!rooms.length) return false;
+
+      const roomsByType = (slug: string) => rooms.filter((room) => hasRoomType(room, slug));
+      const roomsForBase = filters.roomType ? roomsByType(filters.roomType) : rooms;
+
+      const needsGeneral = Boolean(advanced.pricingModel || advanced.priceMax);
+      if (needsGeneral) {
+        const matched = roomsForBase.some((room) => {
+          if (advanced.pricingModel && room.pricing.model !== advanced.pricingModel) return false;
+          if (advanced.priceMax) {
+            const rates = [
+              parseNumber(room.pricing.hourlyRate ?? ""),
+              parseNumber(room.pricing.dailyRate ?? ""),
+              parseNumber(room.pricing.flatRate ?? ""),
+              parseNumber(room.pricing.minRate ?? ""),
+            ].filter((value): value is number => value !== undefined);
+            if (!rates.length) return false;
+            const max = parseNumber(advanced.priceMax);
+            if (max !== undefined && Math.min(...rates) > max) return false;
+          }
+          return true;
+        });
+        if (!matched) return false;
+      }
+
+      if (advanced.courses) {
+        const courseRooms = rooms.filter((room) =>
+          ["prova-odasi", "vokal-kabini", "davul-kabini", "etut-odasi"].some((slug) => hasRoomType(room, slug)),
+        );
+        const matched = courseRooms.some((room) => matchYesNo(room.extras.acceptsCourses, advanced.courses));
+        if (!matched) return false;
+      }
+
+      const needsRehearsal = Boolean(
+        advanced.hasDrum ||
+          advanced.guitarAmpMin ||
+          advanced.hasBassAmp ||
+          advanced.hasDiBox ||
+          advanced.hasKeyboard ||
+          advanced.hasKeyboardStand ||
+          advanced.extraGuitarMin,
+      );
+      if (needsRehearsal) {
+        const rehearsalRooms = rooms.filter((room) =>
+          ["prova-odasi", "kayit-kabini"].some((slug) => hasRoomType(room, slug)),
+        );
+        const matched = rehearsalRooms.some((room) => {
+          const eq = room.equipment;
+          if (!matchYesNo(eq.hasDrum, advanced.hasDrum)) return false;
+          if (!matchMin(eq.guitarAmpCount, advanced.guitarAmpMin)) return false;
+          if (!matchYesNo(eq.hasBassAmp, advanced.hasBassAmp)) return false;
+          if (!matchYesNo(eq.hasDiBox, advanced.hasDiBox)) return false;
+          if (!matchYesNo(eq.hasKeyboard, advanced.hasKeyboard)) return false;
+          if (!matchYesNo(eq.hasKeyboardStand, advanced.hasKeyboardStand)) return false;
+          const extraGuitarCount = guitarList(eq.guitarUseDetail).length;
+          if (!matchMin(extraGuitarCount, advanced.extraGuitarMin)) return false;
+          return true;
+        });
+        if (!matched) return false;
+      }
+
+      const needsVocal = Boolean(
+        advanced.vocalHasEngineer ||
+          advanced.musicianMicAllowed ||
+          advanced.vocalLiveAutotune ||
+          advanced.vocalRawIncluded ||
+          advanced.vocalEditService ||
+          advanced.vocalMixService ||
+          advanced.vocalProductionService,
+      );
+      if (needsVocal) {
+        const vocalRooms = roomsByType("vokal-kabini");
+        const matched = vocalRooms.some((room) => {
+          const features = room.features;
+          const ex = room.extras;
+          if (!matchYesNo(ex.vocalHasEngineer, advanced.vocalHasEngineer)) return false;
+          if (!matchYesNo(features.musicianMicAllowed, advanced.musicianMicAllowed)) return false;
+          if (!matchYesNo(ex.vocalLiveAutotune, advanced.vocalLiveAutotune)) return false;
+          if (!matchYesNo(ex.vocalRawIncluded, advanced.vocalRawIncluded)) return false;
+          if (!matchService(ex.vocalEditService, advanced.vocalEditService)) return false;
+          if (!matchService(ex.vocalMixService, advanced.vocalMixService)) return false;
+          if (!matchService(ex.vocalProductionService, advanced.vocalProductionService)) return false;
+          return true;
+        });
+        if (!matched) return false;
+      }
+
+      const needsDrum = Boolean(
+        advanced.drumKick ||
+          advanced.drumSnare ||
+          advanced.drumToms ||
+          advanced.drumFloorTom ||
+          advanced.drumHihat ||
+          advanced.drumRide ||
+          advanced.drumCrash1 ||
+          advanced.drumCrash2 ||
+          advanced.drumCrash3 ||
+          advanced.drumCrash4 ||
+          advanced.drumChina ||
+          advanced.drumSplash ||
+          advanced.hasCowbell ||
+          advanced.hasTwinPedal ||
+          advanced.drumProRecording ||
+          advanced.drumVideo ||
+          advanced.drumProduction ||
+          advanced.drumMix,
+      );
+      if (needsDrum) {
+        const drumRooms = roomsByType("davul-kabini");
+        const matched = drumRooms.some((room) => {
+          const eq = room.equipment;
+          const ex = room.extras;
+          if (!matchYesNo(eq.hasDrumKick, advanced.drumKick)) return false;
+          if (!matchYesNo(eq.hasDrumSnare, advanced.drumSnare)) return false;
+          if (!matchYesNo(eq.hasDrumToms, advanced.drumToms)) return false;
+          if (!matchYesNo(eq.hasDrumFloorTom, advanced.drumFloorTom)) return false;
+          if (!matchYesNo(eq.hasDrumHihat, advanced.drumHihat)) return false;
+          if (!matchYesNo(eq.hasDrumRide, advanced.drumRide)) return false;
+          if (!matchYesNo(eq.hasDrumCrash1, advanced.drumCrash1)) return false;
+          if (!matchYesNo(eq.hasDrumCrash2, advanced.drumCrash2)) return false;
+          if (!matchYesNo(eq.hasDrumCrash3, advanced.drumCrash3)) return false;
+          if (!matchYesNo(eq.hasDrumCrash4, advanced.drumCrash4)) return false;
+          if (!matchYesNo(eq.hasDrumChina, advanced.drumChina)) return false;
+          if (!matchYesNo(eq.hasDrumSplash, advanced.drumSplash)) return false;
+          if (!matchYesNo(eq.hasDrumCowbell, advanced.hasCowbell)) return false;
+          if (!matchYesNo(eq.hasTwinPedal, advanced.hasTwinPedal)) return false;
+          if (!matchService(ex.drumProRecording, advanced.drumProRecording)) return false;
+          if (!matchService(ex.drumVideo, advanced.drumVideo)) return false;
+          if (!matchService(ex.drumProduction, advanced.drumProduction)) return false;
+          if (!matchService(ex.drumMix, advanced.drumMix)) return false;
+          return true;
+        });
+        if (!matched) return false;
+      }
+
+      const needsRecording = Boolean(
+        (advanced.dawList ?? []).length ||
+          advanced.recordingEngineerIncluded ||
+          advanced.hasControlRoom ||
+          advanced.recordingMixService ||
+          advanced.recordingProduction ||
+          (advanced.recordingProductionAreas ?? []).length,
+      );
+      if (needsRecording) {
+        const recordingRooms = roomsByType("kayit-kabini");
+        const matched = recordingRooms.some((room) => {
+          const features = room.features;
+          const ex = room.extras;
+          if ((advanced.dawList ?? []).length) {
+            const current = features.dawList ?? [];
+            if (!advanced.dawList?.every((daw) => current.includes(daw))) return false;
+          }
+          if (!matchYesNo(features.recordingEngineerIncluded, advanced.recordingEngineerIncluded)) return false;
+          if (!matchYesNo(features.hasControlRoom, advanced.hasControlRoom)) return false;
+          if (!matchService(ex.recordingMixService, advanced.recordingMixService)) return false;
+          if (!matchService(ex.recordingProduction, advanced.recordingProduction)) return false;
+          if ((advanced.recordingProductionAreas ?? []).length) {
+            const areas = ex.recordingProductionAreas ?? [];
+            if (!advanced.recordingProductionAreas?.every((area) => areas.includes(area))) return false;
+          }
+          return true;
+        });
+        if (!matched) return false;
+      }
+
       return true;
     });
-  }, [filters, studios]);
+  }, [filters, hasAdvancedFilters, studios]);
 
-  const showPrompt = !filters.province;
+  const sortedStudios = useMemo(() => {
+    if (!filters.sort) return filteredStudios;
+    return [...filteredStudios].sort((a, b) => {
+      const aVal = a.pricePerHour;
+      const bVal = b.pricePerHour;
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      return filters.sort === "price-asc" ? aVal - bVal : bVal - aVal;
+    });
+  }, [filteredStudios, filters.sort]);
+
+  const showPrompt = !filters.province && !filters.roomType && !hasAdvancedFilters;
 
   const handleFiltersChange = (next: StudioFilters) => {
     setFilters(next);
@@ -170,14 +623,14 @@ export function StudyoClientPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {showPrompt ? (
               <div className="sm:col-span-2 xl:col-span-3">
-                <EmptyState title="Önce il seçin" description="Şehir seçerek listeyi görüntüleyin." />
+                <EmptyState title="Önce il veya oda türü seçin" description="Filtre seçerek listeyi görüntüleyin." />
               </div>
-            ) : filteredStudios.length === 0 ? (
+            ) : sortedStudios.length === 0 ? (
               <div className="sm:col-span-2 xl:col-span-3">
                 <EmptyState title="Eşleşen stüdyo bulunamadı" description="Filtreleri değiştirerek yeniden deneyin." />
               </div>
             ) : (
-              filteredStudios.map((studio) => (
+              sortedStudios.map((studio) => (
                 <StudioCard
                   key={`${studio.address.provinceId}-${studio.address.districtId}-${studio.name}`}
                   name={studio.name}
@@ -195,4 +648,3 @@ export function StudyoClientPage() {
     </main>
   );
 }
-

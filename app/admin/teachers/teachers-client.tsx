@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Fragment, useState } from "react";
 import { Button } from "@/components/design-system/components/ui/button";
 
@@ -81,28 +82,7 @@ export default function TeachersClient({ items }: { items: TeacherItem[] }) {
                 </Button>
               </div>
             </div>
-            <div className="mt-3 grid gap-2 text-sm text-[var(--color-primary)] sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <p className="text-[var(--color-muted)]">Alanlar</p>
-                <p>{row.data?.instruments?.join(", ") || "-"}</p>
-              </div>
-              <div>
-                <p className="text-[var(--color-muted)]">Seviyeler</p>
-                <p>{row.data?.levels?.join(", ") || "-"}</p>
-              </div>
-              <div>
-                <p className="text-[var(--color-muted)]">Format</p>
-                <p>{row.data?.formats?.join(", ") || "-"}</p>
-              </div>
-              <div>
-                <p className="text-[var(--color-muted)]">Şehir</p>
-                <p>{row.data?.city || "-"}</p>
-              </div>
-              <div className="sm:col-span-2 lg:col-span-3">
-                <p className="text-[var(--color-muted)]">Açıklama</p>
-                <p className="whitespace-pre-wrap text-[var(--color-primary)]">{row.data?.statement || "-"}</p>
-              </div>
-            </div>
+            <TeacherDetails data={row.data} userCity={row.user?.city || null} />
           </div>
           {openRow === row.id ? (
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)]/40 p-3 text-xs text-[var(--color-muted)]">
@@ -115,6 +95,66 @@ export default function TeachersClient({ items }: { items: TeacherItem[] }) {
         </Fragment>
       ))}
       {rows.length === 0 ? <p className="text-sm text-[var(--color-muted)]">Başvuru yok.</p> : null}
+    </div>
+  );
+}
+
+function TeacherDetails({ data, userCity }: { data: Record<string, any> | null; userCity: string | null }) {
+  const links: string[] = Array.isArray(data?.links) ? data.links.filter((l: string) => l) : [];
+  return (
+    <div className="mt-3 space-y-3">
+      <div className="grid gap-2 text-xs text-[var(--color-muted)] sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="Alanlar" value={<ChipList items={data?.instruments} />} />
+        <Field label="Seviyeler" value={<ChipList items={data?.levels} />} />
+        <Field label="Format" value={<ChipList items={data?.formats} />} />
+        <Field label="Diller" value={<ChipList items={data?.languages} />} />
+        <Field label="Şehir" value={data?.city || userCity || "-"} />
+        <Field label="Ücret" value={data?.price || "-"} />
+        <Field label="Yıl" value={data?.years || "-"} />
+        <Field label="Öğrenci" value={data?.students || "-"} />
+      </div>
+      <div>
+        <div className="text-xs font-semibold text-[var(--color-primary)]">Kısa açıklama</div>
+        <p className="text-sm text-[var(--color-primary)]">{data?.statement || "Açıklama yok."}</p>
+      </div>
+      <div>
+        <div className="text-xs font-semibold text-[var(--color-primary)]">Bağlantılar</div>
+        {links.length === 0 ? (
+          <p className="text-xs text-[var(--color-muted)]">Bağlantı yok.</p>
+        ) : (
+          <ul className="list-disc space-y-1 pl-5 text-xs text-[var(--color-primary)]">
+            {links.map((link) => (
+              <li key={link}>
+                <a href={link} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+                  {link}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <div className="font-semibold text-[var(--color-primary)]">{label}</div>
+      <div>{value}</div>
+    </div>
+  );
+}
+
+function ChipList({ items }: { items?: string[] }) {
+  if (!items || items.length === 0) return <span>-</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((item) => (
+        <span key={item} className="rounded-full bg-[var(--color-secondary)] px-2 py-1 text-[10px] text-[var(--color-primary)]">
+          {item}
+        </span>
+      ))}
     </div>
   );
 }

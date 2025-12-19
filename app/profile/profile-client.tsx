@@ -27,21 +27,24 @@ type ProfileProps = {
 
 const roleMeta: Record<
   "teacher" | "producer" | "studio",
-  { title: string; applyHref: string; description: string }
+  { title: string; applyHref: string; description: string; panelHref?: string }
 > = {
   teacher: {
     title: "Hoca",
     applyHref: "/apply/teacher",
+    panelHref: "/teacher-panel",
     description: "Bu rol başvuru ve onay gerektirir.",
   },
   producer: {
     title: "Üretici",
     applyHref: "/apply/producer",
+    panelHref: "/producer-panel",
     description: "Bu rol başvuru ve onay gerektirir.",
   },
   studio: {
     title: "Stüdyo Sahibi",
     applyHref: "/studio/new",
+    panelHref: "/studio-panel",
     description: "Bu rol başvuru ve onay gerektirir.",
   },
 };
@@ -159,7 +162,7 @@ export function ProfileClient({ user }: ProfileProps) {
                     )}
                     {status === "approved" && (
                       <Button asChild size="sm" variant="secondary" className="w-full">
-                        <Link href={meta.applyHref}>Rol detaylarını düzenle</Link>
+                        <Link href={meta.panelHref || meta.applyHref}>Rol detaylarını düzenle</Link>
                       </Button>
                     )}
                   </div>

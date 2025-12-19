@@ -124,6 +124,7 @@ model Notification {
   message   String
   studioId  String
   studio    Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 
@@ -166,6 +167,7 @@ model TeacherLead {
   preferredLessonType   String?
   message               String
   status                String   @default("new")
+  isRead                Boolean  @default(false)
   createdAt             DateTime @default(now())
 }
 
@@ -176,6 +178,7 @@ model Lead {
   note      String?
   source    String?  // e.g., "contact", "teacher"
   status    String   @default("new")
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 

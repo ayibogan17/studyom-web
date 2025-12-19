@@ -225,16 +225,20 @@ export function TeacherApplyClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...values, links: cleanLinks }),
       });
-      const json = await res.json().catch(() => ({}));
+      const raw = await res.text();
+      const json = raw ? (JSON.parse(raw) as Record<string, string>) : {};
       if (!res.ok) {
-        setStatus(json.error || "Başvuru kaydedilemedi");
+        setStatus(json.error || `Başvuru kaydedilemedi (${res.status})`);
         return;
       }
-      setStatus("Başvurun alındı. İnceleme süresince öğretmen olarak listelenmezsin.");
+      setStatus("Başvurun alındı. Profiline yönlendiriliyorsun.");
+      router.replace("/profile");
       if (typeof window !== "undefined") {
-        window.location.assign("/profile");
-      } else {
-        router.replace("/profile");
+        window.setTimeout(() => {
+          if (window.location.pathname.includes("/apply/teacher")) {
+            window.location.assign("/profile");
+          }
+        }, 300);
       }
     } catch (err) {
       console.error(err);

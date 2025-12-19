@@ -10,7 +10,8 @@ export type TeacherFilters = {
   q?: string;
 };
 
-export function listTeachers(filters: TeacherFilters = {}): Teacher[] {
+export function listTeachers(filters: TeacherFilters = {}, source?: Teacher[]): Teacher[] {
+  const base = source ?? getTeachersMock();
   const citySlug = filters.city ? slugify(filters.city) : "";
   const districtSlug = (() => {
     if (!filters.district) return "";
@@ -23,7 +24,7 @@ export function listTeachers(filters: TeacherFilters = {}): Teacher[] {
   const level = filters.level?.toLowerCase().trim() || "";
   const q = filters.q?.toLowerCase().trim() || "";
 
-  return getTeachersMock().filter((t) => {
+  return base.filter((t) => {
     if (citySlug && slugify(t.city) !== citySlug) return false;
     if (districtSlug) {
       const tDistrictSlug = t.district ? slugify(t.district) : "";
@@ -40,12 +41,13 @@ export function listTeachers(filters: TeacherFilters = {}): Teacher[] {
   });
 }
 
-export function getTeacherBySlug(slug: string): Teacher | undefined {
-  return getTeachersMock().find((t) => t.slug === slug);
+export function getTeacherBySlug(slug: string, source?: Teacher[]): Teacher | undefined {
+  const base = source ?? getTeachersMock();
+  return base.find((t) => t.slug === slug);
 }
 
-export function teacherFilterOptions() {
-  const teachers = getTeachersMock();
+export function teacherFilterOptions(source?: Teacher[]) {
+  const teachers = source ?? getTeachersMock();
   const extraInstruments = [
     "Keman",
     "Viyola",

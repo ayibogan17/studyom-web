@@ -15,7 +15,7 @@ export function OwnerHeader({ displayName, email }: OwnerHeaderProps) {
           Hoş geldin{displayName ? `, ${displayName}` : ""}!
         </h1>
         <p className="text-sm text-[var(--color-muted)]">
-          Flutter panelindeki akışın web uyarlaması. Slotları düzenleyebilir, kurs aç/kapa yapabilir ve açılış saatlerini görebilirsin. Veriler demo/moktur.
+          Flutter panelindeki akışın web uyarlaması. Slotları düzenleyebilir, kurs aç/kapa yapabilir ve açılış saatlerini görebilirsin.
         </p>
         {email && (
           <p className="text-xs text-[var(--color-muted)]">

@@ -19,6 +19,9 @@ type ProfileUser = User & {
   fullName?: string | null;
   emailVerified?: Date | string | null;
   id?: string;
+  teacherStatus?: "approved" | "pending" | "none";
+  producerStatus?: "approved" | "pending" | "none";
+  studioStatus?: "approved" | "pending" | "none";
 };
 
 type ProfileToken = JWT & {
@@ -28,6 +31,12 @@ type ProfileToken = JWT & {
   fullName?: string | null;
   emailVerified?: Date | string | null;
   profileComplete?: boolean;
+  teacherStatus?: "approved" | "pending" | "none";
+  teacherStatusUpdatedAt?: number;
+  producerStatus?: "approved" | "pending" | "none";
+  producerStatusUpdatedAt?: number;
+  studioStatus?: "approved" | "pending" | "none";
+  studioStatusUpdatedAt?: number;
 };
 
 type DevUser = Omit<ProfileUser, "email"> & { email: string; password: string };
@@ -59,6 +68,19 @@ if (!googleId || !googleSecret) {
 
 const isProfileComplete = (u?: { city?: string | null; intent?: string[] }) =>
   Boolean(u?.city && (u.intent?.length ?? 0) > 0);
+const mapTeacherStatus = (status?: string | null) => {
+  if (status === "approved") return "approved" as const;
+  if (status === "pending") return "pending" as const;
+  return "none" as const;
+};
+const mapProducerStatus = (status?: string | null) => {
+  if (status === "approved") return "approved" as const;
+  if (status === "pending") return "pending" as const;
+  return "none" as const;
+};
+const teacherStatusTtlMs = 60 * 1000;
+const producerStatusTtlMs = 60 * 1000;
+const studioStatusTtlMs = 60 * 1000;
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const leadFrom = process.env.LEAD_FROM || "Studyom <noreply@studyom.net>";
@@ -161,6 +183,7 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       const profileToken = token as ProfileToken;
+      const now = Date.now();
       if (user) {
         const profileUser = user as ProfileUser;
         profileToken.role = profileUser.role ?? profileToken.role ?? "USER";
@@ -204,6 +227,59 @@ export const authOptions: NextAuthOptions = {
           profileToken.profileComplete = isProfileComplete(dbUser);
         }
       }
+      const shouldRefreshTeacherStatus =
+        !profileToken.teacherStatusUpdatedAt ||
+        now - profileToken.teacherStatusUpdatedAt > teacherStatusTtlMs;
+      if (shouldRefreshTeacherStatus && profileToken.sub) {
+        try {
+          const latest = await prisma.teacherApplication.findFirst({
+            where: { userId: profileToken.sub },
+            orderBy: { createdAt: "desc" },
+            select: { status: true },
+          });
+          profileToken.teacherStatus = mapTeacherStatus(latest?.status);
+          profileToken.teacherStatusUpdatedAt = now;
+        } catch (err) {
+          console.error("teacher status lookup failed", err);
+        }
+      }
+      const shouldRefreshProducerStatus =
+        !profileToken.producerStatusUpdatedAt ||
+        now - profileToken.producerStatusUpdatedAt > producerStatusTtlMs;
+      if (shouldRefreshProducerStatus && profileToken.sub) {
+        try {
+          const rows = await prisma.$queryRaw<{ status: string }[]>`
+            SELECT status FROM "ProducerApplication"
+            WHERE "userId" = ${profileToken.sub}
+            ORDER BY "createdAt" DESC
+            LIMIT 1
+          `;
+          profileToken.producerStatus = mapProducerStatus(rows[0]?.status);
+          profileToken.producerStatusUpdatedAt = now;
+        } catch (err) {
+          console.error("producer status lookup failed", err);
+        }
+      }
+      const shouldRefreshStudioStatus =
+        !profileToken.studioStatusUpdatedAt ||
+        now - profileToken.studioStatusUpdatedAt > studioStatusTtlMs;
+      if (shouldRefreshStudioStatus && profileToken.email) {
+        try {
+          const ownerEmail = profileToken.email.toString().toLowerCase();
+          const activeCount = await prisma.studio.count({
+            where: { ownerEmail, isActive: true },
+          });
+          if (activeCount > 0) {
+            profileToken.studioStatus = "approved";
+          } else {
+            const anyCount = await prisma.studio.count({ where: { ownerEmail } });
+            profileToken.studioStatus = anyCount > 0 ? "pending" : "none";
+          }
+          profileToken.studioStatusUpdatedAt = now;
+        } catch (err) {
+          console.error("studio status lookup failed", err);
+        }
+      }
       return profileToken;
     },
     async session({ session, token }) {
@@ -219,6 +295,9 @@ export const authOptions: NextAuthOptions = {
         profileUser.emailVerified = profileToken.emailVerified ?? null;
         (profileUser as { profileComplete?: boolean }).profileComplete =
           profileToken.profileComplete ?? false;
+        profileUser.teacherStatus = profileToken.teacherStatus ?? "none";
+        profileUser.producerStatus = profileToken.producerStatus ?? "none";
+        profileUser.studioStatus = profileToken.studioStatus ?? "none";
         session.user = profileUser;
       }
       return session;

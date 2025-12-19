@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
-import { Menu, X } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
+import { Bell, LogOut, Menu, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/cn";
 
@@ -47,8 +47,14 @@ export function AppHeader() {
     intent?: string[];
     fullName?: string | null;
     emailVerified?: Date | string | null;
+    teacherStatus?: "approved" | "pending" | "none";
+    producerStatus?: "approved" | "pending" | "none";
+    studioStatus?: "approved" | "pending" | "none";
   };
   const profile = session?.user as HeaderUser | undefined;
+  const showTeacherPanel = profile?.teacherStatus === "approved";
+  const showProducerPanel = profile?.producerStatus === "approved";
+  const showStudioPanel = profile?.studioStatus === "approved";
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -64,19 +70,19 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
         <div className="flex items-center gap-3">
           <Link href="/" className="text-xl font-semibold tracking-tight text-[var(--color-primary)]">
             Stüdyom
           </Link>
         </div>
-        <nav className="relative hidden items-center gap-6 text-sm font-medium text-[var(--color-primary)] md:flex">
+        <nav className="relative hidden min-w-0 items-center gap-4 text-sm font-medium text-[var(--color-primary)] whitespace-nowrap md:flex md:flex-nowrap">
           {session && (
-            <span className="text-sm font-semibold text-[var(--color-primary)]">
+            <span className="max-w-[180px] truncate text-sm font-semibold text-[var(--color-primary)]">
               Hoş geldin, {profile?.fullName || profile?.name || session.user?.email}
             </span>
           )}
-          <Button asChild size="sm">
+          <Button asChild size="sm" className="shrink-0">
             <Link href="/studyo">Stüdyo Bul</Link>
           </Button>
           {links.map((link) => (
@@ -137,6 +143,47 @@ export function AppHeader() {
               >
                 Profilim
               </Link>
+            </div>
+          )}
+          {session && showTeacherPanel && (
+            <Link
+              href="/teacher-panel"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+            >
+              Hoca Paneli
+            </Link>
+          )}
+          {session && showProducerPanel && (
+            <Link
+              href="/producer-panel"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+            >
+              Üretici Paneli
+            </Link>
+          )}
+          {session && showStudioPanel && (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/dashboard?as=studio"
+                className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+              >
+                Stüdyo Paneli
+              </Link>
+              <Link
+                href="/notifications"
+                aria-label="Bildirimler"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
+              >
+                <Bell className="h-4 w-4" aria-hidden />
+              </Link>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                aria-label="Çıkış yap"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+              </button>
             </div>
           )}
         </nav>
@@ -212,6 +259,34 @@ export function AppHeader() {
                 {profile?.emailVerified ? "E-posta doğrulandı" : "E-posta doğrulaması bekleniyor"}
               </p>
             </div>
+          )}
+          {session && showTeacherPanel && (
+            <Button asChild full size="sm" variant="secondary">
+              <Link href="/teacher-panel" onClick={() => setOpen(false)}>
+                Hoca Paneli
+              </Link>
+            </Button>
+          )}
+          {session && showProducerPanel && (
+            <Button asChild full size="sm" variant="secondary">
+              <Link href="/producer-panel" onClick={() => setOpen(false)}>
+                Üretici Paneli
+              </Link>
+            </Button>
+          )}
+          {session && showStudioPanel && (
+            <Button asChild full size="sm" variant="secondary">
+              <Link href="/dashboard?as=studio" onClick={() => setOpen(false)}>
+                Stüdyo Paneli
+              </Link>
+            </Button>
+          )}
+          {session && showStudioPanel && (
+            <Button asChild variant="secondary" size="sm" className="w-fit px-3">
+              <Link href="/notifications" onClick={() => setOpen(false)} aria-label="Bildirimler">
+                <Bell className="h-4 w-4" aria-hidden />
+              </Link>
+            </Button>
           )}
         </div>
       </div>
