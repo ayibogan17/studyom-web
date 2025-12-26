@@ -222,11 +222,8 @@ export function SignupForm() {
         setStatus(msg);
         return;
       }
-      await signIn("credentials", {
-        email,
-        password,
-        callbackUrl: "/onboarding",
-      });
+      setStatus("Kayıt tamamlandı. E-posta doğrulaması için mail gönderdik. Doğruladıktan sonra giriş yapabilirsiniz.");
+      return;
     } catch (err) {
       console.error(err);
       setStatus(err instanceof Error ? err.message : "Kayıt başarısız");

@@ -18,6 +18,7 @@ type ProfileUser = User & {
   intent?: string[];
   fullName?: string | null;
   emailVerified?: Date | string | null;
+  image?: string | null;
   id?: string;
   teacherStatus?: "approved" | "pending" | "none";
   producerStatus?: "approved" | "pending" | "none";
@@ -30,6 +31,7 @@ type ProfileToken = JWT & {
   intent?: string[];
   fullName?: string | null;
   emailVerified?: Date | string | null;
+  image?: string | null;
   profileComplete?: boolean;
   teacherStatus?: "approved" | "pending" | "none";
   teacherStatusUpdatedAt?: number;
@@ -197,6 +199,7 @@ export const authOptions: NextAuthOptions = {
           profileUser.emailVerified ??
           profileToken.emailVerified ??
           (account?.provider === "google" ? new Date().toISOString() : null);
+        profileToken.image = profileUser.image ?? profileToken.image ?? null;
         profileToken.profileComplete = isProfileComplete({
           city: profileToken.city ?? undefined,
           intent: profileToken.intent,
@@ -211,6 +214,7 @@ export const authOptions: NextAuthOptions = {
           profileToken.intent = dbUser.intent ?? [];
           profileToken.fullName = dbUser.fullName || dbUser.name || profileToken.fullName || null;
           profileToken.emailVerified = dbUser.emailVerified ?? null;
+          profileToken.image = dbUser.image ?? profileToken.image ?? null;
           profileToken.name = dbUser.fullName || dbUser.name || profileToken.name;
           profileToken.profileComplete = isProfileComplete(dbUser);
         }
@@ -223,6 +227,7 @@ export const authOptions: NextAuthOptions = {
           profileToken.intent = dbUser.intent ?? [];
           profileToken.fullName = dbUser.fullName || dbUser.name || profileToken.fullName || null;
           profileToken.emailVerified = dbUser.emailVerified ?? null;
+          profileToken.image = dbUser.image ?? profileToken.image ?? null;
           profileToken.name = dbUser.fullName || dbUser.name || profileToken.name;
           profileToken.profileComplete = isProfileComplete(dbUser);
         }
@@ -293,6 +298,7 @@ export const authOptions: NextAuthOptions = {
         profileUser.intent = profileToken.intent ?? [];
         profileUser.fullName = profileToken.fullName ?? profileUser.name ?? null;
         profileUser.emailVerified = profileToken.emailVerified ?? null;
+        profileUser.image = profileToken.image ?? profileUser.image ?? null;
         (profileUser as { profileComplete?: boolean }).profileComplete =
           profileToken.profileComplete ?? false;
         profileUser.teacherStatus = profileToken.teacherStatus ?? "none";

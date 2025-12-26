@@ -23,7 +23,7 @@ export default async function AdminTeachersPage() {
     userId: a.userId,
     status: a.status,
     createdAt: a.createdAt,
-    data: a.data as any,
+    data: a.data,
     user: userMap.get(a.userId) || null,
   }));
 

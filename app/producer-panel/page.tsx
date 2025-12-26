@@ -8,6 +8,7 @@ import { Section } from "@/components/design-system/components/shared/section";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Badge } from "@/components/design-system/components/ui/badge";
 import { Button } from "@/components/design-system/components/ui/button";
+import { ProducerRequestsClient, type ProducerMessageRequestItem } from "./requests-client";
 
 export const metadata: Metadata = {
   title: "Üretici Paneli | Stüdyom",
@@ -83,7 +84,7 @@ export default async function ProducerPanelPage() {
   >`
     SELECT id, data, status, "createdAt"
     FROM "ProducerApplication"
-    WHERE "userId" = ${dbUser.id} AND status = 'approved'
+    WHERE "userId" = ${dbUser.id} AND status IN ('approved', 'pending')
     ORDER BY "createdAt" DESC
     LIMIT 1
   `;
@@ -92,6 +93,27 @@ export default async function ProducerPanelPage() {
   if (!application) {
     redirect("/profile");
   }
+
+  const isApproved = application.status === "approved";
+
+  const messageRequests = await prisma.producerMessageRequest.findMany({
+    where: { producerUserId: dbUser.id, status: "pending" },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      message: true,
+      createdAt: true,
+      fromUser: { select: { fullName: true, email: true } },
+    },
+  });
+
+  const requestItems: ProducerMessageRequestItem[] = messageRequests.map((row) => ({
+    id: row.id,
+    message: row.message,
+    createdAt: row.createdAt.toISOString(),
+    fromUser: row.fromUser || {},
+  }));
 
   const data = parseData(application.data);
   const areas = normalizeArray(data.areas);
@@ -114,8 +136,9 @@ export default async function ProducerPanelPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Panel</p>
           <h1 className="text-3xl font-semibold text-[var(--color-primary)]">Üretici Paneli</h1>
           <p className="text-sm text-[var(--color-muted)]">
-            Onaylanan başvurunda paylaştığın bilgiler aşağıdadır. Güncellemeler için destek ekibimizle
-            iletişime geçebilirsin.
+            {isApproved
+              ? "Onaylanan başvurunda paylaştığın bilgiler aşağıdadır. Güncellemeler için destek ekibimizle iletişime geçebilirsin."
+              : "Başvurun incelemede. Paylaştığın bilgiler aşağıdadır; değişiklik için destek ekibine yazabilirsin."}
           </p>
         </header>
 
@@ -125,7 +148,16 @@ export default async function ProducerPanelPage() {
               <p className="text-sm font-semibold text-[var(--color-primary)]">Başvuru durumu</p>
               <p className="text-xs text-[var(--color-muted)]">Onay tarihi: {formatDate(application.createdAt)}</p>
             </div>
-            <Badge variant="default">Onaylandı</Badge>
+            <div className="flex items-center gap-3">
+              {dbUser.image && (
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)]">
+                  <img src={dbUser.image} alt="Profil fotoğrafı" className="h-full w-full object-cover" />
+                </div>
+              )}
+              <Badge variant={isApproved ? "default" : "muted"}>
+                {isApproved ? "Onaylandı" : "İncelemede"}
+              </Badge>
+            </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
@@ -246,6 +278,11 @@ export default async function ProducerPanelPage() {
           ) : (
             <p className="text-sm text-[var(--color-muted)]">Belirtilmedi</p>
           )}
+        </Card>
+
+        <Card className="space-y-3 p-6">
+          <p className="text-sm font-semibold text-[var(--color-primary)]">Mesaj Talepleri</p>
+          <ProducerRequestsClient initial={requestItems} />
         </Card>
       </Section>
     </main>

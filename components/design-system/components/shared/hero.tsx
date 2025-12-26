@@ -26,7 +26,10 @@ export function Hero({ title, subtitle }: HeroProps) {
               <Link href="/studyo">Stüdyo Bul</Link>
             </Button>
             <Button asChild size="lg" variant="secondary">
-              <Link href="/studio-signup">Stüdyo Ekle</Link>
+              <Link href="/hocalar">Hoca Bul</Link>
+            </Button>
+            <Button asChild size="lg" variant="secondary">
+              <Link href="/uretim">Üretici Bul</Link>
             </Button>
           </div>
         </div>

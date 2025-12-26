@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
+import type { Prisma, UserRole } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -12,14 +12,16 @@ export async function GET(req: Request) {
   const role = searchParams.get("role");
   const disabled = searchParams.get("disabled");
 
-  const where: any = {};
+  const where: Prisma.UserWhereInput = {};
   if (q) {
     where.OR = [
       { email: { contains: q, mode: "insensitive" } },
       { fullName: { contains: q, mode: "insensitive" } },
     ];
   }
-  if (role) where.role = role as any;
+  if (role && ["USER", "STUDIO", "ADMIN"].includes(role)) {
+    where.role = role as UserRole;
+  }
   if (disabled === "true") where.isDisabled = true;
   if (disabled === "false") where.isDisabled = false;
 

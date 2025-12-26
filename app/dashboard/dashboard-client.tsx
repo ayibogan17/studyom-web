@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import Link from "next/link";
 import { ChevronDown, Key } from "lucide-react";
 
 import { SignOutButton } from "@/components/sign-out-button";
@@ -10,6 +11,13 @@ type Props = {
   initialStudio?: Studio;
   userName?: string | null;
   userEmail?: string | null;
+  linkedTeachers?: {
+    id: string;
+    name: string;
+    email: string | null;
+    image: string | null;
+    slug: string;
+  }[];
 };
 
 const shortDays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
@@ -28,6 +36,21 @@ const roomTypeOptions = ["Prova odası", "Kayıt odası", "Vokal kabini", "Kontr
 const roomTypeOptionsUi = ["Prova odası", "Vokal kabini", "Kayıt kabini", "Davul kabini", "Etüt odası"] as const;
 const bookingModes = ["Onaylı talep (ben onaylarım)", "Direkt rezervasyon (sonra açılabilir)"] as const;
 const priceRanges = ["500–750", "750–1000", "1000–1500", "1500+"] as const;
+const recordingProductionOptions = [
+  "Davul yazımı",
+  "Bas yazımı",
+  "Gitar yazımı",
+  "Telli enstrüman yazımı",
+  "Üflemeli enstrüman yazımı",
+  "Yaylı enstrüman yazımı",
+  "Beat yapımı",
+  "Enstrüman ekleme",
+  "Aranje",
+  "Müzik prodüksiyonu",
+  "Sound design",
+  "Beste & söz yazımı",
+  "DJ edit / set hazırlama",
+] as const;
 
 type ContactMethod = (typeof contactMethodOptions)[number];
 type RoomTypeOption = (typeof roomTypeOptions)[number];
@@ -454,7 +477,7 @@ const ensureSlotsForDay = (
   return { ...room, slots: { ...room.slots, [key]: generated } };
 };
 
-export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
+export function DashboardClient({ initialStudio, userName, userEmail, linkedTeachers }: Props) {
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
   );
@@ -486,6 +509,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const studioRooms = studio?.rooms ?? [];
+  const teacherLinks = linkedTeachers ?? [];
   const orderedRooms = useMemo(() => {
     if (!studio?.rooms) return [];
     return [...studio.rooms].sort(
@@ -1757,6 +1781,57 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                 </>
               )}
             </section>
+
+            <section className="mt-6 rounded-3xl border border-black/5 bg-white/80 p-6 shadow-sm backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Hocalarım</p>
+                  <p className="text-xs text-gray-600">Bağlı hocalar burada listelenir.</p>
+                </div>
+              </div>
+
+              {teacherLinks.length === 0 ? (
+                <p className="mt-4 text-sm text-gray-600">Henüz bağlı hoca yok.</p>
+              ) : (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {teacherLinks.map((teacher) => {
+                    const initial = teacher.name?.charAt(0)?.toUpperCase() || "?";
+                    return (
+                      <div
+                        key={teacher.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 text-sm font-semibold text-gray-700">
+                            {teacher.image ? (
+                              <img
+                                src={teacher.image}
+                                alt={`${teacher.name} profil fotoğrafı`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span>{initial}</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{teacher.name}</p>
+                            {teacher.email && (
+                              <p className="text-xs text-gray-600">{teacher.email}</p>
+                            )}
+                          </div>
+                        </div>
+                        <Link
+                          href={`/hocalar/${teacher.slug}`}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
+                        >
+                          Hoca profiline git
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </>
         )}
 
@@ -2084,17 +2159,18 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                   open={isSectionOpen("pricing")}
                   onToggle={() => toggleSection("pricing")}
                 >
+                  {(() => {
+                    const activePricingModel =
+                      currentRoom.pricing.model === "daily" || currentRoom.pricing.model === "hourly"
+                        ? currentRoom.pricing.model
+                        : "hourly";
+                    return (
                   <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
                     <label className="flex items-center gap-2">
                       <span>Ücretlendirme</span>
                       <select
                         className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:outline-none"
-                        value={
-                          currentRoom.pricing.model === "daily" ||
-                          currentRoom.pricing.model === "hourly"
-                            ? currentRoom.pricing.model
-                            : "hourly"
-                        }
+                        value={activePricingModel}
                         onChange={(e) => {
                           const nextModel = e.target.value as Room["pricing"]["model"];
                           const rate =
@@ -2133,7 +2209,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-400 focus:outline-none"
                       placeholder="Ücret"
                       value={
-                        currentRoom.pricing.model === "daily"
+                        activePricingModel === "daily"
                           ? currentRoom.pricing.dailyRate ?? ""
                           : currentRoom.pricing.hourlyRate ?? ""
                       }
@@ -2149,10 +2225,11 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                                         ...r,
                                         pricing: {
                                           ...r.pricing,
+                                          model: activePricingModel,
                                           dailyRate:
-                                            (r.pricing.model === "daily" ? val : r.pricing.dailyRate) ?? "",
+                                            (activePricingModel === "daily" ? val : r.pricing.dailyRate) ?? "",
                                           hourlyRate:
-                                            (r.pricing.model === "hourly" ? val : r.pricing.hourlyRate) ?? "",
+                                            (activePricingModel === "hourly" ? val : r.pricing.hourlyRate) ?? "",
                                           flatRate: "",
                                           minRate: "",
                                         },
@@ -2165,6 +2242,8 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                       }}
                     />
                   </div>
+                    );
+                  })()}
                   <button
                     disabled={saving}
                     onClick={() =>
@@ -3509,7 +3588,7 @@ export function DashboardClient({ initialStudio, userName, userEmail }: Props) {
                               </div>
                               {(currentRoom.extras?.recordingProduction ?? "none") === "extra" && (
                                 <div className="mt-2 space-y-2">
-                                  {["Beat yapımı", "Enstrüman ekleme"].map((label) => {
+                                  {recordingProductionOptions.map((label) => {
                                     const active = currentRoom.extras?.recordingProductionAreas?.includes(label);
                                     return (
                                       <label key={label} className="flex items-center gap-2 text-xs font-semibold text-gray-800">

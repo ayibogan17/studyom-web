@@ -9,13 +9,22 @@ type Props = {
 export function TeacherCard({ teacher }: Props) {
   return (
     <Card className="space-y-3 p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-lg font-semibold text-[var(--color-primary)]">{teacher.displayName}</p>
-          <p className="text-sm text-[var(--color-muted)]">
-            {teacher.city}
-            {teacher.district ? ` • ${teacher.district}` : ""}
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)]">
+            {teacher.imageUrl ? (
+              <img src={teacher.imageUrl} alt={`${teacher.displayName} profil fotoğrafı`} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-[10px] text-[var(--color-muted)]">Foto</span>
+            )}
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-[var(--color-primary)]">{teacher.displayName}</p>
+            <p className="text-sm text-[var(--color-muted)]">
+              {teacher.city}
+              {teacher.district ? ` • ${teacher.district}` : ""}
+            </p>
+          </div>
         </div>
         <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-1 text-xs text-[var(--color-primary)]">
           {teacher.level}

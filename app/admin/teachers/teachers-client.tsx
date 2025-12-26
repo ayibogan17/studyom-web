@@ -9,7 +9,7 @@ type TeacherItem = {
   userId: string;
   status: string;
   createdAt: Date;
-  data: any;
+  data: unknown;
   user: { id: string; email: string; fullName: string | null; city: string | null } | null;
 };
 
@@ -99,23 +99,24 @@ export default function TeachersClient({ items }: { items: TeacherItem[] }) {
   );
 }
 
-function TeacherDetails({ data, userCity }: { data: Record<string, any> | null; userCity: string | null }) {
-  const links: string[] = Array.isArray(data?.links) ? data.links.filter((l: string) => l) : [];
+function TeacherDetails({ data, userCity }: { data: unknown; userCity: string | null }) {
+  const payload = normalizeData(data);
+  const links = toStringArray(payload.links);
   return (
     <div className="mt-3 space-y-3">
       <div className="grid gap-2 text-xs text-[var(--color-muted)] sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Alanlar" value={<ChipList items={data?.instruments} />} />
-        <Field label="Seviyeler" value={<ChipList items={data?.levels} />} />
-        <Field label="Format" value={<ChipList items={data?.formats} />} />
-        <Field label="Diller" value={<ChipList items={data?.languages} />} />
-        <Field label="Şehir" value={data?.city || userCity || "-"} />
-        <Field label="Ücret" value={data?.price || "-"} />
-        <Field label="Yıl" value={data?.years || "-"} />
-        <Field label="Öğrenci" value={data?.students || "-"} />
+        <Field label="Alanlar" value={<ChipList items={toStringArray(payload.instruments)} />} />
+        <Field label="Seviyeler" value={<ChipList items={toStringArray(payload.levels)} />} />
+        <Field label="Format" value={<ChipList items={toStringArray(payload.formats)} />} />
+        <Field label="Diller" value={<ChipList items={toStringArray(payload.languages)} />} />
+        <Field label="Şehir" value={toString(payload.city) || userCity || "-"} />
+        <Field label="Ücret" value={toString(payload.price) || "-"} />
+        <Field label="Yıl" value={toString(payload.years) || "-"} />
+        <Field label="Öğrenci" value={toString(payload.students) || "-"} />
       </div>
       <div>
         <div className="text-xs font-semibold text-[var(--color-primary)]">Kısa açıklama</div>
-        <p className="text-sm text-[var(--color-primary)]">{data?.statement || "Açıklama yok."}</p>
+        <p className="text-sm text-[var(--color-primary)]">{toString(payload.statement) || "Açıklama yok."}</p>
       </div>
       <div>
         <div className="text-xs font-semibold text-[var(--color-primary)]">Bağlantılar</div>
@@ -157,4 +158,28 @@ function ChipList({ items }: { items?: string[] }) {
       ))}
     </div>
   );
+}
+
+function normalizeData(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  if (typeof value === "object") {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function toString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }

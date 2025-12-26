@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAdminAction } from "@/lib/admin-audit";
+import { notifyUser } from "@/lib/user-notify";
 
 export const runtime = "nodejs";
 
@@ -39,7 +40,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   try {
     const before = await prisma.studio.findUnique({
       where: { id },
-      select: { isActive: true, name: true },
+      select: { isActive: true, name: true, ownerEmail: true },
     });
     const updateData: {
       isActive?: boolean;
@@ -67,6 +68,28 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       before,
       after: updated,
     });
+
+    if (parsed.data.decision && before?.ownerEmail) {
+      const subject =
+        parsed.data.decision === "approved"
+          ? "Studyom – Stüdyo başvurun onaylandı"
+          : "Studyom – Stüdyo başvurun reddedildi";
+      const text =
+        parsed.data.decision === "approved"
+          ? `Merhaba,
+
+${before.name} için yaptığın başvuru incelendi ve onaylandı. Stüdyon kısa süre içinde yayına alınacaktır.
+
+Teşekkürler,
+Studyom`
+          : `Merhaba,
+
+${before.name} için yaptığın başvuru incelendi ve şu an için kabul edilemedi. Dilersen bilgilerini güncelleyip daha sonra tekrar başvurabilirsin.
+
+Teşekkürler,
+Studyom`;
+      await notifyUser(before.ownerEmail, subject, text);
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);

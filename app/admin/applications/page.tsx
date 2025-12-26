@@ -54,7 +54,7 @@ export default async function AdminApplicationsPage() {
     userId: app.userId,
     status: app.status,
     createdAt: app.createdAt,
-    data: app.data as any,
+    data: app.data,
     user: userMap.get(app.userId) || null,
   }));
 
@@ -63,7 +63,7 @@ export default async function AdminApplicationsPage() {
     userId: app.userId,
     status: app.status,
     createdAt: app.createdAt,
-    data: app.data as any,
+    data: app.data,
     user: userMap.get(app.userId) || null,
   }));
 

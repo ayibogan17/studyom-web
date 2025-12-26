@@ -3,6 +3,8 @@ export type LessonType = "online" | "in-person" | "both";
 export type Teacher = {
   id: string;
   slug: string;
+  imageUrl?: string;
+  galleryUrls?: string[];
   displayName: string;
   city: string;
   district?: string;
@@ -22,6 +24,7 @@ const teachers: Teacher[] = [
   {
     id: "t1",
     slug: "ayse-demir",
+    imageUrl: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80",
     displayName: "Ayşe Demir",
     city: "İstanbul",
     district: "Kadıköy",
@@ -39,6 +42,7 @@ const teachers: Teacher[] = [
   {
     id: "t2",
     slug: "mehmet-aksoy",
+    imageUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80",
     displayName: "Mehmet Aksoy",
     city: "Ankara",
     district: "Çankaya",
@@ -56,6 +60,7 @@ const teachers: Teacher[] = [
   {
     id: "t3",
     slug: "elif-kaya",
+    imageUrl: "https://images.unsplash.com/photo-1525134479668-1bee5c7c6845?auto=format&fit=crop&w=300&q=80",
     displayName: "Elif Kaya",
     city: "İzmir",
     district: "Konak",
@@ -73,6 +78,7 @@ const teachers: Teacher[] = [
   {
     id: "t4",
     slug: "burak-yalcin",
+    imageUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80",
     displayName: "Burak Yalçın",
     city: "Bursa",
     district: "Nilüfer",
@@ -90,6 +96,7 @@ const teachers: Teacher[] = [
   {
     id: "t5",
     slug: "selin-ozkan",
+    imageUrl: "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=300&q=80",
     displayName: "Selin Özkan",
     city: "İstanbul",
     district: "Şişli",
@@ -107,6 +114,7 @@ const teachers: Teacher[] = [
   {
     id: "t6",
     slug: "cemre-arslan",
+    imageUrl: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=300&q=80",
     displayName: "Cemre Arslan",
     city: "Antalya",
     district: "Muratpaşa",

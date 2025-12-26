@@ -8,6 +8,9 @@ import { Section } from "@/components/design-system/components/shared/section";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Badge } from "@/components/design-system/components/ui/badge";
 import { Button } from "@/components/design-system/components/ui/button";
+import { TeacherGalleryClient } from "./teacher-gallery-client";
+import { TeacherProfileEditor } from "./teacher-profile-editor";
+import { TeacherStudioLinksClient } from "./teacher-studio-links-client";
 
 export const metadata: Metadata = {
   title: "Hoca Paneli | Stüdyom",
@@ -23,6 +26,7 @@ type TeacherApplicationData = {
   price?: string | null;
   statement?: string | null;
   links?: string[];
+  galleryUrls?: string[];
   years?: string | null;
   students?: string | null;
 };
@@ -39,14 +43,6 @@ function normalizeArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
-function isHttpUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 export default async function TeacherPanelPage() {
   const session = await getServerSession(authOptions);
@@ -80,21 +76,37 @@ export default async function TeacherPanelPage() {
   const levels = normalizeArray(data.levels);
   const formats = normalizeArray(data.formats);
   const languages = normalizeArray(data.languages);
-  const links = normalizeArray(data.links).filter(isHttpUrl);
+  const links = normalizeArray(data.links).slice(0, 3);
+  const galleryUrls = normalizeArray(data.galleryUrls).slice(0, 5);
   const city = typeof data.city === "string" ? data.city : dbUser.city || null;
-  const price = typeof data.price === "string" && data.price.trim() ? data.price : "Belirtilmedi";
-  const statement =
-    typeof data.statement === "string" && data.statement.trim() ? data.statement.trim() : "Belirtilmedi";
-  const years = typeof data.years === "string" && data.years.trim() ? data.years : "Belirtilmedi";
-  const students =
-    typeof data.students === "string" && data.students.trim() ? data.students : "Belirtilmedi";
+  const price = typeof data.price === "string" && data.price.trim() ? data.price : "";
+  const statement = typeof data.statement === "string" && data.statement.trim() ? data.statement.trim() : "";
+  const years = typeof data.years === "string" && data.years.trim() ? data.years : "";
+  const students = typeof data.students === "string" && data.students.trim() ? data.students : "";
+
+  const studioLinks = await prisma.teacherStudioLink.findMany({
+    where: { teacherUserId: dbUser.id },
+    include: { studio: { select: { id: true, name: true, city: true, district: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  const studioLinkItems = studioLinks.map((link) => ({
+    id: link.id,
+    status: link.status as "pending" | "approved" | "rejected",
+    createdAt: link.createdAt.toISOString(),
+    studio: link.studio,
+  }));
 
   return (
     <main className="bg-[var(--color-secondary)] pb-16 pt-10">
       <Section containerClassName="max-w-5xl space-y-6">
         <header className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">Panel</p>
-          <h1 className="text-3xl font-semibold text-[var(--color-primary)]">Hoca Paneli</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-3xl font-semibold text-[var(--color-primary)]">Hoca Paneli</h1>
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/teacher-panel/messages">Mesajlar</Link>
+            </Button>
+          </div>
           <p className="text-sm text-[var(--color-muted)]">
             Onaylanan başvurunda paylaştığın bilgiler aşağıdadır. Güncellemeler için destek ekibimizle
             iletişime geçebilirsin.
@@ -107,7 +119,14 @@ export default async function TeacherPanelPage() {
               <p className="text-sm font-semibold text-[var(--color-primary)]">Başvuru durumu</p>
               <p className="text-xs text-[var(--color-muted)]">Onay tarihi: {formatDate(application.createdAt)}</p>
             </div>
-            <Badge variant="default">Onaylandı</Badge>
+            <div className="flex items-center gap-3">
+              {dbUser.image && (
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)]">
+                  <img src={dbUser.image} alt="Profil fotoğrafı" className="h-full w-full object-cover" />
+                </div>
+              )}
+              <Badge variant="default">Onaylandı</Badge>
+            </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
@@ -121,114 +140,24 @@ export default async function TeacherPanelPage() {
           </div>
         </Card>
 
-        <Card className="space-y-4 p-6">
-          <p className="text-sm font-semibold text-[var(--color-primary)]">Öğretim bilgileri</p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Alanlar</p>
-              <div className="flex flex-wrap gap-2">
-                {instruments.length ? (
-                  instruments.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Seviyeler</p>
-              <div className="flex flex-wrap gap-2">
-                {levels.length ? (
-                  levels.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Format</p>
-              <div className="flex flex-wrap gap-2">
-                {formats.length ? (
-                  formats.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Şehir</p>
-              <p className="text-sm text-[var(--color-primary)]">{city || "Belirtilmedi"}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Ders dili</p>
-              <div className="flex flex-wrap gap-2">
-                {languages.length ? (
-                  languages.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Ücret beklentisi</p>
-              <p className="text-sm text-[var(--color-primary)]">{price}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Tecrübe (yıl)</p>
-              <p className="text-sm text-[var(--color-primary)]">{years}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Öğrenci deneyimi</p>
-              <p className="text-sm text-[var(--color-primary)]">{students}</p>
-            </div>
-          </div>
-        </Card>
+        <TeacherProfileEditor
+          initial={{
+            instruments,
+            levels,
+            formats,
+            city: city || "",
+            languages,
+            price,
+            statement,
+            links,
+            years,
+            students,
+          }}
+        />
 
-        <Card className="space-y-3 p-6">
-          <p className="text-sm font-semibold text-[var(--color-primary)]">Kısa açıklama</p>
-          <p className="text-sm text-[var(--color-primary)]">{statement}</p>
-        </Card>
+        <TeacherStudioLinksClient initialLinks={studioLinkItems} />
 
-        <Card className="space-y-3 p-6">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-[var(--color-primary)]">Bağlantılar</p>
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/profile">Profilime dön</Link>
-            </Button>
-          </div>
-          {links.length ? (
-            <div className="space-y-2">
-              {links.map((link) => (
-                <a
-                  key={link}
-                  href={link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-primary)] hover:border-[var(--color-accent)]"
-                >
-                  {link}
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--color-muted)]">Belirtilmedi</p>
-          )}
-        </Card>
+        <TeacherGalleryClient initialUrls={galleryUrls} />
       </Section>
     </main>
   );

@@ -2,30 +2,69 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Section } from "@/components/design-system/components/shared/section";
-import { TeacherContactForm } from "@/components/design-system/components/teachers/teacher-contact-form";
+import { TeacherMessageThread } from "@/components/design-system/components/teachers/teacher-message-thread";
+import { TeacherGallery } from "@/components/design-system/components/teachers/teacher-gallery";
 import { getTeacherBySlug } from "@/lib/teachers";
-import { getApprovedTeachers } from "@/lib/teacher-db";
+import { getApprovedTeacherBySlug, getTeacherIdentityBySlug } from "@/lib/teacher-db";
 
 type Params = { slug: string };
 
-export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const approved = await getApprovedTeachers();
-  const teacher = getTeacherBySlug(params.slug, approved) ?? getTeacherBySlug(params.slug);
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Params | Promise<Params>;
+}): Promise<Metadata> {
+  const resolved = await Promise.resolve(params);
+  const slug = resolved?.slug;
+  const approved = await getApprovedTeacherBySlug(slug);
+  const teacher = approved ?? (slug ? getTeacherBySlug(slug) : undefined);
   if (!teacher) {
     return {
       title: "Hoca bulunamadı | Studyom",
     };
   }
+  const instrumentText = teacher.instruments.join(", ");
   return {
     title: `${teacher.displayName} | Hocalar | Studyom`,
-    description: `${teacher.displayName} - ${teacher.city} | ${teacher.instruments.join(", ")} dersleri`,
+    description: `${teacher.displayName} - ${teacher.city} | ${instrumentText} dersleri`,
   };
 }
 
-export default async function TeacherDetailPage({ params }: { params: Params }) {
-  const approved = await getApprovedTeachers();
-  const teacher = getTeacherBySlug(params.slug, approved) ?? getTeacherBySlug(params.slug);
+export default async function TeacherDetailPage({
+  params,
+}: {
+  params: Params | Promise<Params>;
+}) {
+  const resolved = await Promise.resolve(params);
+  const slug = resolved?.slug;
+  const approved = await getApprovedTeacherBySlug(slug);
+  const teacher = approved ?? (slug ? getTeacherBySlug(slug) : undefined);
   if (!teacher) return notFound();
+  const identity = await getTeacherIdentityBySlug(teacher.slug);
+  const portfolioLinks = teacher.portfolioUrls
+    .map((raw) => raw.trim())
+    .filter(Boolean)
+    .map((raw) => {
+      try {
+        const parsed = new URL(raw);
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          return { href: parsed.toString(), label: raw };
+        }
+        return null;
+      } catch {
+        const normalized = `https://${raw}`;
+        try {
+          const parsed = new URL(normalized);
+          return { href: parsed.toString(), label: raw };
+        } catch {
+          return null;
+        }
+      }
+    })
+    .filter((item): item is { href: string; label: string } => Boolean(item))
+    .slice(0, 5);
 
   return (
     <main className="bg-[var(--color-secondary)]">
@@ -36,13 +75,14 @@ export default async function TeacherDetailPage({ params }: { params: Params }) 
           <p className="text-sm text-[var(--color-muted)]">
             {teacher.city} • {teacher.instruments.join(", ")} • {teacher.lessonTypes.map((t) => (t === "online" ? "Online" : t === "in-person" ? "Yüzyüze" : "Online + Yüzyüze")).join(" / ")}
           </p>
+          <p className="text-xs text-[var(--color-muted)]">Güncelleme: {teacher.updatedAt}</p>
         </header>
 
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-4">
             <Card className="space-y-3 p-5">
               <p className="text-base font-semibold text-[var(--color-primary)]">Hakkında</p>
-              <p className="text-sm text-[var(--color-muted)]">{teacher.bio}</p>
+              <p className="text-sm text-[var(--color-muted)] whitespace-pre-line">{teacher.bio}</p>
             </Card>
 
             <Card className="space-y-3 p-5">
@@ -83,20 +123,24 @@ export default async function TeacherDetailPage({ params }: { params: Params }) 
 
             <Card className="space-y-2 p-5">
               <p className="text-base font-semibold text-[var(--color-primary)]">Portfolyo</p>
-              {teacher.portfolioUrls.length === 0 ? (
+              {portfolioLinks.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted)]">Paylaşılan bağlantı yok.</p>
               ) : (
                 <ul className="list-disc space-y-2 pl-4 text-sm text-[var(--color-accent)]">
-                  {teacher.portfolioUrls.slice(0, 5).map((url, idx) => (
-                    <li key={`${url}-${idx}`}>
-                      <a href={url} target="_blank" rel="noreferrer" className="hover:underline">
-                        {url}
+                  {portfolioLinks.map((item, idx) => (
+                    <li key={`${item.href}-${idx}`}>
+                      <a href={item.href} target="_blank" rel="noreferrer" className="hover:underline">
+                        {item.label}
                       </a>
                     </li>
                   ))}
                 </ul>
               )}
             </Card>
+
+            {teacher.galleryUrls && teacher.galleryUrls.length > 0 && (
+              <TeacherGallery urls={teacher.galleryUrls} />
+            )}
 
             {teacher.studiosUsed && teacher.studiosUsed.length > 0 && (
               <Card className="space-y-2 p-5">
@@ -110,7 +154,16 @@ export default async function TeacherDetailPage({ params }: { params: Params }) 
             )}
           </div>
 
-          <TeacherContactForm teacherSlug={teacher.slug} teacherName={teacher.displayName} />
+          {identity ? (
+            <TeacherMessageThread teacherSlug={teacher.slug} teacherName={teacher.displayName} />
+          ) : (
+            <Card className="space-y-3 p-5">
+              <p className="text-base font-semibold text-[var(--color-primary)]">Mesaj gönder</p>
+              <p className="text-sm text-[var(--color-muted)]">
+                Bu profil için mesajlaşma şu an aktif değil.
+              </p>
+            </Card>
+          )}
         </div>
       </Section>
     </main>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export async function logAdminAction(params: {
   adminId: string;
@@ -15,8 +16,8 @@ export async function logAdminAction(params: {
         entityType: params.entityType,
         entityId: params.entityId,
         action: params.action,
-        before: params.before ? (params.before as any) : null,
-        after: params.after ? (params.after as any) : null,
+        before: params.before ? (params.before as Prisma.InputJsonValue) : undefined,
+        after: params.after ? (params.after as Prisma.InputJsonValue) : undefined,
       },
     });
   } catch (err) {

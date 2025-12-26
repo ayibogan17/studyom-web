@@ -7,11 +7,7 @@ import { Bell, LogOut, Menu, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/cn";
 
-const links = [
-  { href: "/hocalar", label: "Hocalar" },
-  { href: "/hakkinda", label: "Hakkında" },
-  { href: "/iletisim", label: "İletişim" },
-];
+const links = [{ href: "/hocalar", label: "Hocalar" }];
 
 const productionItems = [
   {
@@ -47,6 +43,7 @@ export function AppHeader() {
     intent?: string[];
     fullName?: string | null;
     emailVerified?: Date | string | null;
+    image?: string | null;
     teacherStatus?: "approved" | "pending" | "none";
     producerStatus?: "approved" | "pending" | "none";
     studioStatus?: "approved" | "pending" | "none";
@@ -85,43 +82,37 @@ export function AppHeader() {
           <Button asChild size="sm" className="shrink-0">
             <Link href="/studyo">Stüdyo Bul</Link>
           </Button>
+          <div className="relative" onMouseEnter={handleProdOpen} onMouseLeave={handleProdClose}>
+            <Link
+              href="/uretim"
+              className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
+              aria-haspopup="true"
+              aria-expanded={showProd}
+              onFocus={handleProdOpen}
+              onBlur={handleProdClose}
+            >
+              Üretim
+              <span className="text-[10px] text-[var(--color-muted)]">▼</span>
+            </Link>
+            {showProd && (
+              <div
+                className="absolute right-0 top-12 z-20 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
+                onMouseEnter={handleProdOpen}
+                onMouseLeave={handleProdClose}
+              >
+                <div className="space-y-3 text-left">
+                  {productionItems.map((item) => (
+                    <div key={item.title} className="rounded-xl bg-[var(--color-secondary)] p-3">
+                      <p className="text-sm font-semibold text-[var(--color-primary)]">{item.title}</p>
+                      <p className="text-xs text-[var(--color-muted)]">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           {links.map((link) => (
             <div key={`${link.href}-${link.label}`} className="flex items-center gap-2">
-              {link.label === "Hakkında" && (
-                <div
-                  className="relative"
-                  onMouseEnter={handleProdOpen}
-                  onMouseLeave={handleProdClose}
-                >
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
-                    aria-haspopup="true"
-                    aria-expanded={showProd}
-                    onFocus={handleProdOpen}
-                    onBlur={handleProdClose}
-                  >
-                    Üretim
-                    <span className="text-[10px] text-[var(--color-muted)]">▼</span>
-                  </button>
-                  {showProd && (
-                    <div
-                      className="absolute right-0 top-12 z-20 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
-                      onMouseEnter={handleProdOpen}
-                      onMouseLeave={handleProdClose}
-                    >
-                      <div className="space-y-3 text-left">
-                        {productionItems.map((item) => (
-                          <div key={item.title} className="rounded-xl bg-[var(--color-secondary)] p-3">
-                            <p className="text-sm font-semibold text-[var(--color-primary)]">{item.title}</p>
-                            <p className="text-xs text-[var(--color-muted)]">{item.desc}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
               <Link
                 href={link.href}
                 className="transition hover:text-[var(--color-accent)]"
@@ -162,13 +153,15 @@ export function AppHeader() {
             </Link>
           )}
           {session && showStudioPanel && (
+            <Link
+              href="/dashboard?as=studio"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+            >
+              Stüdyo Paneli
+            </Link>
+          )}
+          {session && (
             <div className="flex items-center gap-2">
-              <Link
-                href="/dashboard?as=studio"
-                className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
-              >
-                Stüdyo Paneli
-              </Link>
               <Link
                 href="/notifications"
                 aria-label="Bildirimler"
@@ -210,29 +203,32 @@ export function AppHeader() {
           <Button asChild full size="sm">
             <Link href="/studyo">Stüdyo Bul</Link>
           </Button>
-          {links.map((link) => (
-            <div key={`${link.href}-${link.label}`} className="flex flex-col gap-1">
-              {link.label === "Hakkında" && (
-                <div className="space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
-                  <p className="text-sm font-semibold text-[var(--color-primary)]">Üretim</p>
-                  <div className="space-y-2">
-                    {productionItems.map((item) => (
-                      <div key={item.title} className="rounded-xl bg-[var(--color-surface)] p-2">
-                        <p className="text-xs font-semibold text-[var(--color-primary)]">{item.title}</p>
-                        <p className="text-[11px] text-[var(--color-muted)]">{item.desc}</p>
-                      </div>
-                    ))}
-                  </div>
+          <div className="space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
+            <Link
+              href="/uretim"
+              className="text-sm font-semibold text-[var(--color-primary)]"
+              onClick={() => setOpen(false)}
+            >
+              Üretim
+            </Link>
+            <div className="space-y-2">
+              {productionItems.map((item) => (
+                <div key={item.title} className="rounded-xl bg-[var(--color-surface)] p-2">
+                  <p className="text-xs font-semibold text-[var(--color-primary)]">{item.title}</p>
+                  <p className="text-[11px] text-[var(--color-muted)]">{item.desc}</p>
                 </div>
-              )}
-              <Link
-                href={link.href}
-                className="rounded-xl px-3 py-2 hover:bg-[var(--color-secondary)]"
-                onClick={() => setOpen(false)}
-              >
-                {link.label}
-              </Link>
+              ))}
             </div>
+          </div>
+          {links.map((link) => (
+            <Link
+              key={`${link.href}-${link.label}`}
+              href={link.href}
+              className="rounded-xl px-3 py-2 hover:bg-[var(--color-secondary)]"
+              onClick={() => setOpen(false)}
+            >
+              {link.label}
+            </Link>
           ))}
           {!session && (
             <Button asChild full size="sm" variant="secondary">
@@ -281,12 +277,25 @@ export function AppHeader() {
               </Link>
             </Button>
           )}
-          {session && showStudioPanel && (
-            <Button asChild variant="secondary" size="sm" className="w-fit px-3">
-              <Link href="/notifications" onClick={() => setOpen(false)} aria-label="Bildirimler">
+          {session && (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/notifications"
+                onClick={() => setOpen(false)}
+                aria-label="Bildirimler"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
+              >
                 <Bell className="h-4 w-4" aria-hidden />
               </Link>
-            </Button>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                aria-label="Çıkış yap"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
+              >
+                <LogOut className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
           )}
         </div>
       </div>

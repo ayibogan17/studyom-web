@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { slugify } from "@/lib/geo";
 import {
   Prisma,
   PricingModel,
@@ -148,7 +149,7 @@ async function loadStudio(email: string, name?: string | null) {
     create: { email, name: name ?? undefined, role: "STUDIO" },
   });
 
-  let studio = (await prisma.studio.findFirst({
+  const studio = (await prisma.studio.findFirst({
     where: { ownerEmail: email },
     include: {
       rooms: { include: { slots: true } },
@@ -217,7 +218,51 @@ export default async function DashboardPage({
     redirect("/studio/new");
   }
 
+  const studioTeacherLinks = await prisma.teacherStudioLink.findMany({
+    where: { studioId: initialStudio.id, status: "approved" },
+    include: {
+      teacherUser: { select: { id: true, email: true, fullName: true, name: true, image: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const teacherUserIds = studioTeacherLinks.map((link) => link.teacherUserId);
+  const teacherApps = teacherUserIds.length
+    ? await prisma.teacherApplication.findMany({
+        where: { userId: { in: teacherUserIds }, status: "approved" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, userId: true },
+      })
+    : [];
+  const appByUser = new Map<string, { id: number; userId: string }>();
+  for (const app of teacherApps) {
+    if (!appByUser.has(app.userId)) {
+      appByUser.set(app.userId, app);
+    }
+  }
+  const linkedTeachers = studioTeacherLinks
+    .map((link) => {
+      const app = appByUser.get(link.teacherUserId);
+      if (!app) return null;
+      const displayName =
+        link.teacherUser.fullName || link.teacherUser.name || link.teacherUser.email || "Hoca";
+      return {
+        id: link.id,
+        name: displayName,
+        email: link.teacherUser.email,
+        image: link.teacherUser.image,
+        slug: `${slugify(displayName)}-${app.id}`,
+      };
+    })
+    .filter((item): item is { id: string; name: string; email: string | null; image: string | null; slug: string } =>
+      Boolean(item),
+    );
+
   return (
-    <DashboardClient initialStudio={initialStudio} userName={user.name} userEmail={user.email} />
+    <DashboardClient
+      initialStudio={initialStudio}
+      userName={user.name}
+      userEmail={user.email}
+      linkedTeachers={linkedTeachers}
+    />
   );
 }

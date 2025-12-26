@@ -4,6 +4,7 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { loadGeo } from "@/lib/geo";
+import { notifyAdmin } from "@/lib/admin-notify";
 
 const applicantRoles = ["Sahibiyim", "Ortağım", "Yetkili yöneticiyim"] as const;
 const contactMethods = ["Phone", "WhatsApp", "Email"] as const;
@@ -128,6 +129,38 @@ export async function POST(req: Request) {
       where: { email },
       data: { isStudioOwner: true, fullName: name || undefined },
     });
+
+    const emailText = [
+      "Yeni stüdyo başvurusu alındı.",
+      `Başvuran: ${name || "-"}`,
+      `E-posta: ${email}`,
+      `Telefon: ${data.phone}`,
+      `Rol: ${data.applicantRole}`,
+      `Stüdyo adı: ${data.studioName}`,
+      `Şehir: ${province?.name ?? data.city}`,
+      `İlçe: ${district?.name ?? data.district}`,
+      `Mahalle: ${neighborhood?.name ?? data.neighborhood}`,
+      `Açık adres: ${data.address}`,
+      `Google Maps: ${data.mapsUrl}`,
+      `İletişim yöntemleri: ${data.contactMethods.join(", ")}`,
+      data.contactHours ? `İletişim saatleri: ${data.contactHours}` : null,
+      `Oda sayısı: ${data.roomsCount}`,
+      `Oda türleri: ${data.roomTypes.join(", ")}`,
+      `Booking modu: ${data.bookingMode}`,
+      `Çalışma saatleri: ${data.isFlexible ? "Esnek" : `Hafta içi ${data.weekdayHours} / Hafta sonu ${data.weekendHours}`}`,
+      `Fiyat aralığı: ${data.priceRange}${data.priceVaries ? " (odaya göre değişir)" : ""}`,
+      `Ekipman setleri: ${Object.entries(data.equipment)
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+        .join(", ") || "Belirtilmedi"}`,
+      data.equipmentHighlight ? `Öne çıkan ekipman: ${data.equipmentHighlight}` : null,
+      data.linkPortfolio ? `Instagram/Web: ${data.linkPortfolio}` : null,
+      data.linkGoogle ? `Google Business: ${data.linkGoogle}` : null,
+      needsManualReview ? "Manuel inceleme: evet (doğrulama linki yok)" : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    await notifyAdmin("Yeni Stüdyo Başvurusu", emailText);
 
     return NextResponse.json({ ok: true, studioId: studio.id });
   } catch (err) {

@@ -252,7 +252,7 @@ export async function GET() {
     create: { email, name: name ?? undefined, role: "STUDIO" },
   });
 
-  let studio = (await prisma.studio.findFirst({
+  const studio = (await prisma.studio.findFirst({
     where: { ownerEmail: email },
     include: {
       rooms: { include: { slots: true }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] },

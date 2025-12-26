@@ -30,7 +30,7 @@ export default async function ProfilePage() {
 
   const userId = dbUser?.id;
   const userEmail = dbUser?.email;
-  const [teacherApp, producerApp, studioCount, studioActiveCount] = userId
+  const [teacherApp, producerApp, studioCount, studioActiveCount, googleAccount] = userId
     ? await Promise.all([
         prisma.teacherApplication.findFirst({
           where: { userId },
@@ -44,8 +44,12 @@ export default async function ProfilePage() {
         userEmail
           ? prisma.studio.count({ where: { ownerEmail: userEmail, isActive: true } })
           : Promise.resolve(0),
+        prisma.account.findFirst({
+          where: { userId, provider: "google" },
+          select: { id: true },
+        }),
       ])
-    : [null, null, 0, 0];
+    : [null, null, 0, 0, null];
 
   const mapStatus = (status?: string | null) => {
     if (status === "approved") return "approved" as const;
@@ -62,8 +66,9 @@ export default async function ProfilePage() {
         email: dbUser?.email || session.user.email || "",
         city: dbUser?.city || "",
         intent: dbUser?.intent || [],
-        emailVerified: Boolean(dbUser?.emailVerified),
+        emailVerified: Boolean(dbUser?.emailVerified) || Boolean(googleAccount),
         createdAt: dbUser?.createdAt ?? null,
+        image: dbUser?.image ?? null,
         roles: {
           teacher: teacherStatus,
           producer: producerStatus,

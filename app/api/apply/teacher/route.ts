@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { notifyAdmin } from "@/lib/admin-notify";
 
 const instrumentOptions = [
   "Keman",
@@ -74,12 +75,16 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   const sessionUser = session?.user as { id?: string; email?: string | null } | undefined;
   let userId = sessionUser?.id;
+  let userEmail = sessionUser?.email?.toLowerCase() ?? null;
+  let userName = sessionUser?.name ?? null;
   if (!userId && sessionUser?.email) {
     const dbUser = await prisma.user.findUnique({
       where: { email: sessionUser.email.toLowerCase() },
-      select: { id: true },
+      select: { id: true, email: true, fullName: true, name: true },
     });
     userId = dbUser?.id;
+    userEmail = dbUser?.email ?? userEmail;
+    userName = dbUser?.fullName ?? dbUser?.name ?? userName;
   }
   if (!userId) {
     return NextResponse.json({ error: "Giriş yapın" }, { status: 401 });
@@ -116,6 +121,25 @@ export async function POST(req: Request) {
     });
 
     await prisma.user.update({ where: { id: userId }, data: { isTeacher: true } });
+
+    const emailText = [
+      "Yeni hoca başvurusu alındı.",
+      `Kullanıcı: ${userName || "-"}`,
+      `E-posta: ${userEmail || "-"}`,
+      `Şehir: ${appData.city ?? "-"}`,
+      `Formatlar: ${appData.formats.join(", ")}`,
+      `Seviyeler: ${appData.levels.join(", ")}`,
+      `Enstrümanlar: ${appData.instruments.join(", ")}`,
+      `Diller: ${appData.languages.length ? appData.languages.join(", ") : "-"}`,
+      `Ücret beklentisi: ${appData.price ?? "-"}`,
+      `Linkler: ${appData.links.length ? appData.links.join(", ") : "-"}`,
+      `Tecrübe: ${appData.years ?? "-"}`,
+      `Öğrenci sayısı: ${appData.students ?? "-"}`,
+      "",
+      "Kısa açıklama:",
+      appData.statement,
+    ].join("\n");
+    await notifyAdmin("Yeni Hoca Başvurusu", emailText);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

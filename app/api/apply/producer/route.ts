@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { notifyAdmin } from "@/lib/admin-notify";
 
 const productionAreas = [
   "Davul yazımı",
@@ -72,12 +73,16 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   const sessionUser = session?.user as { id?: string; email?: string | null } | undefined;
   let userId = sessionUser?.id;
+  let userEmail = sessionUser?.email?.toLowerCase() ?? null;
+  let userName = sessionUser?.name ?? null;
   if (!userId && sessionUser?.email) {
     const dbUser = await prisma.user.findUnique({
       where: { email: sessionUser.email.toLowerCase() },
-      select: { id: true },
+      select: { id: true, email: true, fullName: true, name: true },
     });
     userId = dbUser?.id;
+    userEmail = dbUser?.email ?? userEmail;
+    userName = dbUser?.fullName ?? dbUser?.name ?? userName;
   }
   if (!userId) {
     return NextResponse.json({ error: "Giriş yapın" }, { status: 401 });
@@ -114,6 +119,25 @@ export async function POST(req: Request) {
     });
 
     await prisma.user.update({ where: { id: userId }, data: { isProducer: true } });
+
+    const emailText = [
+      "Yeni üretici başvurusu alındı.",
+      `Kullanıcı: ${userName || "-"}`,
+      `E-posta: ${userEmail || "-"}`,
+      `Şehir: ${appData.city ?? "-"}`,
+      `Çalışma modları: ${appData.modes.join(", ")}`,
+      `Çalışma türleri: ${appData.workTypes.join(", ")}`,
+      `Üretim alanları: ${appData.areas.join(", ")}`,
+      `Türler: ${appData.genres.length ? appData.genres.join(", ") : "-"}`,
+      `Ücret beklentisi: ${appData.price ?? "-"}`,
+      `Linkler: ${appData.links.length ? appData.links.join(", ") : "-"}`,
+      `Proje sayısı: ${appData.projects ?? "-"}`,
+      `Tecrübe: ${appData.years ?? "-"}`,
+      "",
+      "Kısa açıklama:",
+      appData.statement,
+    ].join("\n");
+    await notifyAdmin("Yeni Üretici Başvurusu", emailText);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

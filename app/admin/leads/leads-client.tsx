@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/design-system/components/ui/button";
 
 type LeadItem = {
   id: string;

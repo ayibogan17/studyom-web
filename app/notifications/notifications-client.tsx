@@ -17,8 +17,18 @@ export type NotificationItem = {
   status: "unread" | "read";
 };
 
+export type StudioRequestItem = {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  studioName: string;
+  teacherName: string;
+  teacherEmail?: string | null;
+  createdAt: string;
+};
+
 type Props = {
   items: NotificationItem[];
+  studioRequests: StudioRequestItem[];
 };
 
 type FilterKey = "all" | "unread" | "read";
@@ -29,10 +39,12 @@ const filters: Array<{ key: FilterKey; label: string }> = [
   { key: "read", label: "Okundu" },
 ];
 
-export default function NotificationsClient({ items }: Props) {
+export default function NotificationsClient({ items, studioRequests }: Props) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [rows, setRows] = useState(items);
+  const [requests, setRequests] = useState(studioRequests);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
 
   const filteredItems = useMemo(() => {
     if (filter === "all") return rows;
@@ -64,6 +76,25 @@ export default function NotificationsClient({ items }: Props) {
     }
   };
 
+  const updateRequest = async (id: string, status: StudioRequestItem["status"]) => {
+    setSavingRequestId(id);
+    try {
+      const res = await fetch(`/api/studio-links/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Güncellenemedi");
+      setRequests((prev) => prev.map((row) => (row.id === id ? { ...row, status } : row)));
+    } catch (err) {
+      console.error(err);
+      alert("Güncellenemedi");
+    } finally {
+      setSavingRequestId(null);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-10">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -86,7 +117,7 @@ export default function NotificationsClient({ items }: Props) {
             key={item.key}
             type="button"
             size="sm"
-            variant={filter === item.key ? "default" : "secondary"}
+            variant={filter === item.key ? "primary" : "secondary"}
             onClick={() => setFilter(item.key)}
           >
             {item.label}
@@ -95,6 +126,73 @@ export default function NotificationsClient({ items }: Props) {
       </div>
 
       <div className="grid gap-6">
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Hoca stüdyo talepleri</h2>
+            <Badge variant="muted">{requests.length}</Badge>
+          </div>
+          {requests.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)]">Henüz talep yok.</p>
+          ) : (
+            <div className="space-y-3">
+              {requests.map((item) => {
+                const statusText =
+                  item.status === "approved" ? "Onaylandı" : item.status === "rejected" ? "Reddedildi" : "Beklemede";
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--color-primary)]">{item.studioName}</p>
+                        <p className="text-xs text-[var(--color-muted)]">{item.teacherName}</p>
+                        {item.teacherEmail && (
+                          <p className="text-xs text-[var(--color-muted)]">{item.teacherEmail}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
+                        <Badge
+                          variant={item.status === "pending" ? "outline" : "default"}
+                          className={cn(item.status === "rejected" ? "bg-[var(--color-danger)] text-white" : "")}
+                        >
+                          {statusText}
+                        </Badge>
+                        <span>{new Date(item.createdAt).toLocaleString("tr-TR")}</span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--color-primary)]">
+                      {item.teacherName} stüdyonuzda ders vermek istiyor.
+                    </p>
+                    {item.status === "pending" && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          disabled={savingRequestId === item.id}
+                          onClick={() => updateRequest(item.id, "approved")}
+                        >
+                          Kabul et
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={savingRequestId === item.id}
+                          onClick={() => updateRequest(item.id, "rejected")}
+                        >
+                          Reddet
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
         <Card className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-[var(--color-primary)]">Rezervasyon istekleri</h2>

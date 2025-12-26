@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import NotificationsClient, { NotificationItem } from "./notifications-client";
+import NotificationsClient, { NotificationItem, StudioRequestItem } from "./notifications-client";
 
 export const metadata: Metadata = {
   title: "Bildirimler | Stüdyom",
@@ -32,7 +32,7 @@ export default async function NotificationsPage() {
 
   const userEmail = dbUser?.email?.toLowerCase() ?? sessionUser.email?.toLowerCase() ?? null;
 
-  const [studios, leads, teacherLeads] = await Promise.all([
+  const [studios, leads, teacherLeads, studioRequests] = await Promise.all([
     userEmail
       ? prisma.studio.findMany({
           where: { ownerEmail: userEmail },
@@ -56,6 +56,17 @@ export default async function NotificationsPage() {
     userEmail
       ? prisma.teacherLead.findMany({
           where: { studentEmail: userEmail },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+        })
+      : Promise.resolve([]),
+    userEmail
+      ? prisma.teacherStudioLink.findMany({
+          where: { studio: { ownerEmail: userEmail } },
+          include: {
+            studio: { select: { id: true, name: true } },
+            teacherUser: { select: { id: true, fullName: true, name: true, email: true } },
+          },
           orderBy: { createdAt: "desc" },
           take: 50,
         })
@@ -96,9 +107,18 @@ export default async function NotificationsPage() {
     status: lead.isRead || lead.status !== "new" ? "read" : "unread",
   }));
 
+  const studioRequestItems: StudioRequestItem[] = studioRequests.map((link) => ({
+    id: link.id,
+    status: link.status as StudioRequestItem["status"],
+    createdAt: link.createdAt.toISOString(),
+    studioName: link.studio.name,
+    teacherName: link.teacherUser.fullName || link.teacherUser.name || link.teacherUser.email || "Hoca",
+    teacherEmail: link.teacherUser.email,
+  }));
+
   const items = [...reservationItems, ...leadItems, ...teacherLeadItems].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
-  return <NotificationsClient items={items} />;
+  return <NotificationsClient items={items} studioRequests={studioRequestItems} />;
 }

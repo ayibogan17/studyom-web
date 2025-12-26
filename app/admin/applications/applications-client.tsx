@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/design-system/components/ui/button";
 
 type StudioRow = {
@@ -22,7 +22,7 @@ type AppRow = {
   userId: string;
   status: string;
   createdAt: Date;
-  data: any;
+  data: unknown;
   user: { id: string; email: string; fullName: string | null; city: string | null } | null;
 };
 
@@ -185,23 +185,27 @@ function RoleApplications({ initial, apiBase }: { initial: AppRow[]; apiBase: st
               >
                 {openRow === row.id ? "Detay gizle" : "Detaylar"}
               </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={saving?.id === row.id || row.status === "rejected"}
-                onClick={() => updateStatus(row.id, "rejected")}
-                className="border-[var(--color-danger)]/40 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
-              >
-                {saving?.id === row.id && saving.action === "reject" ? "Reddediliyor..." : "Reddet"}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={saving?.id === row.id || row.status === "approved"}
-                onClick={() => updateStatus(row.id, "approved")}
-              >
-                {saving?.id === row.id && saving.action === "approve" ? "Onaylanıyor..." : "Onayla"}
-              </Button>
+              {row.status !== "approved" && row.status !== "rejected" && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={saving?.id === row.id}
+                    onClick={() => updateStatus(row.id, "rejected")}
+                    className="border-[var(--color-danger)]/40 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                  >
+                    {saving?.id === row.id && saving.action === "reject" ? "Reddediliyor..." : "Reddet"}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={saving?.id === row.id}
+                    onClick={() => updateStatus(row.id, "approved")}
+                  >
+                    {saving?.id === row.id && saving.action === "approve" ? "Onaylanıyor..." : "Onayla"}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           <div className="mt-2 text-xs text-[var(--color-muted)]">
@@ -223,44 +227,42 @@ function ApplicationDetails({
   data,
   userCity,
 }: {
-  data: Record<string, any> | null;
+  data: unknown;
   userCity: string | null;
 }) {
   const payload = normalizeApplicationData(data);
-  const isTeacher = Array.isArray(payload?.instruments);
-  const isProducer = Array.isArray(payload?.areas);
+  const instruments = toStringArray(payload.instruments);
+  const areas = toStringArray(payload.areas);
+  const isTeacher = instruments.length > 0;
+  const isProducer = areas.length > 0;
 
-  const cityValue = payload?.city || userCity || "-";
-  const statement = payload?.statement || "Açıklama yok.";
-  const links: string[] = Array.isArray(payload?.links) ? payload.links.filter((l: string) => l) : [];
+  const cityValue = toString(payload.city) || userCity || "-";
+  const statement = toString(payload.statement) || "Açıklama yok.";
+  const links = toStringArray(payload.links);
 
-  const fields = useMemo(() => {
-    if (isTeacher) {
-      return [
-        { label: "Alanlar", value: <ChipList items={payload.instruments} /> },
-        { label: "Seviyeler", value: <ChipList items={payload.levels} /> },
-        { label: "Format", value: <ChipList items={payload.formats} /> },
+  const fields = isTeacher
+    ? [
+        { label: "Alanlar", value: <ChipList items={instruments} /> },
+        { label: "Seviyeler", value: <ChipList items={toStringArray(payload.levels)} /> },
+        { label: "Format", value: <ChipList items={toStringArray(payload.formats)} /> },
         { label: "Şehir", value: cityValue },
-        { label: "Diller", value: <ChipList items={payload.languages} /> },
-        { label: "Ücret", value: payload.price || "-" },
-        { label: "Yıl", value: payload.years || "-" },
-        { label: "Öğrenci", value: payload.students || "-" },
-      ];
-    }
-    if (isProducer) {
-      return [
-        { label: "Üretim alanları", value: <ChipList items={payload.areas} /> },
-        { label: "Çalışma türü", value: <ChipList items={payload.workTypes} /> },
-        { label: "Mod", value: <ChipList items={payload.modes} /> },
-        { label: "Şehir", value: cityValue },
-        { label: "Türler", value: <ChipList items={payload.genres} /> },
-        { label: "Ücret", value: payload.price || "-" },
-        { label: "Proje", value: payload.projects || "-" },
-        { label: "Yıl", value: payload.years || "-" },
-      ];
-    }
-    return [];
-  }, [cityValue, isProducer, isTeacher, payload]);
+        { label: "Diller", value: <ChipList items={toStringArray(payload.languages)} /> },
+        { label: "Ücret", value: toString(payload.price) || "-" },
+        { label: "Yıl", value: toString(payload.years) || "-" },
+        { label: "Öğrenci", value: toString(payload.students) || "-" },
+      ]
+    : isProducer
+      ? [
+          { label: "Üretim alanları", value: <ChipList items={areas} /> },
+          { label: "Çalışma türü", value: <ChipList items={toStringArray(payload.workTypes)} /> },
+          { label: "Mod", value: <ChipList items={toStringArray(payload.modes)} /> },
+          { label: "Şehir", value: cityValue },
+          { label: "Türler", value: <ChipList items={toStringArray(payload.genres)} /> },
+          { label: "Ücret", value: toString(payload.price) || "-" },
+          { label: "Proje", value: toString(payload.projects) || "-" },
+          { label: "Yıl", value: toString(payload.years) || "-" },
+        ]
+      : [];
 
   return (
     <div className="mt-3 space-y-3">
@@ -311,19 +313,28 @@ function ChipList({ items }: { items?: string[] }) {
   );
 }
 
-function normalizeApplicationData(value: unknown): Record<string, any> {
+function normalizeApplicationData(value: unknown): Record<string, unknown> {
   if (!value) return {};
   if (typeof value === "string") {
     try {
-      return JSON.parse(value) as Record<string, any>;
+      return JSON.parse(value) as Record<string, unknown>;
     } catch {
       return {};
     }
   }
   if (typeof value === "object") {
-    return value as Record<string, any>;
+    return value as Record<string, unknown>;
   }
   return {};
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function toString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
 function StudioDetails({ studio }: { studio: StudioRow }) {

@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ ok: false, error: "Geçersiz veri" }, { status: 400 });
   }
 
-  const data: any = {};
+  const data: { role?: "USER" | "STUDIO" | "ADMIN"; isDisabled?: boolean } = {};
   if (parsed.data.role) data.role = parsed.data.role;
   if (typeof parsed.data.isDisabled === "boolean") data.isDisabled = parsed.data.isDisabled;
 

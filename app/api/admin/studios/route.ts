@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { requireAdmin } from "@/lib/admin";
 
 export const runtime = "nodejs";
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
   const q = searchParams.get("q")?.trim();
   const active = searchParams.get("active");
 
-  const where: any = {};
+  const where: Prisma.StudioWhereInput = {};
   if (q) {
     where.OR = [
       { name: { contains: q, mode: "insensitive" } },

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAdminAction } from "@/lib/admin-audit";
+import { notifyUser } from "@/lib/user-notify";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   try {
     const before = await prisma.teacherApplication.findUnique({
       where: { id: appId },
-      select: { status: true },
+      select: { status: true, userId: true },
     });
     const updated = await prisma.teacherApplication.update({
       where: { id: appId },
@@ -47,6 +48,36 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       before,
       after: updated,
     });
+
+    if (
+      before?.status !== updated.status &&
+      (updated.status === "approved" || updated.status === "rejected")
+    ) {
+      const user = await prisma.user.findUnique({
+        where: { id: before?.userId ?? "" },
+        select: { email: true, fullName: true, name: true },
+      });
+      const name = user?.fullName ?? user?.name;
+      const subject =
+        updated.status === "approved"
+          ? "Studyom – Hoca başvurun onaylandı"
+          : "Studyom – Hoca başvurun reddedildi";
+      const text =
+        updated.status === "approved"
+          ? `Merhaba ${name || ""},
+
+Hoca başvurun incelendi ve onaylandı. Profilin kısa süre içinde listelerde görünecektir.
+
+Teşekkürler,
+Studyom`
+          : `Merhaba ${name || ""},
+
+Hoca başvurun incelendi ve şu an için kabul edilemedi. Dilersen bilgilerini güncelleyip daha sonra tekrar başvurabilirsin.
+
+Teşekkürler,
+Studyom`;
+      await notifyUser(user?.email, subject, text);
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error(err);

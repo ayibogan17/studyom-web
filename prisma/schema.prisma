@@ -24,6 +24,11 @@ model User {
   image     String?
   role      UserRole @default(USER)
   studios   Studio[]
+  producerMessagesSent     ProducerMessageRequest[] @relation("ProducerMessageFrom")
+  producerMessagesReceived ProducerMessageRequest[] @relation("ProducerMessageTo")
+  teacherThreadsAsTeacher  TeacherThread[] @relation("TeacherThreadTeacher")
+  teacherThreadsAsStudent  TeacherThread[] @relation("TeacherThreadStudent")
+  teacherStudioLinks       TeacherStudioLink[]
   accounts  Account[]
   sessions  Session[]
   createdAt DateTime @default(now())
@@ -80,6 +85,7 @@ model Studio {
   owner         User?          @relation(fields: [ownerEmail], references: [email])
   rooms         Room[]
   notifications Notification[]
+  teacherStudioLinks TeacherStudioLink[]
   ratings       Rating[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -157,6 +163,22 @@ model ProducerApplication {
   @@map("ProducerApplication")
 }
 
+model ProducerMessageRequest {
+  id             String   @id @default(cuid())
+  fromUserId     String
+  producerUserId String
+  message        String
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fromUser     User @relation("ProducerMessageFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  producerUser User @relation("ProducerMessageTo", fields: [producerUserId], references: [id], onDelete: Cascade)
+
+  @@index([producerUserId, status])
+  @@index([fromUserId, producerUserId, status])
+}
+
 model TeacherLead {
   id                    String   @id @default(cuid())
   teacherSlug           String
@@ -169,6 +191,51 @@ model TeacherLead {
   status                String   @default("new")
   isRead                Boolean  @default(false)
   createdAt             DateTime @default(now())
+}
+
+model TeacherThread {
+  id            String   @id @default(cuid())
+  teacherSlug   String
+  teacherUserId String
+  studentUserId String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  messages      TeacherMessage[]
+  teacherUser   User     @relation("TeacherThreadTeacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
+  studentUser   User     @relation("TeacherThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherSlug, studentUserId])
+  @@index([teacherUserId, updatedAt])
+  @@index([studentUserId, updatedAt])
+}
+
+model TeacherMessage {
+  id           String   @id @default(cuid())
+  threadId     String
+  senderRole   String
+  senderUserId String?
+  body         String
+  createdAt    DateTime @default(now())
+
+  thread TeacherThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+model TeacherStudioLink {
+  id            String   @id @default(cuid())
+  teacherUserId String
+  studioId      String
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  teacherUser User   @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
+  studio      Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherUserId, studioId])
+  @@index([studioId, status])
+  @@index([teacherUserId, status])
 }
 
 model Lead {

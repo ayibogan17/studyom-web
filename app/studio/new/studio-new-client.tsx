@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Section } from "@/components/design-system/components/shared/section";
@@ -101,7 +101,7 @@ export function StudioNewClient() {
     setValue,
     trigger,
   } = useForm<FormValues>({
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     mode: "onChange",
     defaultValues: {
       phone: "",
@@ -179,14 +179,22 @@ export function StudioNewClient() {
   const contactMethodsSelected = watch("contactMethods");
   const roomTypesSelected = watch("roomTypes");
 
-  const toggleArray = <T extends string>(name: keyof FormValues, value: T) => {
+  type ArrayField = "contactMethods" | "roomTypes";
+  const toggleArray = <T extends string>(name: ArrayField, value: T) => {
     const current = (watch(name) as string[]) || [];
     const exists = current.includes(value);
     const next = exists ? current.filter((v) => v !== value) : [...current, value];
-    setValue(name as any, next as any, { shouldValidate: true });
+    setValue(name, next as FormValues[ArrayField], { shouldValidate: true });
   };
 
   const equipment = watch("equipment");
+  const equipmentItems: { key: keyof FormValues["equipment"]; label: string }[] = [
+    { key: "drum", label: "Davul seti" },
+    { key: "guitarAmp", label: "Gitar amfi" },
+    { key: "bassAmp", label: "Bas amfi" },
+    { key: "pa", label: "PA / hoparlör" },
+    { key: "mic", label: "Mikrofon" },
+  ];
   const stepFields: Record<number, (keyof FormValues)[]> = {
     1: [
       "phone",
@@ -522,17 +530,11 @@ export function StudioNewClient() {
               <div className="space-y-3">
                 <Label className="text-sm font-semibold text-[var(--color-primary)]">Ekipman setleri</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {([
-                    { key: "drum", label: "Davul seti" },
-                    { key: "guitarAmp", label: "Gitar amfi" },
-                    { key: "bassAmp", label: "Bas amfi" },
-                    { key: "pa", label: "PA / hoparlör" },
-                    { key: "mic", label: "Mikrofon" },
-                  ] as const).map((item) => (
+                  {equipmentItems.map((item) => (
                     <label key={item.key} className="flex items-center gap-2 rounded-2xl border p-3 text-sm">
                       <input
                         type="checkbox"
-                        checked={(equipment as any)[item.key]}
+                        checked={equipment[item.key]}
                         onChange={(e) =>
                           setValue("equipment", { ...equipment, [item.key]: e.target.checked }, { shouldValidate: true })
                         }

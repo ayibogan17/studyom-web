@@ -41,8 +41,8 @@ export default async function AdminLeadsPage() {
   return (
     <Section containerClassName="space-y-4">
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Lead'ler</h1>
-        <p className="text-sm text-[var(--color-muted)]">Hoca lead'leri ve genel iletişim talepleri.</p>
+        <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Lead&apos;ler</h1>
+        <p className="text-sm text-[var(--color-muted)]">Hoca lead&apos;leri ve genel iletişim talepleri.</p>
       </div>
       <Card className="p-4">
         <LeadsClient items={combined} />
