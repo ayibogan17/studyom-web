@@ -87,82 +87,97 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
   whatsappNumber: string | null;
   whatsappEnabled: boolean;
 } | null> {
-  const appId = parseTeacherApplicationIdFromSlug(slug);
-  if (!appId) return null;
-  const application = await prisma.teacherApplication.findUnique({
-    where: { id: appId },
-  });
-  if (!application) return null;
-  const data = (application.data || {}) as AppData;
-  const user = await prisma.user.findUnique({
-    where: { id: application.userId },
-    select: { id: true, email: true, fullName: true, name: true },
-  });
-  if (!user) return null;
-  return {
-    slug,
-    displayName: user.fullName || user.name || user.email || "Bilinmeyen Hoca",
-    status: application.status,
-    userId: user.id,
-    userEmail: user.email ?? null,
-    whatsappNumber: typeof data.whatsappNumber === "string" ? data.whatsappNumber : null,
-    whatsappEnabled: Boolean(data.whatsappEnabled),
-  };
+  try {
+    const appId = parseTeacherApplicationIdFromSlug(slug);
+    if (!appId) return null;
+    const application = await prisma.teacherApplication.findUnique({
+      where: { id: appId },
+    });
+    if (!application) return null;
+    const data = (application.data || {}) as AppData;
+    const user = await prisma.user.findUnique({
+      where: { id: application.userId },
+      select: { id: true, email: true, fullName: true, name: true },
+    });
+    if (!user) return null;
+    return {
+      slug,
+      displayName: user.fullName || user.name || user.email || "Bilinmeyen Hoca",
+      status: application.status,
+      userId: user.id,
+      userEmail: user.email ?? null,
+      whatsappNumber: typeof data.whatsappNumber === "string" ? data.whatsappNumber : null,
+      whatsappEnabled: Boolean(data.whatsappEnabled),
+    };
+  } catch (error) {
+    console.error("getTeacherIdentityBySlug failed", error);
+    return null;
+  }
 }
 
 export async function getApprovedTeachers(): Promise<Teacher[]> {
-  const apps = await prisma.teacherApplication.findMany({
-    where: { status: "approved" },
-    orderBy: { createdAt: "desc" },
-  });
-  const userIds = apps.map((a) => a.userId).filter(Boolean);
-  const studioLinks = userIds.length
-    ? await prisma.teacherStudioLink.findMany({
-        where: { teacherUserId: { in: userIds }, status: "approved" },
-        include: { studio: { select: { name: true } } },
-      })
-    : [];
-  const users = userIds.length
-    ? await prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, email: true, fullName: true, city: true, image: true },
-      })
-    : [];
-  const userMap = new Map(users.map((u) => [u.id, u]));
-  const studiosMap = new Map<string, string[]>();
-  for (const link of studioLinks) {
-    if (!link.studio?.name) continue;
-    const existing = studiosMap.get(link.teacherUserId) ?? [];
-    studiosMap.set(link.teacherUserId, [...existing, link.studio.name]);
-  }
+  try {
+    const apps = await prisma.teacherApplication.findMany({
+      where: { status: "approved" },
+      orderBy: { createdAt: "desc" },
+    });
+    const userIds = apps.map((a) => a.userId).filter(Boolean);
+    const studioLinks = userIds.length
+      ? await prisma.teacherStudioLink.findMany({
+          where: { teacherUserId: { in: userIds }, status: "approved" },
+          include: { studio: { select: { name: true } } },
+        })
+      : [];
+    const users = userIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, email: true, fullName: true, city: true, image: true },
+        })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const studiosMap = new Map<string, string[]>();
+    for (const link of studioLinks) {
+      if (!link.studio?.name) continue;
+      const existing = studiosMap.get(link.teacherUserId) ?? [];
+      studiosMap.set(link.teacherUserId, [...existing, link.studio.name]);
+    }
 
-  return apps.map((app) =>
-    mapApplicationToTeacher(app, userMap.get(app.userId), studiosMap.get(app.userId) ?? []),
-  );
+    return apps.map((app) =>
+      mapApplicationToTeacher(app, userMap.get(app.userId), studiosMap.get(app.userId) ?? []),
+    );
+  } catch (error) {
+    console.error("getApprovedTeachers failed", error);
+    return [];
+  }
 }
 
 export async function getApprovedTeacherBySlug(slug?: string | null): Promise<Teacher | null> {
-  if (!slug) return null;
-  const appId = parseTeacherApplicationIdFromSlug(slug);
-  if (appId) {
-    const app = await prisma.teacherApplication.findUnique({
-      where: { id: appId },
-    });
-    if (app && app.status === "approved") {
-      const studioLinks = await prisma.teacherStudioLink.findMany({
-        where: { teacherUserId: app.userId, status: "approved" },
-        include: { studio: { select: { name: true } } },
+  try {
+    if (!slug) return null;
+    const appId = parseTeacherApplicationIdFromSlug(slug);
+    if (appId) {
+      const app = await prisma.teacherApplication.findUnique({
+        where: { id: appId },
       });
-      const user = await prisma.user.findUnique({
-        where: { id: app.userId },
-        select: { fullName: true, email: true, city: true, image: true },
-      });
-      const studiosUsed = studioLinks
-        .map((link) => link.studio?.name)
-        .filter((name): name is string => Boolean(name));
-      return mapApplicationToTeacher(app, user ?? undefined, studiosUsed);
+      if (app && app.status === "approved") {
+        const studioLinks = await prisma.teacherStudioLink.findMany({
+          where: { teacherUserId: app.userId, status: "approved" },
+          include: { studio: { select: { name: true } } },
+        });
+        const user = await prisma.user.findUnique({
+          where: { id: app.userId },
+          select: { fullName: true, email: true, city: true, image: true },
+        });
+        const studiosUsed = studioLinks
+          .map((link) => link.studio?.name)
+          .filter((name): name is string => Boolean(name));
+        return mapApplicationToTeacher(app, user ?? undefined, studiosUsed);
+      }
     }
+    const teachers = await getApprovedTeachers();
+    return teachers.find((t) => t.slug === slug) ?? null;
+  } catch (error) {
+    console.error("getApprovedTeacherBySlug failed", error);
+    return null;
   }
-  const teachers = await getApprovedTeachers();
-  return teachers.find((t) => t.slug === slug) ?? null;
 }
