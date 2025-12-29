@@ -89,7 +89,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    await prisma.producerMessageRequest.create({
+    const created = await prisma.producerMessageRequest.create({
       data: {
         fromUserId: userId,
         producerUserId,
@@ -97,7 +97,10 @@ export async function POST(req: Request) {
         status: "pending",
       },
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      request: { id: created.id, status: created.status },
+    });
   } catch (err) {
     console.error("producer message create failed", err);
     return NextResponse.json({ error: "Kaydedilemedi" }, { status: 500 });

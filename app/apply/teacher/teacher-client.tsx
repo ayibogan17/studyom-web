@@ -56,19 +56,25 @@ const formatOptions = ["Yüz yüze", "Online"] as const;
 const languageOptions = ["Türkçe", "İngilizce"] as const;
 const priceOptions = ["Saatlik 500–750 TL", "Saatlik 750–1000 TL", "Saatlik 1000 TL+", "Ücreti öğrenciyle konuşurum"] as const;
 
-function isHttpUrl(value: string) {
+function normalizeHttpUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
+    const url = new URL(withScheme);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString();
+    }
   } catch {
-    return false;
+    return null;
   }
+  return null;
 }
 
 const urlOrEmpty = z
   .string()
   .trim()
-  .refine((value) => value.length === 0 || isHttpUrl(value), "Geçerli bir URL girin");
+  .refine((value) => value.length === 0 || normalizeHttpUrl(value) !== null, "Geçerli bir URL girin");
 const yearOptions = ["0-1", "2-4", "5-9", "10+"] as const;
 const studentOptions = ["Henüz çalışmadım", "1-5", "6-20", "20+"] as const;
 
@@ -196,6 +202,7 @@ export function TeacherApplyClient() {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     mode: "onChange",
+    shouldFocusError: true,
     defaultValues: {
       instruments: [],
       levels: [],
@@ -216,10 +223,12 @@ export function TeacherApplyClient() {
   const selectedCount = useMemo(() => instruments.length, [instruments.length]);
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
-    setStatus(null);
+    setStatus("Gönderiliyor...");
     setLoading(true);
     try {
-      const cleanLinks = (values.links || []).filter((l) => l.trim().length > 0);
+      const cleanLinks = (values.links || [])
+        .map((link) => normalizeHttpUrl(link) || link.trim())
+        .filter((link) => link.length > 0);
       const res = await fetch("/api/apply/teacher", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -246,6 +255,10 @@ export function TeacherApplyClient() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onError = () => {
+    setStatus("Zorunlu alanları doldurun.");
   };
 
   const toggleInstrument = (value: (typeof instrumentOptions)[number]) => {
@@ -316,7 +329,7 @@ export function TeacherApplyClient() {
             </div>
           ) : null}
 
-          <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+          <form className="space-y-5" onSubmit={handleSubmit(onSubmit, onError)}>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <Label className="text-sm font-semibold text-[var(--color-primary)]">Öğreteceğin alanlar</Label>
@@ -493,7 +506,7 @@ export function TeacherApplyClient() {
                 {(links || []).map((link, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <input
-                      type="url"
+                      type="text"
                       value={link}
                       onChange={(e) => updateLink(idx, e.target.value)}
                       className="h-10 flex-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"

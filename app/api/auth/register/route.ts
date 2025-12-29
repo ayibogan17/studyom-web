@@ -6,10 +6,13 @@ import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 import { Prisma, UserRole } from "@prisma/client";
 
+const phoneDigits = (value: string) => value.replace(/\D/g, "");
+
 const schema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(72),
   fullName: z.string().min(2).max(60),
+  phone: z.string().min(1),
   city: z.string().min(2).max(80),
   intent: z.array(z.string()).min(1),
 });
@@ -30,8 +33,12 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
     }
-    const { email, password, fullName, city, intent } = parsed.data;
+    const { email, password, fullName, phone, city, intent } = parsed.data;
     const emailNormalized = email.toLowerCase();
+    const phoneNormalized = phoneDigits(phone);
+    if (!/^(?:90)?5\d{9}$/.test(phoneNormalized)) {
+      return NextResponse.json({ error: "Geçerli bir telefon girin" }, { status: 400 });
+    }
     const existing = await prisma.user.findUnique({ where: { email: emailNormalized } });
     if (existing) {
       const passwordHash = await bcrypt.hash(password, 10);
@@ -41,6 +48,7 @@ export async function POST(req: Request) {
           passwordHash,
           name: fullName,
           fullName,
+          phone: phoneNormalized,
           city,
           intent,
         },
@@ -54,6 +62,7 @@ export async function POST(req: Request) {
           email: emailNormalized,
           name: fullName,
           fullName,
+          phone: phoneNormalized,
           city,
           intent,
           passwordHash,

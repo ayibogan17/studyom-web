@@ -14,11 +14,14 @@ import type { Teacher } from "@/data/teachers";
 
 function parseFilters(params: URLSearchParams): TeacherFilters {
   const norm = (v: string | null) => v || "";
+  const lessonTypeRaw = params.get("lessonType");
+  const lessonType =
+    lessonTypeRaw === "online" || lessonTypeRaw === "in-person" ? lessonTypeRaw : "";
   return {
     city: norm(params.get("city")),
     district: norm(params.get("district")),
     instrument: norm(params.get("instrument")),
-    lessonType: norm(params.get("lessonType")) as TeacherFilters["lessonType"],
+    lessonType: lessonType as TeacherFilters["lessonType"],
     level: norm(params.get("level")),
     q: norm(params.get("q")),
   };

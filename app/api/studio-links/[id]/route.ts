@@ -9,11 +9,15 @@ const schema = z.object({
   status: z.enum(["approved", "rejected"]),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> | { id: string } },
+) {
   try {
     const url = new URL(req.url);
     const fallbackId = url.pathname.split("/").filter(Boolean).pop();
-    const linkId = params?.id || fallbackId;
+    const resolvedParams = await Promise.resolve(params);
+    const linkId = resolvedParams?.id || fallbackId;
 
     if (!linkId) {
       return NextResponse.json({ error: "Geçersiz istek" }, { status: 400 });

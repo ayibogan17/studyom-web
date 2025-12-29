@@ -31,7 +31,15 @@ export function listTeachers(filters: TeacherFilters = {}, source?: Teacher[]): 
       if (!tDistrictSlug || tDistrictSlug !== districtSlug) return false;
     }
     if (instrument && !t.instruments.some((i) => i.toLowerCase().includes(instrument))) return false;
-    if (lessonType && !t.lessonTypes.includes(lessonType as LessonType)) return false;
+    if (lessonType) {
+      const matchesLessonType =
+        lessonType === "online"
+          ? t.lessonTypes.includes("online") || t.lessonTypes.includes("both")
+          : lessonType === "in-person"
+            ? t.lessonTypes.includes("in-person") || t.lessonTypes.includes("both")
+            : true;
+      if (!matchesLessonType) return false;
+    }
     if (level && !t.level.toLowerCase().includes(level)) return false;
     if (q) {
       const haystack = `${t.displayName} ${t.bio} ${t.instruments.join(" ")} ${t.genres.join(" ")}`.toLowerCase();
@@ -84,9 +92,7 @@ export function teacherFilterOptions(source?: Teacher[]) {
   const instruments = Array.from(
     new Set([...teachers.flatMap((t) => t.instruments), ...extraInstruments]),
   ).sort((a, b) => a.localeCompare(b, "tr"));
-  const levels = Array.from(new Set(teachers.map((t) => t.level))).sort((a, b) =>
-    a.localeCompare(b, "tr"),
-  );
+  const levels = ["Başlangıç", "Orta", "İleri"];
   return { instruments, levels };
 }
 

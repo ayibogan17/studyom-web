@@ -64,6 +64,7 @@ export default async function ProfilePage() {
       user={{
         fullName: dbUser?.fullName || dbUser?.name || session.user.name || session.user.email || "",
         email: dbUser?.email || session.user.email || "",
+        phone: dbUser?.phone || "",
         city: dbUser?.city || "",
         intent: dbUser?.intent || [],
         emailVerified: Boolean(dbUser?.emailVerified) || Boolean(googleAccount),

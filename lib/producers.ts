@@ -5,7 +5,9 @@ export type ProducerStatus = "approved" | "pending";
 export type ProducerProfile = {
   id: string;
   userId: string;
+  slug: string;
   displayName: string;
+  image?: string | null;
   city?: string | null;
   areas: string[];
   workTypes: string[];
@@ -13,6 +15,7 @@ export type ProducerProfile = {
   genres: string[];
   statement: string;
   links: string[];
+  galleryUrls?: string[];
   status: ProducerStatus;
 };
 

@@ -253,7 +253,7 @@ export default async function DashboardPage({
         slug: `${slugify(displayName)}-${app.id}`,
       };
     })
-    .filter((item): item is { id: string; name: string; email: string | null; image: string | null; slug: string } =>
+    .filter((item): item is { id: string; name: string; email: string; image: string | null; slug: string } =>
       Boolean(item),
     );
 

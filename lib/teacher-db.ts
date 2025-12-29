@@ -16,6 +16,9 @@ type AppData = {
   galleryUrls?: string[];
   years?: string | null;
   students?: string | null;
+  whatsappNumber?: string | null;
+  whatsappEnabled?: boolean | null;
+  studyomStudents?: { id?: string; name?: string; addedAt?: string; image?: string | null }[];
 };
 
 function mapLessonTypes(formats: string[] = []): LessonType[] {
@@ -81,6 +84,8 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
   status: string;
   userId: string;
   userEmail: string | null;
+  whatsappNumber: string | null;
+  whatsappEnabled: boolean;
 } | null> {
   const appId = parseTeacherApplicationIdFromSlug(slug);
   if (!appId) return null;
@@ -88,6 +93,7 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
     where: { id: appId },
   });
   if (!application) return null;
+  const data = (application.data || {}) as AppData;
   const user = await prisma.user.findUnique({
     where: { id: application.userId },
     select: { id: true, email: true, fullName: true, name: true },
@@ -99,6 +105,8 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
     status: application.status,
     userId: user.id,
     userEmail: user.email ?? null,
+    whatsappNumber: typeof data.whatsappNumber === "string" ? data.whatsappNumber : null,
+    whatsappEnabled: Boolean(data.whatsappEnabled),
   };
 }
 

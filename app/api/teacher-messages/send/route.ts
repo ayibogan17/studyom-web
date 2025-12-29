@@ -27,7 +27,6 @@ const schema = z.object({
     .max(1200, "Mesaj çok uzun"),
 });
 
-const urlLike = /(https?:\/\/|www\.)/i;
 const scriptLike = /<\s*script/i;
 
 function snippet(text: string) {
@@ -50,8 +49,8 @@ export async function POST(req: Request) {
   const { teacherSlug, threadId } = parsed.data;
   const messageBody = parsed.data.body.trim();
 
-  if (urlLike.test(messageBody) || scriptLike.test(messageBody)) {
-    return NextResponse.json({ error: "Mesajda link veya script bulunamaz" }, { status: 400 });
+  if (scriptLike.test(messageBody)) {
+    return NextResponse.json({ error: "Mesajda script bulunamaz" }, { status: 400 });
   }
 
   const perHour = rateLimit(`teacher-msg:${userId}`, 10, 60 * 60 * 1000);
@@ -59,11 +58,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Çok hızlı. Lütfen biraz bekleyin." }, { status: 429 });
   }
 
-  let thread =
-    threadId &&
-    (await prisma.teacherThread.findUnique({
+  let thread: Awaited<ReturnType<typeof prisma.teacherThread.findUnique>> = null;
+  if (threadId) {
+    thread = await prisma.teacherThread.findUnique({
       where: { id: threadId },
-    }));
+    });
+  }
 
   let teacherName = "";
   let teacherEmail: string | null = null;
@@ -89,25 +89,18 @@ export async function POST(req: Request) {
     teacherUserId = identity.userId;
     teacherEmail = identity.userEmail;
     teacherSlugResolved = identity.slug;
-
-    thread = await prisma.teacherThread.upsert({
+    thread = await prisma.teacherThread.findUnique({
       where: {
         teacherSlug_studentUserId: {
           teacherSlug: teacherSlugResolved,
           studentUserId: userId,
         },
       },
-      update: {},
-      create: {
-        teacherSlug: teacherSlugResolved,
-        teacherUserId,
-        studentUserId: userId,
-      },
     });
   }
 
   if (!thread) {
-    return NextResponse.json({ error: "Mesajlaşma başlatılamadı" }, { status: 500 });
+    return NextResponse.json({ error: "Önce ilk mesaj isteği gönderilmeli." }, { status: 400 });
   }
 
   const senderRole = thread.teacherUserId === userId ? "teacher" : "student";
@@ -181,31 +174,14 @@ export async function POST(req: Request) {
 
   if (resend) {
     const toTeacher = teacherEmail || teacherInboxFallback;
-    const teacherText =
-      senderRole === "student"
-        ? `Studyom'da yeni mesaj aldınız.
+    const teacherText = `Studyom'da yeni mesaj aldınız.
 
 Öğrenci: ${studentName}
 Mesaj: ${excerpt}
 
 Mesajları görüntülemek için: ${threadLink}
-`
-        : `Mesajın öğrencine iletildi.
-
-Öğrenci: ${studentName}
-Mesaj: ${excerpt}
-
-Konuşmaya devam etmek için: ${threadLink}
 `;
-    const studentText =
-      senderRole === "student"
-        ? `Mesajın ${teacherName} adlı öğretmene iletildi.
-
-Mesaj: ${excerpt}
-
-Konuşmaya devam etmek için: ${threadLink}
-`
-        : `${teacherName} sana mesaj gönderdi.
+    const studentText = `${teacherName} sana mesaj gönderdi.
 
 Mesaj: ${excerpt}
 
@@ -213,22 +189,21 @@ Konuşmaya devam etmek için: ${threadLink}
 `;
 
     try {
-      await Promise.all([
-        resend.emails.send({
+      if (senderRole === "student") {
+        await resend.emails.send({
           from: leadFrom,
           to: [toTeacher],
           subject: "Studyom'da yeni mesaj",
           text: teacherText,
-        }),
-        studentEmail
-          ? resend.emails.send({
-              from: leadFrom,
-              to: [studentEmail],
-              subject: `Mesajın ${teacherName} adlı öğretmene iletildi`,
-              text: studentText,
-            })
-          : Promise.resolve(),
-      ]);
+        });
+      } else if (studentEmail) {
+        await resend.emails.send({
+          from: leadFrom,
+          to: [studentEmail],
+          subject: "Studyom'da yeni mesaj",
+          text: studentText,
+        });
+      }
     } catch (err) {
       console.error("teacher message email error", err);
     }

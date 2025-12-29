@@ -45,6 +45,8 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
   const [requests, setRequests] = useState(studioRequests);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+  const [openRequests, setOpenRequests] = useState<Record<string, boolean>>({});
 
   const filteredItems = useMemo(() => {
     if (filter === "all") return rows;
@@ -54,6 +56,14 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
 
   const reservationItems = filteredItems.filter((item) => item.kind === "reservation");
   const leadItems = filteredItems.filter((item) => item.kind !== "reservation");
+
+  const toggleItem = (id: string) => {
+    setOpenItems((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleRequest = (id: string) => {
+    setOpenRequests((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const markRead = async (item: NotificationItem) => {
     if (item.status === "read") return;
@@ -128,62 +138,58 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
       <div className="grid gap-6">
         <Card className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Hoca stüdyo talepleri</h2>
-            <Badge variant="muted">{requests.length}</Badge>
+            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Rezervasyon istekleri</h2>
+            <Badge variant="muted">{reservationItems.length}</Badge>
           </div>
-          {requests.length === 0 ? (
-            <p className="text-sm text-[var(--color-muted)]">Henüz talep yok.</p>
+          {reservationItems.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)]">Henüz rezervasyon isteği yok.</p>
           ) : (
             <div className="space-y-3">
-              {requests.map((item) => {
-                const statusText =
-                  item.status === "approved" ? "Onaylandı" : item.status === "rejected" ? "Reddedildi" : "Beklemede";
+              {reservationItems.map((item) => {
+                const isOpen = openItems[item.id];
                 return (
                   <div
                     key={item.id}
-                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-4"
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3"
+                    onClick={() => toggleItem(item.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") toggleItem(item.id);
+                    }}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--color-primary)]">{item.studioName}</p>
-                        <p className="text-xs text-[var(--color-muted)]">{item.teacherName}</p>
-                        {item.teacherEmail && (
-                          <p className="text-xs text-[var(--color-muted)]">{item.teacherEmail}</p>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
+                        {item.title} — {item.subtitle}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
                         <Badge
-                          variant={item.status === "pending" ? "outline" : "default"}
-                          className={cn(item.status === "rejected" ? "bg-[var(--color-danger)] text-white" : "")}
+                          variant={item.status === "read" ? "outline" : "default"}
+                          className={cn(item.status === "read" ? "" : "bg-[var(--color-warning)] text-white")}
                         >
-                          {statusText}
+                          {item.status === "read" ? "Okundu" : "Okunmadı"}
                         </Badge>
-                        <span>{new Date(item.createdAt).toLocaleString("tr-TR")}</span>
+                        <span>{new Date(item.createdAt).toLocaleDateString("tr-TR")}</span>
                       </div>
                     </div>
-                    <p className="mt-2 text-sm text-[var(--color-primary)]">
-                      {item.teacherName} stüdyonuzda ders vermek istiyor.
-                    </p>
-                    {item.status === "pending" && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="primary"
-                          disabled={savingRequestId === item.id}
-                          onClick={() => updateRequest(item.id, "approved")}
-                        >
-                          Kabul et
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          disabled={savingRequestId === item.id}
-                          onClick={() => updateRequest(item.id, "rejected")}
-                        >
-                          Reddet
-                        </Button>
+                    {isOpen && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-[var(--color-primary)]">{item.message}</p>
+                        {item.status === "unread" && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="h-8 px-3 text-xs"
+                            disabled={savingId === item.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markRead(item);
+                            }}
+                          >
+                            Okundu işaretle
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -195,48 +201,83 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
 
         <Card className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Rezervasyon istekleri</h2>
-            <Badge variant="muted">{reservationItems.length}</Badge>
+            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Hoca stüdyo talepleri</h2>
+            <Badge variant="muted">{requests.length}</Badge>
           </div>
-          {reservationItems.length === 0 ? (
-            <p className="text-sm text-[var(--color-muted)]">Henüz rezervasyon isteği yok.</p>
+          {requests.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)]">Henüz talep yok.</p>
           ) : (
             <div className="space-y-3">
-              {reservationItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--color-primary)]">{item.title}</p>
-                      <p className="text-xs text-[var(--color-muted)]">{item.subtitle}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
-                      <Badge
-                        variant={item.status === "read" ? "outline" : "default"}
-                        className={cn(item.status === "read" ? "" : "bg-[var(--color-warning)] text-white")}
-                      >
-                        {item.status === "read" ? "Okundu" : "Okunmadı"}
-                      </Badge>
-                      <span>{new Date(item.createdAt).toLocaleString("tr-TR")}</span>
-                      {item.status === "unread" && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          className="h-8 px-3 text-xs"
-                          disabled={savingId === item.id}
-                          onClick={() => markRead(item)}
+              {requests.map((item) => {
+                const statusText =
+                  item.status === "approved" ? "Onaylandı" : item.status === "rejected" ? "Reddedildi" : "Beklemede";
+                const isOpen = openRequests[item.id];
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3"
+                    onClick={() => toggleRequest(item.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") toggleRequest(item.id);
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
+                        {item.studioName} — {item.teacherName}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                        <Badge
+                          variant={item.status === "pending" ? "outline" : "default"}
+                          className={cn(item.status === "rejected" ? "bg-[var(--color-danger)] text-white" : "")}
                         >
-                          Okundu işaretle
-                        </Button>
-                      )}
+                          {statusText}
+                        </Badge>
+                        <span>{new Date(item.createdAt).toLocaleDateString("tr-TR")}</span>
+                      </div>
                     </div>
+                    {isOpen && (
+                      <div className="mt-2 space-y-2">
+                        {item.teacherEmail && (
+                          <p className="text-xs text-[var(--color-muted)]">{item.teacherEmail}</p>
+                        )}
+                        <p className="text-sm text-[var(--color-primary)]">
+                          {item.teacherName} stüdyonuzda ders vermek istiyor.
+                        </p>
+                        {item.status === "pending" && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="primary"
+                              disabled={savingRequestId === item.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateRequest(item.id, "approved");
+                              }}
+                            >
+                              Kabul et
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              disabled={savingRequestId === item.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateRequest(item.id, "rejected");
+                              }}
+                            >
+                              Reddet
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="mt-2 text-sm text-[var(--color-primary)]">{item.message}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
@@ -250,41 +291,56 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
             <p className="text-sm text-[var(--color-muted)]">Henüz lead yok.</p>
           ) : (
             <div className="space-y-3">
-              {leadItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-4"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--color-primary)]">{item.title}</p>
-                      <p className="text-xs text-[var(--color-muted)]">{item.subtitle}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
-                      <Badge
-                        variant={item.status === "read" ? "outline" : "default"}
-                        className={cn(item.status === "read" ? "" : "bg-[var(--color-warning)] text-white")}
-                      >
-                        {item.status === "read" ? "Okundu" : "Okunmadı"}
-                      </Badge>
-                      <span>{new Date(item.createdAt).toLocaleString("tr-TR")}</span>
-                      {item.status === "unread" && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          className="h-8 px-3 text-xs"
-                          disabled={savingId === item.id}
-                          onClick={() => markRead(item)}
+              {leadItems.map((item) => {
+                const isOpen = openItems[item.id];
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3"
+                    onClick={() => toggleItem(item.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") toggleItem(item.id);
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
+                        {item.title} — {item.subtitle}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                        <Badge
+                          variant={item.status === "read" ? "outline" : "default"}
+                          className={cn(item.status === "read" ? "" : "bg-[var(--color-warning)] text-white")}
                         >
-                          Okundu işaretle
-                        </Button>
-                      )}
+                          {item.status === "read" ? "Okundu" : "Okunmadı"}
+                        </Badge>
+                        <span>{new Date(item.createdAt).toLocaleDateString("tr-TR")}</span>
+                      </div>
                     </div>
+                    {isOpen && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-[var(--color-primary)]">{item.message}</p>
+                        {item.status === "unread" && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="h-8 px-3 text-xs"
+                            disabled={savingId === item.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markRead(item);
+                            }}
+                          >
+                            Okundu işaretle
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="mt-2 text-sm text-[var(--color-primary)]">{item.message}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>

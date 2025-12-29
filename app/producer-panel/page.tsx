@@ -5,10 +5,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Section } from "@/components/design-system/components/shared/section";
-import { Card } from "@/components/design-system/components/ui/card";
 import { Badge } from "@/components/design-system/components/ui/badge";
 import { Button } from "@/components/design-system/components/ui/button";
 import { ProducerRequestsClient, type ProducerMessageRequestItem } from "./requests-client";
+import { ProducerProfileEditor } from "./producer-profile-editor";
+import { ProducerGalleryClient } from "./producer-gallery-client";
+import { TeacherPanelSection } from "@/app/teacher-panel/teacher-panel-section";
+import { ProducerWhatsAppSettings } from "./producer-whatsapp-settings";
 
 export const metadata: Metadata = {
   title: "Üretici Paneli | Stüdyom",
@@ -23,9 +26,12 @@ type ProducerApplicationData = {
   genres?: string[];
   statement?: string | null;
   links?: string[];
+  galleryUrls?: string[];
   projects?: string | null;
   years?: string | null;
   price?: string | null;
+  whatsappNumber?: string | null;
+  whatsappEnabled?: boolean | null;
 };
 
 function formatDate(value?: Date | string | null) {
@@ -96,17 +102,21 @@ export default async function ProducerPanelPage() {
 
   const isApproved = application.status === "approved";
 
-  const messageRequests = await prisma.producerMessageRequest.findMany({
-    where: { producerUserId: dbUser.id, status: "pending" },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      message: true,
-      createdAt: true,
-      fromUser: { select: { fullName: true, email: true } },
-    },
-  });
+  const [messageRequests, totalRequestCount, activeThreadCount] = await Promise.all([
+    prisma.producerMessageRequest.findMany({
+      where: { producerUserId: dbUser.id, status: "pending" },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        message: true,
+        createdAt: true,
+        fromUser: { select: { fullName: true, email: true } },
+      },
+    }),
+    prisma.producerMessageRequest.count({ where: { producerUserId: dbUser.id } }),
+    prisma.producerThread.count({ where: { producerUserId: dbUser.id } }),
+  ]);
 
   const requestItems: ProducerMessageRequestItem[] = messageRequests.map((row) => ({
     id: row.id,
@@ -121,6 +131,7 @@ export default async function ProducerPanelPage() {
   const modes = normalizeArray(data.modes);
   const genres = normalizeArray(data.genres);
   const links = normalizeArray(data.links).filter(isHttpUrl);
+  const galleryUrls = normalizeArray(data.galleryUrls).filter(isHttpUrl).slice(0, 5);
   const city = typeof data.city === "string" ? data.city : dbUser.city || null;
   const price = typeof data.price === "string" && data.price.trim() ? data.price : "Belirtilmedi";
   const statement =
@@ -128,6 +139,8 @@ export default async function ProducerPanelPage() {
   const years = typeof data.years === "string" && data.years.trim() ? data.years : "Belirtilmedi";
   const projects =
     typeof data.projects === "string" && data.projects.trim() ? data.projects : "Belirtilmedi";
+  const whatsappNumber = typeof data.whatsappNumber === "string" ? data.whatsappNumber : "";
+  const whatsappEnabled = Boolean(data.whatsappEnabled);
 
   return (
     <main className="bg-[var(--color-secondary)] pb-16 pt-10">
@@ -142,7 +155,43 @@ export default async function ProducerPanelPage() {
           </p>
         </header>
 
-        <Card className="space-y-4 p-6">
+        <TeacherPanelSection
+          title="Mesajlar"
+          description="Yeni mesaj taleplerini ve iletişimi buradan yönetebilirsin."
+          defaultOpen
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-[var(--color-muted)]">Sohbetleri görüntülemek için mesajlar sayfasına geç.</p>
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/producer-panel/messages">Mesajları aç</Link>
+            </Button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-primary)]">Bekleyen talepler</p>
+              <p className="text-2xl font-semibold text-[var(--color-primary)]">{messageRequests.length}</p>
+              <p className="text-xs text-[var(--color-muted)]">Yanıtladığında sohbet açılır.</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-primary)]">Aktif sohbetler</p>
+              <p className="text-2xl font-semibold text-[var(--color-primary)]">{activeThreadCount}</p>
+              <p className="text-xs text-[var(--color-muted)]">Konuşmaların açık olanları.</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+              <p className="text-sm font-semibold text-[var(--color-primary)]">Toplam talepler</p>
+              <p className="text-2xl font-semibold text-[var(--color-primary)]">{totalRequestCount}</p>
+              <p className="text-xs text-[var(--color-muted)]">Geçmiş ve bekleyen istekler.</p>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <p className="text-sm font-semibold text-[var(--color-primary)]">Mesaj talepleri</p>
+            <div className="mt-3">
+              <ProducerRequestsClient initial={requestItems} />
+            </div>
+          </div>
+        </TeacherPanelSection>
+
+        <TeacherPanelSection title="Başvuru bilgileri" defaultOpen>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-[var(--color-primary)]">Başvuru durumu</p>
@@ -169,94 +218,37 @@ export default async function ProducerPanelPage() {
               <p className="text-sm text-[var(--color-primary)]">{dbUser.email}</p>
             </div>
           </div>
-        </Card>
+        </TeacherPanelSection>
 
-        <Card className="space-y-4 p-6">
-          <p className="text-sm font-semibold text-[var(--color-primary)]">Üretim bilgileri</p>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Üretim alanları</p>
-              <div className="flex flex-wrap gap-2">
-                {areas.length ? (
-                  areas.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Çalışma tipi</p>
-              <div className="flex flex-wrap gap-2">
-                {workTypes.length ? (
-                  workTypes.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Çalışma modu</p>
-              <div className="flex flex-wrap gap-2">
-                {modes.length ? (
-                  modes.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Şehir</p>
-              <p className="text-sm text-[var(--color-primary)]">{city || "Belirtilmedi"}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Türler</p>
-              <div className="flex flex-wrap gap-2">
-                {genres.length ? (
-                  genres.map((item) => (
-                    <Badge key={item} variant="outline">
-                      {item}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-[var(--color-muted)]">Belirtilmedi</span>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Ücret beklentisi</p>
-              <p className="text-sm text-[var(--color-primary)]">{price}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Proje sayısı</p>
-              <p className="text-sm text-[var(--color-primary)]">{projects}</p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Tecrübe (yıl)</p>
-              <p className="text-sm text-[var(--color-primary)]">{years}</p>
-            </div>
-          </div>
-        </Card>
+        <TeacherPanelSection title="Üretim bilgileri" defaultOpen>
+          <ProducerProfileEditor
+            initial={{
+              areas,
+              workTypes,
+              modes,
+              city: city || "",
+              genres,
+              price: price === "Belirtilmedi" ? "" : price,
+              years: years === "Belirtilmedi" ? "" : years,
+              projects: projects === "Belirtilmedi" ? "" : projects,
+              statement: statement === "Belirtilmedi" ? "" : statement,
+            }}
+          />
+        </TeacherPanelSection>
 
-        <Card className="space-y-3 p-6">
-          <p className="text-sm font-semibold text-[var(--color-primary)]">Kısa açıklama</p>
-          <p className="text-sm text-[var(--color-primary)]">{statement}</p>
-        </Card>
+        <TeacherPanelSection
+          title="WhatsApp ayarları"
+          description="Kullanıcılarla WhatsApp üzerinden devam etmeyi burada açıp kapatabilirsin."
+        >
+          <ProducerWhatsAppSettings initialNumber={whatsappNumber} initialEnabled={whatsappEnabled} />
+        </TeacherPanelSection>
 
-        <Card className="space-y-3 p-6">
+        <TeacherPanelSection title="Görseller" defaultOpen>
+          <ProducerGalleryClient initialUrls={galleryUrls} />
+        </TeacherPanelSection>
+
+        <TeacherPanelSection title="Bağlantılar" defaultOpen>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-[var(--color-primary)]">Bağlantılar</p>
             <Button asChild size="sm" variant="secondary">
               <Link href="/profile">Profilime dön</Link>
             </Button>
@@ -278,12 +270,7 @@ export default async function ProducerPanelPage() {
           ) : (
             <p className="text-sm text-[var(--color-muted)]">Belirtilmedi</p>
           )}
-        </Card>
-
-        <Card className="space-y-3 p-6">
-          <p className="text-sm font-semibold text-[var(--color-primary)]">Mesaj Talepleri</p>
-          <ProducerRequestsClient initial={requestItems} />
-        </Card>
+        </TeacherPanelSection>
       </Section>
     </main>
   );

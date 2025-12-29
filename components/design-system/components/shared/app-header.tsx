@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { Bell, LogOut, Menu, X } from "lucide-react";
+import { Bell, LogOut, Menu, MessageSquare, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/cn";
 
@@ -32,6 +32,12 @@ export function AppHeader() {
   const [open, setOpen] = useState(false);
   const [showProd, setShowProd] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [indicators, setIndicators] = useState({
+    notifications: false,
+    messages: false,
+    teacherPanel: false,
+    producerPanel: false,
+  });
   const profileRef = useRef<HTMLDivElement | null>(null);
   const { data: session } = useSession();
   const handleProdOpen = () => setShowProd(true);
@@ -52,6 +58,9 @@ export function AppHeader() {
   const showTeacherPanel = profile?.teacherStatus === "approved";
   const showProducerPanel = profile?.producerStatus === "approved";
   const showStudioPanel = profile?.studioStatus === "approved";
+  const hasRole = [profile?.teacherStatus, profile?.producerStatus, profile?.studioStatus].some(
+    (status) => status && status !== "none",
+  );
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -65,6 +74,32 @@ export function AppHeader() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showProfile]);
 
+  useEffect(() => {
+    if (!session) {
+      setIndicators({ notifications: false, messages: false, teacherPanel: false, producerPanel: false });
+      return;
+    }
+    let active = true;
+    fetch("/api/nav/indicators")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!active) return;
+        setIndicators({
+          notifications: Boolean(json?.notificationsUnread),
+          messages: Boolean(json?.messagesUnread),
+          teacherPanel: Boolean(json?.teacherPanelUnread),
+          producerPanel: Boolean(json?.producerPanelUnread),
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setIndicators({ notifications: false, messages: false, teacherPanel: false, producerPanel: false });
+      });
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
@@ -74,11 +109,6 @@ export function AppHeader() {
           </Link>
         </div>
         <nav className="relative hidden min-w-0 items-center gap-4 text-sm font-medium text-[var(--color-primary)] whitespace-nowrap md:flex md:flex-nowrap">
-          {session && (
-            <span className="max-w-[180px] truncate text-sm font-semibold text-[var(--color-primary)]">
-              Hoş geldin, {profile?.fullName || profile?.name || session.user?.email}
-            </span>
-          )}
           <Button asChild size="sm" className="shrink-0">
             <Link href="/studyo">Stüdyo Bul</Link>
           </Button>
@@ -126,30 +156,26 @@ export function AppHeader() {
               <Link href="/login">Giriş</Link>
             </Button>
           )}
-          {session && (
-            <div className="relative" ref={profileRef}>
-              <Link
-                href="/profile"
-                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
-              >
-                Profilim
-              </Link>
-            </div>
-          )}
           {session && showTeacherPanel && (
             <Link
               href="/teacher-panel"
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+              className="relative flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
             >
               Hoca Paneli
+              {indicators.teacherPanel && (
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
+              )}
             </Link>
           )}
           {session && showProducerPanel && (
             <Link
               href="/producer-panel"
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+              className="relative flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
             >
               Üretici Paneli
+              {indicators.producerPanel && (
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
+              )}
             </Link>
           )}
           {session && showStudioPanel && (
@@ -163,12 +189,47 @@ export function AppHeader() {
           {session && (
             <div className="flex items-center gap-2">
               <Link
-                href="/notifications"
-                aria-label="Bildirimler"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
+                href="/profile"
+                aria-label="Profil"
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] text-xs font-semibold text-[var(--color-primary)]"
               >
-                <Bell className="h-4 w-4" aria-hidden />
+                {profile?.image ? (
+                  <img src={profile.image} alt="Profil fotoğrafı" className="h-full w-full object-cover" />
+                ) : (
+                  <span>
+                    {(profile?.fullName || profile?.name || session.user?.email || "U")
+                      .split(" ")
+                      .map((part) => part.trim())
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((part) => part[0])
+                      .join("")
+                      .toUpperCase()}
+                  </span>
+                )}
               </Link>
+              <Link
+                href="/messages"
+                aria-label="Mesajlar"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
+              >
+                <MessageSquare className="h-4 w-4" aria-hidden />
+                {indicators.messages && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
+                )}
+              </Link>
+              {hasRole && (
+                <Link
+                  href="/notifications"
+                  aria-label="Bildirimler"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
+                >
+                  <Bell className="h-4 w-4" aria-hidden />
+                  {indicators.notifications && (
+                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
+                  )}
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => signOut({ callbackUrl: "/" })}
@@ -258,15 +319,21 @@ export function AppHeader() {
           )}
           {session && showTeacherPanel && (
             <Button asChild full size="sm" variant="secondary">
-              <Link href="/teacher-panel" onClick={() => setOpen(false)}>
+              <Link href="/teacher-panel" onClick={() => setOpen(false)} className="relative">
                 Hoca Paneli
+                {indicators.teacherPanel && (
+                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
+                )}
               </Link>
             </Button>
           )}
           {session && showProducerPanel && (
             <Button asChild full size="sm" variant="secondary">
-              <Link href="/producer-panel" onClick={() => setOpen(false)}>
+              <Link href="/producer-panel" onClick={() => setOpen(false)} className="relative">
                 Üretici Paneli
+                {indicators.producerPanel && (
+                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
+                )}
               </Link>
             </Button>
           )}
@@ -280,13 +347,29 @@ export function AppHeader() {
           {session && (
             <div className="flex items-center gap-2">
               <Link
-                href="/notifications"
+                href="/messages"
                 onClick={() => setOpen(false)}
-                aria-label="Bildirimler"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
+                aria-label="Mesajlar"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
               >
-                <Bell className="h-4 w-4" aria-hidden />
+                <MessageSquare className="h-4 w-4" aria-hidden />
+                {indicators.messages && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
+                )}
               </Link>
+              {hasRole && (
+                <Link
+                  href="/notifications"
+                  onClick={() => setOpen(false)}
+                  aria-label="Bildirimler"
+                  className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
+                >
+                  <Bell className="h-4 w-4" aria-hidden />
+                  {indicators.notifications && (
+                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
+                  )}
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => signOut({ callbackUrl: "/" })}

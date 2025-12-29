@@ -39,6 +39,28 @@ export async function GET(req: NextRequest) {
     },
   });
 
+  if (thread?.id) {
+    await prisma.teacherMessage.updateMany({
+      where: {
+        threadId: thread.id,
+        senderRole: "teacher",
+        readAt: null,
+      },
+      data: { readAt: new Date() },
+    });
+  }
+
+  const latestRequest = await prisma.teacherMessageRequest.findFirst({
+    where: {
+      studentUserId: userId,
+      teacherUserId: identity.userId,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, status: true },
+  });
+
+  const hasTeacherReply = thread?.messages.some((msg) => msg.senderRole === "teacher") ?? false;
+
   return NextResponse.json({
     ok: true,
     threadId: thread?.id ?? null,
@@ -46,6 +68,11 @@ export async function GET(req: NextRequest) {
     teacher: {
       slug: teacherSlug,
       name: identity.displayName,
+    },
+    request: latestRequest ?? null,
+    whatsapp: {
+      enabled: identity.whatsappEnabled,
+      number: hasTeacherReply ? identity.whatsappNumber : null,
     },
     messages:
       thread?.messages.map((m) => ({

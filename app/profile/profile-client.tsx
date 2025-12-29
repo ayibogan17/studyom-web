@@ -11,6 +11,7 @@ type ProfileProps = {
   user: {
     fullName: string;
     email: string;
+    phone: string;
     city: string;
     intent: string[];
     emailVerified: boolean;
@@ -131,8 +132,11 @@ const roleMeta: Record<
   },
 };
 
+const phoneDigits = (value: string) => value.replace(/\D/g, "");
+
 export function ProfileClient({ user }: ProfileProps) {
   const [fullName, setFullName] = useState(user.fullName);
+  const [phone, setPhone] = useState(user.phone);
   const [city, setCity] = useState(user.city);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -149,18 +153,28 @@ export function ProfileClient({ user }: ProfileProps) {
     return date.toLocaleDateString("tr-TR", { year: "numeric", month: "short", day: "numeric" });
   }, [user.createdAt]);
 
-  const canSave = fullName.trim().length >= 2 && city.trim().length >= 2;
-  const isDirty = fullName.trim() !== user.fullName || city !== user.city;
+  const initialPhone = useMemo(() => phoneDigits(user.phone || ""), [user.phone]);
+  const phoneValid = /^(?:90)?5\d{9}$/.test(phoneDigits(phone));
+  const canSave = fullName.trim().length >= 2 && city.trim().length >= 2 && phoneValid;
+  const isDirty =
+    fullName.trim() !== user.fullName ||
+    city !== user.city ||
+    phoneDigits(phone) !== initialPhone;
 
   const handleSave = async () => {
     if (!canSave || !isDirty) return;
     setSaving(true);
     setStatus(null);
     try {
+      if (!phoneValid) {
+        setStatus("Geçerli bir telefon girin");
+        setSaving(false);
+        return;
+      }
       const res = await fetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName: fullName.trim(), city }),
+        body: JSON.stringify({ fullName: fullName.trim(), city, phone }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -216,11 +230,12 @@ export function ProfileClient({ user }: ProfileProps) {
         setAvatarPreview(null);
         return;
       }
-      const payload: { fullName?: string; city?: string; image: string } = {
+      const payload: { fullName?: string; city?: string; phone?: string; image: string } = {
         image: uploadJson.publicUrl,
       };
       if (fullName.trim().length >= 2) payload.fullName = fullName.trim();
       if (city.trim().length >= 2) payload.city = city.trim();
+      if (phoneValid) payload.phone = phone;
       const updateRes = await fetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -250,11 +265,12 @@ export function ProfileClient({ user }: ProfileProps) {
     setAvatarLoading(true);
     setAvatarStatus(null);
     try {
-      const payload: { fullName?: string; city?: string; image: null } = {
+      const payload: { fullName?: string; city?: string; phone?: string; image: null } = {
         image: null,
       };
       if (fullName.trim().length >= 2) payload.fullName = fullName.trim();
       if (city.trim().length >= 2) payload.city = city.trim();
+      if (phoneValid) payload.phone = phone;
       const res = await fetch("/api/profile/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -345,9 +361,9 @@ export function ProfileClient({ user }: ProfileProps) {
                 {user.emailVerified ? "E-posta doğrulandı" : "Doğrulama bekleniyor"}
               </Badge>
             </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Ad Soyad</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                <p className="text-sm font-semibold text-[var(--color-primary)]">Ad Soyad</p>
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -355,10 +371,24 @@ export function ProfileClient({ user }: ProfileProps) {
                 placeholder="Ad Soyad"
               />
               <p className="text-xs text-[var(--color-muted)]">Bu bilgi nadiren değişir.</p>
-            </div>
-            <div className="space-y-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">E-posta</p>
-              <p className="text-sm text-[var(--color-primary)]">{user.email}</p>
+              </div>
+              <div className="space-y-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                <p className="text-sm font-semibold text-[var(--color-primary)]">Telefon</p>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  inputMode="tel"
+                  className="h-10 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+                  placeholder="+90 5xx xxx xx xx"
+                />
+                <p className="text-xs text-[var(--color-muted)]">İletişim için kullanılır.</p>
+                {phone && !phoneValid ? (
+                  <p className="text-xs text-[var(--color-danger)]">Geçerli bir telefon girin.</p>
+                ) : null}
+              </div>
+              <div className="space-y-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                <p className="text-sm font-semibold text-[var(--color-primary)]">E-posta</p>
+                <p className="text-sm text-[var(--color-primary)]">{user.email}</p>
               <p className="text-xs text-[var(--color-muted)]">Giriş ve bildirimler için kullanılır.</p>
             </div>
             <div className="space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">

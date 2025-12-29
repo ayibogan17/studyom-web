@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Loader2, Lock, Mail, User as UserIcon, MapPin, Chrome } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail, User as UserIcon, MapPin, Chrome, Phone } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/design-system/components/ui/button";
 
@@ -99,6 +99,8 @@ const intentOptions = [
   { value: "run-studio", label: "Stüdyo işletiyorum" },
 ];
 
+const phoneDigits = (value: string) => value.replace(/\D/g, "");
+
 const schema = z
   .object({
     method: z.enum(["email", "google"]),
@@ -106,6 +108,7 @@ const schema = z
     email: z.string().email("Geçerli bir e-posta girin").optional().or(z.literal("")),
     password: z.string().min(8, "En az 8 karakter").max(72).optional().or(z.literal("")),
     confirm: z.string().min(8, "En az 8 karakter").optional().or(z.literal("")),
+    phone: z.string().optional().or(z.literal("")),
     city: z.string().min(2, "Şehir seçin"),
     intent: z.array(z.string()).min(1, "En az bir seçim yapın"),
     tos: z.boolean().refine((v) => v === true, "Şartları kabul edin"),
@@ -113,6 +116,12 @@ const schema = z
   .superRefine((data, ctx) => {
     if (data.method === "google") {
       return;
+    }
+    const phoneValue = phoneDigits(data.phone ?? "");
+    if (!phoneValue) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Telefon gerekli", path: ["phone"] });
+    } else if (!/^(?:90)?5\\d{9}$/.test(phoneValue)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Geçerli bir telefon girin", path: ["phone"] });
     }
     if (!data.email) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "E-posta gerekli", path: ["email"] });
@@ -157,6 +166,7 @@ export function SignupForm() {
       email: "",
       password: "",
       confirm: "",
+      phone: "",
       city: "",
       intent: [],
       tos: false,
@@ -209,6 +219,7 @@ export function SignupForm() {
           fullName: values.fullName.trim(),
           email,
           password,
+          phone: phoneDigits(values.phone ?? ""),
           city: values.city,
           intent: values.intent,
         }),
@@ -347,6 +358,20 @@ export function SignupForm() {
                     </div>
                   </Field>
                 </div>
+
+                <Field label="Telefon" error={errors.phone?.message}>
+                  <div className="mt-1 flex h-11 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 focus-within:border-[var(--color-accent)]">
+                    <Phone size={16} className="text-[var(--color-muted)]" />
+                    <input
+                      type="tel"
+                      autoComplete="tel"
+                      aria-invalid={!!errors.phone}
+                      className="h-full w-full bg-transparent text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:outline-none"
+                      placeholder="+90 5xx xxx xx xx"
+                      {...register("phone")}
+                    />
+                  </div>
+                </Field>
               </>
             )}
 

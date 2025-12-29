@@ -20,7 +20,6 @@ export function TeacherFilterBar({ provinces, instruments, levels }: Props) {
 
   const current = {
     city: searchParams.get("city") || "",
-    district: searchParams.get("district") || "",
     instrument: searchParams.get("instrument") || "",
     lessonType: searchParams.get("lessonType") || "",
     level: searchParams.get("level") || "",
@@ -28,24 +27,20 @@ export function TeacherFilterBar({ provinces, instruments, levels }: Props) {
   };
 
   const [cityValue, setCityValue] = useState(current.city);
-  const [districtValue, setDistrictValue] = useState(current.district);
 
   useEffect(() => {
     setCityValue(current.city);
-    setDistrictValue(current.district);
-  }, [current.city, current.district, current.instrument, current.lessonType, current.level, current.q]);
+  }, [current.city, current.instrument, current.lessonType, current.level, current.q]);
 
   const handleSubmit = (formData: FormData) => {
     const params = new URLSearchParams();
     const city = cityValue || "";
-    const district = districtValue || "";
     const instrument = (formData.get("instrument") as string) || "";
     const lessonType = (formData.get("lessonType") as string) || "";
     const level = (formData.get("level") as string) || "";
     const q = (formData.get("q") as string) || "";
 
     if (city) params.set("city", city);
-    if (district) params.set("district", district);
     if (instrument) params.set("instrument", instrument);
     if (lessonType) params.set("lessonType", lessonType);
     if (level) params.set("level", level);
@@ -60,9 +55,6 @@ export function TeacherFilterBar({ provinces, instruments, levels }: Props) {
     router.replace("/hocalar");
     router.refresh();
   };
-
-  const selectedProvince = provinces.find((p) => p.id === cityValue);
-  const districts = selectedProvince?.districts ?? [];
 
   return (
     <form
@@ -81,7 +73,6 @@ export function TeacherFilterBar({ provinces, instruments, levels }: Props) {
             value={cityValue}
             onChange={(e) => {
               setCityValue(e.target.value);
-              setDistrictValue("");
             }}
             className="h-10 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
           >
@@ -89,24 +80,6 @@ export function TeacherFilterBar({ provinces, instruments, levels }: Props) {
             {provinces.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="district">İlçe</Label>
-          <select
-            id="district"
-            name="district"
-            value={districtValue}
-            onChange={(e) => setDistrictValue(e.target.value)}
-            disabled={!cityValue}
-            className="h-10 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] disabled:cursor-not-allowed disabled:bg-[var(--color-secondary)] focus:border-[var(--color-accent)] focus:outline-none"
-          >
-            <option value="">{cityValue ? "İlçe seç" : "Önce il seçin"}</option>
-            {districts.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
               </option>
             ))}
           </select>
@@ -138,7 +111,6 @@ export function TeacherFilterBar({ provinces, instruments, levels }: Props) {
             <option value="">Tümü</option>
             <option value="online">Online</option>
             <option value="in-person">Yüzyüze</option>
-            <option value="both">Online + Yüzyüze</option>
           </select>
         </div>
         <div className="space-y-1">

@@ -262,11 +262,31 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
             {producers.map((producer) => (
               <Card key={producer.id} className="space-y-3 p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-lg font-semibold text-[var(--color-primary)]">{producer.displayName}</p>
-                    {producer.modes.some((mode) => mode !== "Online") && producer.city ? (
-                      <p className="text-sm text-[var(--color-muted)]">{producer.city}</p>
-                    ) : null}
+                  <div className="flex items-center gap-3">
+                    {producer.image ? (
+                      <img
+                        src={producer.image}
+                        alt={producer.displayName}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-secondary)] text-xs font-semibold text-[var(--color-primary)]">
+                        {producer.displayName
+                          .split(" ")
+                          .map((part) => part.trim())
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .map((part) => part[0])
+                          .join("")
+                          .toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-lg font-semibold text-[var(--color-primary)]">{producer.displayName}</p>
+                      {producer.modes.some((mode) => mode !== "Online") && producer.city ? (
+                        <p className="text-sm text-[var(--color-muted)]">{producer.city}</p>
+                      ) : null}
+                    </div>
                   </div>
                   {producer.status === "pending" ? (
                     <Badge variant="muted">İncelemede</Badge>
@@ -332,24 +352,10 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
                   )}
                 </div>
 
-                <div className="flex items-center justify-between gap-2">
-                  <Button
-                    size="sm"
-                    disabled={isSessionLoading}
-                    onClick={() => {
-                      if (isSessionLoading) return;
-                      if (!isAuthenticated) {
-                        router.push(`/signup?redirect=${encodeURIComponent(returnUrl)}`);
-                        return;
-                      }
-                      setActiveProducer(producer);
-                    }}
-                  >
-                    Mesaj gönder
-                  </Button>
-                  <a href={`#portfolio-${producer.id}`} className="text-sm font-semibold text-[var(--color-accent)]">
-                    Portföy
-                  </a>
+                <div className="flex items-center justify-end gap-2">
+                  <Link href={`/uretim/${producer.slug}`} className="text-sm font-semibold text-[var(--color-accent)]">
+                    Profili gör
+                  </Link>
                 </div>
               </Card>
             ))}
@@ -365,7 +371,7 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
                 <p className="text-sm font-semibold text-[var(--color-muted)]">Mesaj gönder</p>
                 <h2 className="text-xl font-semibold text-[var(--color-primary)]">{activeProducer.displayName}</h2>
                 <p className="text-xs text-[var(--color-muted)]">
-                  İlk mesaj kısa tutulur. Üretici yanıt verirse sohbet açılır.
+                  İlk mesajda ne gibi bir hizmet almak istediğini açık bir şekilde anlatmanız önerilir. Üretici onaylarsa konuşma başlar.
                 </p>
               </div>
               <button
@@ -403,7 +409,7 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
                   rows={4}
                   value={message}
                   onChange={(e) => setMessage(e.target.value.slice(0, 300))}
-                  placeholder="Kısa bir talep yaz. Örn: 1 şarkı için beat arıyorum."
+                  placeholder="Talebinizi yazın"
                   aria-invalid={!!error}
                 />
                 <div className="flex items-center justify-between text-xs text-[var(--color-muted)]">
@@ -413,7 +419,7 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
                 {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
                 {status === "success" && (
                   <p className="text-xs text-green-600">
-                    Mesajın iletildi. Yanıt gelirse burada sohbet açılır.
+                    Mesajın iletildi. Üretici onaylarsa konuşma başlar.
                   </p>
                 )}
                 {status === "error" && !error && (

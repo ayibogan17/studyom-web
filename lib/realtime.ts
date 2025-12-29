@@ -15,3 +15,11 @@ export function getTeacherThreadChannel(threadId: string) {
   const hash = createHmac("sha256", realtimeSecret).update(threadId).digest("hex").slice(0, 32);
   return `teacher-thread:${hash}`;
 }
+
+export function getProducerThreadChannel(threadId: string) {
+  if (!realtimeSecret) {
+    return `producer-thread:${threadId}`;
+  }
+  const hash = createHmac("sha256", realtimeSecret).update(threadId).digest("hex").slice(0, 32);
+  return `producer-thread:${hash}`;
+}

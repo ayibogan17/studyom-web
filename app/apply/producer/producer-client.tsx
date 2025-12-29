@@ -210,7 +210,7 @@ export function ProducerApplyClient() {
   const selectedCount = useMemo(() => areas.length, [areas.length]);
 
   const onSubmit = async (values: FormValues) => {
-    setStatus(null);
+    setStatus("Gönderiliyor...");
     setLoading(true);
     try {
       const cleanLinks = (values.links || []).filter((l) => l.trim().length > 0);
@@ -232,6 +232,10 @@ export function ProducerApplyClient() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onError = () => {
+    setStatus("Zorunlu alanları doldurun.");
   };
 
   const toggleArea = (value: (typeof productionAreas)[number]) => {
@@ -303,7 +307,7 @@ export function ProducerApplyClient() {
             </div>
           ) : null}
 
-          <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+          <form className="space-y-5" onSubmit={handleSubmit(onSubmit, onError)}>
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <Label className="text-sm font-semibold text-[var(--color-primary)]">Üretim alanların</Label>
@@ -570,11 +574,14 @@ export function ProducerApplyClient() {
               ) : null}
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button type="submit" disabled={!isValid || loading} className="gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="submit" disabled={loading} className="gap-2">
                 {loading ? <span className="animate-spin">⏳</span> : null}
                 Başvuruyu Gönder
               </Button>
+              {!isValid && !loading ? (
+                <p className="text-xs text-[var(--color-muted)]">Zorunlu alanları doldurun.</p>
+              ) : null}
               <p className="text-xs text-[var(--color-muted)]">Başvurun değerlendirilecektir.</p>
             </div>
           </form>

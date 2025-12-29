@@ -26,7 +26,6 @@ const provincesOrdered: TRGeo = (() => {
 
 const applicantRoles = ["Sahibiyim", "Ortağım", "Yetkili yöneticiyim"] as const;
 const contactMethods = ["Phone", "WhatsApp", "Email"] as const;
-const roomTypeOptions = ["Prova odası", "Kayıt odası", "Vokal kabini", "Kontrol odası", "Prodüksiyon odası"] as const;
 const bookingModes = ["Onaylı talep (ben onaylarım)", "Direkt rezervasyon (sonra açılabilir)"] as const;
 const priceRanges = ["500–750", "750–1000", "1000–1500", "1500+"] as const;
 
@@ -52,19 +51,10 @@ const schema = z
       (v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v),
       z.number().int().min(1, "En az 1").max(10, "En fazla 10"),
     ),
-    roomTypes: z.array(z.enum(roomTypeOptions)).min(1, "En az bir oda tipi seçin"),
     isFlexible: z.boolean(),
     weekdayHours: z.string().trim().max(30, "En fazla 30 karakter").optional(),
     weekendHours: z.string().trim().max(30, "En fazla 30 karakter").optional(),
     bookingMode: z.enum(bookingModes),
-    equipment: z.object({
-      drum: z.boolean(),
-      guitarAmp: z.boolean(),
-      bassAmp: z.boolean(),
-      pa: z.boolean(),
-      mic: z.boolean(),
-    }),
-    equipmentHighlight: z.string().trim().max(200, "En fazla 200 karakter").optional(),
     priceRange: z.enum(priceRanges),
     priceVaries: z.boolean(),
     linkPortfolio: urlOptional,
@@ -115,19 +105,10 @@ export function StudioNewClient() {
       contactMethods: ["Phone"],
       contactHours: "",
       roomsCount: 1,
-      roomTypes: [],
       isFlexible: false,
       weekdayHours: "",
       weekendHours: "",
       bookingMode: "Onaylı talep (ben onaylarım)",
-      equipment: {
-        drum: false,
-        guitarAmp: false,
-        bassAmp: false,
-        pa: false,
-        mic: false,
-      },
-      equipmentHighlight: "",
       priceRange: "500–750",
       priceVaries: false,
       linkPortfolio: "",
@@ -177,24 +158,14 @@ export function StudioNewClient() {
   const prevStep = () => setStep((s) => Math.max(1, s - 1));
 
   const contactMethodsSelected = watch("contactMethods");
-  const roomTypesSelected = watch("roomTypes");
 
-  type ArrayField = "contactMethods" | "roomTypes";
+  type ArrayField = "contactMethods";
   const toggleArray = <T extends string>(name: ArrayField, value: T) => {
     const current = (watch(name) as string[]) || [];
     const exists = current.includes(value);
     const next = exists ? current.filter((v) => v !== value) : [...current, value];
     setValue(name, next as FormValues[ArrayField], { shouldValidate: true });
   };
-
-  const equipment = watch("equipment");
-  const equipmentItems: { key: keyof FormValues["equipment"]; label: string }[] = [
-    { key: "drum", label: "Davul seti" },
-    { key: "guitarAmp", label: "Gitar amfi" },
-    { key: "bassAmp", label: "Bas amfi" },
-    { key: "pa", label: "PA / hoparlör" },
-    { key: "mic", label: "Mikrofon" },
-  ];
   const stepFields: Record<number, (keyof FormValues)[]> = {
     1: [
       "phone",
@@ -207,18 +178,7 @@ export function StudioNewClient() {
       "mapsUrl",
       "contactMethods",
     ],
-    2: [
-      "roomsCount",
-      "roomTypes",
-      "isFlexible",
-      "weekdayHours",
-      "weekendHours",
-      "bookingMode",
-      "equipment",
-      "equipmentHighlight",
-      "priceRange",
-      "priceVaries",
-    ],
+    2: ["roomsCount", "isFlexible", "weekdayHours", "weekendHours", "bookingMode", "priceRange", "priceVaries"],
     3: ["linkPortfolio", "linkGoogle", "ackAuthority", "ackPlatform"],
   };
 
@@ -436,40 +396,12 @@ export function StudioNewClient() {
                 eklenecektir.
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-[var(--color-primary)]">Oda sayısı</Label>
-                  <Input type="number" min={1} max={10} {...register("roomsCount")} />
-                  {errors.roomsCount ? (
-                    <span className="text-xs text-[var(--color-danger)]">{errors.roomsCount.message as string}</span>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-[var(--color-primary)]">Oda tipleri</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {roomTypeOptions.map((opt) => {
-                      const active = roomTypesSelected.includes(opt);
-                      return (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => toggleArray("roomTypes", opt)}
-                          className={`rounded-full border px-3 py-1 text-sm ${
-                            active
-                              ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-primary)]"
-                              : "border-[var(--color-border)] text-[var(--color-primary)]"
-                          }`}
-                          aria-pressed={active}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {errors.roomTypes ? (
-                    <span className="text-xs text-[var(--color-danger)]">{errors.roomTypes.message}</span>
-                  ) : null}
-                </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-[var(--color-primary)]">Oda sayısı</Label>
+                <Input type="number" min={1} max={10} {...register("roomsCount")} />
+                {errors.roomsCount ? (
+                  <span className="text-xs text-[var(--color-danger)]">{errors.roomsCount.message as string}</span>
+                ) : null}
               </div>
 
               <div className="space-y-3">
@@ -525,29 +457,6 @@ export function StudioNewClient() {
                 {errors.bookingMode ? (
                   <span className="text-xs text-[var(--color-danger)]">{errors.bookingMode.message}</span>
                 ) : null}
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">Ekipman setleri</Label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {equipmentItems.map((item) => (
-                    <label key={item.key} className="flex items-center gap-2 rounded-2xl border p-3 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={equipment[item.key]}
-                        onChange={(e) =>
-                          setValue("equipment", { ...equipment, [item.key]: e.target.checked }, { shouldValidate: true })
-                        }
-                      />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">Öne çıkan 3 ekipman (opsiyonel)</Label>
-                <Textarea rows={3} maxLength={200} placeholder="Kısa not" {...register("equipmentHighlight")} />
               </div>
 
               <div className="space-y-2">

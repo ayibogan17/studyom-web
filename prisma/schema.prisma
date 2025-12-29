@@ -11,6 +11,7 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
+  phone     String?
   fullName  String?
   name      String?
   city      String?
@@ -26,8 +27,12 @@ model User {
   studios   Studio[]
   producerMessagesSent     ProducerMessageRequest[] @relation("ProducerMessageFrom")
   producerMessagesReceived ProducerMessageRequest[] @relation("ProducerMessageTo")
+  producerThreadsAsProducer ProducerThread[] @relation("ProducerThreadProducer")
+  producerThreadsAsStudent  ProducerThread[] @relation("ProducerThreadStudent")
   teacherThreadsAsTeacher  TeacherThread[] @relation("TeacherThreadTeacher")
   teacherThreadsAsStudent  TeacherThread[] @relation("TeacherThreadStudent")
+  teacherMessageRequestsSent     TeacherMessageRequest[] @relation("TeacherMessageRequestStudent")
+  teacherMessageRequestsReceived TeacherMessageRequest[] @relation("TeacherMessageRequestTeacher")
   teacherStudioLinks       TeacherStudioLink[]
   accounts  Account[]
   sessions  Session[]
@@ -179,6 +184,38 @@ model ProducerMessageRequest {
   @@index([fromUserId, producerUserId, status])
 }
 
+model ProducerThread {
+  id             String   @id @default(cuid())
+  producerSlug   String
+  producerUserId String
+  studentUserId  String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messages       ProducerMessage[]
+
+  producerUser User @relation("ProducerThreadProducer", fields: [producerUserId], references: [id], onDelete: Cascade)
+  studentUser  User @relation("ProducerThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+
+  @@unique([producerSlug, studentUserId])
+  @@index([producerUserId, updatedAt])
+  @@index([studentUserId, updatedAt])
+}
+
+model ProducerMessage {
+  id           String   @id @default(cuid())
+  threadId     String
+  senderRole   String
+  senderUserId String?
+  body         String
+  createdAt    DateTime @default(now())
+  readAt       DateTime?
+
+  thread ProducerThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@index([threadId, readAt])
+}
+
 model TeacherLead {
   id                    String   @id @default(cuid())
   teacherSlug           String
@@ -216,10 +253,29 @@ model TeacherMessage {
   senderUserId String?
   body         String
   createdAt    DateTime @default(now())
+  readAt       DateTime?
 
   thread TeacherThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId, createdAt])
+  @@index([threadId, readAt])
+}
+
+model TeacherMessageRequest {
+  id            String   @id @default(cuid())
+  studentUserId String
+  teacherUserId String
+  teacherSlug   String
+  messageText   String
+  status        String   @default("pending")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  studentUser User @relation("TeacherMessageRequestStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  teacherUser User @relation("TeacherMessageRequestTeacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
+
+  @@index([teacherUserId, status])
+  @@index([studentUserId, teacherUserId, status])
 }
 
 model TeacherStudioLink {

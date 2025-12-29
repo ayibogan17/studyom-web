@@ -33,6 +33,17 @@ async function ensureAdminSchema(client: PrismaClient) {
     'CREATE TABLE IF NOT EXISTS "ProducerMessageRequest" ("id" TEXT PRIMARY KEY, "fromUserId" TEXT NOT NULL, "producerUserId" TEXT NOT NULL, "message" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT \'pending\', "createdAt" TIMESTAMPTZ DEFAULT now(), "updatedAt" TIMESTAMPTZ DEFAULT now())',
   );
 
+  await client.$executeRawUnsafe(
+    'CREATE TABLE IF NOT EXISTS "ProducerThread" ("id" TEXT PRIMARY KEY, "producerSlug" TEXT NOT NULL, "producerUserId" TEXT NOT NULL, "studentUserId" TEXT NOT NULL, "createdAt" TIMESTAMPTZ DEFAULT now(), "updatedAt" TIMESTAMPTZ DEFAULT now())',
+  );
+  await client.$executeRawUnsafe(
+    'CREATE TABLE IF NOT EXISTS "ProducerMessage" ("id" TEXT PRIMARY KEY, "threadId" TEXT NOT NULL, "senderRole" TEXT NOT NULL, "senderUserId" TEXT, "body" TEXT NOT NULL, "createdAt" TIMESTAMPTZ DEFAULT now(), "readAt" TIMESTAMPTZ)',
+  );
+
+  await client.$executeRawUnsafe(
+    'ALTER TABLE "TeacherMessage" ADD COLUMN IF NOT EXISTS "readAt" TIMESTAMPTZ',
+  );
+
   // Teacher leads table
   await client.$executeRawUnsafe(
     'CREATE TABLE IF NOT EXISTS "TeacherLead" ("id" TEXT PRIMARY KEY, "teacherSlug" TEXT NOT NULL, "teacherName" TEXT, "studentName" TEXT NOT NULL, "studentEmail" TEXT NOT NULL, "city" TEXT NOT NULL, "preferredLessonType" TEXT, "message" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT \'new\', "createdAt" TIMESTAMPTZ DEFAULT now())',

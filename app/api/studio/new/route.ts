@@ -8,7 +8,6 @@ import { notifyAdmin } from "@/lib/admin-notify";
 
 const applicantRoles = ["Sahibiyim", "Ortağım", "Yetkili yöneticiyim"] as const;
 const contactMethods = ["Phone", "WhatsApp", "Email"] as const;
-const roomTypeOptions = ["Prova odası", "Kayıt odası", "Vokal kabini", "Kontrol odası", "Prodüksiyon odası"] as const;
 const bookingModes = ["Onaylı talep (ben onaylarım)", "Direkt rezervasyon (sonra açılabilir)"] as const;
 const priceRanges = ["500–750", "750–1000", "1000–1500", "1500+"] as const;
 
@@ -31,19 +30,10 @@ const schema = z
     contactMethods: z.array(z.enum(contactMethods)).min(1),
     contactHours: z.string().trim().max(80).optional(),
     roomsCount: z.number().int().min(1).max(10),
-    roomTypes: z.array(z.enum(roomTypeOptions)).min(1),
     isFlexible: z.boolean(),
     weekdayHours: z.string().trim().max(30).optional(),
     weekendHours: z.string().trim().max(30).optional(),
     bookingMode: z.enum(bookingModes),
-    equipment: z.object({
-      drum: z.boolean(),
-      guitarAmp: z.boolean(),
-      bassAmp: z.boolean(),
-      pa: z.boolean(),
-      mic: z.boolean(),
-    }),
-    equipmentHighlight: z.string().trim().max(200).optional(),
     priceRange: z.enum(priceRanges),
     priceVaries: z.boolean(),
     linkPortfolio: urlOptional,
@@ -108,12 +98,7 @@ export async function POST(req: Request) {
             { message: "Başvuru durumu: pending_review" },
             { message: `İletişim tercihleri: ${data.contactMethods.join(", ")}` },
             { message: `Booking modu: ${data.bookingMode}` },
-            { message: `Oda sayısı: ${data.roomsCount}, tipler: ${data.roomTypes.join(", ")}` },
-            { message: `Ekipman sinyali: ${Object.entries(data.equipment)
-              .filter(([, v]) => v)
-              .map(([k]) => k)
-              .join(", ") || "Belirtilmedi"}` },
-            data.equipmentHighlight ? { message: `Öne çıkan ekipman: ${data.equipmentHighlight}` } : undefined,
+            { message: `Oda sayısı: ${data.roomsCount}` },
             data.linkPortfolio ? { message: `Instagram/Web: ${data.linkPortfolio}` } : undefined,
             data.linkGoogle ? { message: `Google Business: ${data.linkGoogle}` } : undefined,
             data.mapsUrl ? { message: `Maps: ${data.mapsUrl}` } : undefined,
@@ -145,15 +130,9 @@ export async function POST(req: Request) {
       `İletişim yöntemleri: ${data.contactMethods.join(", ")}`,
       data.contactHours ? `İletişim saatleri: ${data.contactHours}` : null,
       `Oda sayısı: ${data.roomsCount}`,
-      `Oda türleri: ${data.roomTypes.join(", ")}`,
       `Booking modu: ${data.bookingMode}`,
       `Çalışma saatleri: ${data.isFlexible ? "Esnek" : `Hafta içi ${data.weekdayHours} / Hafta sonu ${data.weekendHours}`}`,
       `Fiyat aralığı: ${data.priceRange}${data.priceVaries ? " (odaya göre değişir)" : ""}`,
-      `Ekipman setleri: ${Object.entries(data.equipment)
-        .filter(([, v]) => v)
-        .map(([k]) => k)
-        .join(", ") || "Belirtilmedi"}`,
-      data.equipmentHighlight ? `Öne çıkan ekipman: ${data.equipmentHighlight}` : null,
       data.linkPortfolio ? `Instagram/Web: ${data.linkPortfolio}` : null,
       data.linkGoogle ? `Google Business: ${data.linkGoogle}` : null,
       needsManualReview ? "Manuel inceleme: evet (doğrulama linki yok)" : null,

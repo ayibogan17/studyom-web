@@ -71,27 +71,68 @@ const schema = z
     }
   });
 
+function normalizeHttpUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(withScheme);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  const sessionUser = session?.user as { id?: string; email?: string | null } | undefined;
+  const sessionUser = session?.user as { id?: string; email?: string | null; name?: string | null } | undefined;
   let userId = sessionUser?.id;
   let userEmail = sessionUser?.email?.toLowerCase() ?? null;
   let userName = sessionUser?.name ?? null;
-  if (!userId && sessionUser?.email) {
-    const dbUser = await prisma.user.findUnique({
+  let dbUser =
+    userId
+      ? await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true, fullName: true, name: true },
+        })
+      : null;
+  if (!dbUser && sessionUser?.email) {
+    dbUser = await prisma.user.findUnique({
       where: { email: sessionUser.email.toLowerCase() },
       select: { id: true, email: true, fullName: true, name: true },
     });
-    userId = dbUser?.id;
-    userEmail = dbUser?.email ?? userEmail;
-    userName = dbUser?.fullName ?? dbUser?.name ?? userName;
+  }
+  if (dbUser) {
+    userId = dbUser.id;
+    userEmail = dbUser.email ?? userEmail;
+    userName = dbUser.fullName ?? dbUser.name ?? userName;
   }
   if (!userId) {
     return NextResponse.json({ error: "Giriş yapın" }, { status: 401 });
   }
+  if (!dbUser) {
+    return NextResponse.json(
+      { error: "Kullanıcı bulunamadı. Lütfen çıkış yapıp tekrar giriş yapın." },
+      { status: 401 },
+    );
+  }
 
   const body = await req.json().catch(() => null);
-  const parsed = schema.safeParse(body);
+  const rawLinks = Array.isArray(body?.links) ? body.links : [];
+  const normalizedLinks: string[] = [];
+  for (const raw of rawLinks) {
+    if (typeof raw !== "string") continue;
+    if (!raw.trim()) continue;
+    const normalized = normalizeHttpUrl(raw);
+    if (!normalized) {
+      return NextResponse.json({ error: "Geçerli bir URL girin" }, { status: 400 });
+    }
+    normalizedLinks.push(normalized);
+  }
+  const parsed = schema.safeParse({ ...body, links: normalizedLinks });
   if (!parsed.success) {
     return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
   }

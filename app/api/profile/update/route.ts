@@ -4,15 +4,24 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-const schema = z
-  .object({
-    fullName: z.string().min(2, "Ad Soyad gerekli").max(60).optional(),
-    city: z.string().min(2, "Şehir gerekli").optional(),
-    image: z.string().url("Geçerli bir görsel linki girin").optional().nullable(),
-  })
-  .refine((data) => data.fullName || data.city || data.image !== undefined, {
-    message: "Değişiklik yok",
-  });
+const phoneDigits = (value: string) => value.replace(/\D/g, "");
+
+const schema = z.object({
+  fullName: z.string().min(2, "Ad Soyad gerekli").max(60).optional(),
+  city: z.string().min(2, "Şehir gerekli").optional(),
+  phone: z.string().optional(),
+  image: z.string().url("Geçerli bir görsel linki girin").optional().nullable(),
+}).superRefine((data, ctx) => {
+  if (!data.fullName && !data.city && data.image === undefined && data.phone === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Değişiklik yok", path: ["fullName"] });
+  }
+  if (data.phone !== undefined) {
+    const digits = phoneDigits(data.phone);
+    if (!/^(?:90)?5\d{9}$/.test(digits)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Geçerli bir telefon girin", path: ["phone"] });
+    }
+  }
+});
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -27,14 +36,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
   }
 
-  const { fullName, city, image } = parsed.data;
-  const updateData: { fullName?: string; name?: string; city?: string; image?: string | null } = {};
+  const { fullName, city, phone, image } = parsed.data;
+  const updateData: { fullName?: string; name?: string; city?: string; phone?: string; image?: string | null } = {};
   if (fullName) {
     updateData.fullName = fullName;
     updateData.name = fullName;
   }
   if (city) {
     updateData.city = city;
+  }
+  if (phone !== undefined) {
+    updateData.phone = phoneDigits(phone);
   }
   if (image !== undefined) {
     updateData.image = image;

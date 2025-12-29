@@ -17,6 +17,7 @@ type ProfileUser = User & {
   city?: string | null;
   intent?: string[];
   fullName?: string | null;
+  phone?: string | null;
   emailVerified?: Date | string | null;
   image?: string | null;
   id?: string;
@@ -30,6 +31,7 @@ type ProfileToken = JWT & {
   city?: string | null;
   intent?: string[];
   fullName?: string | null;
+  phone?: string | null;
   emailVerified?: Date | string | null;
   image?: string | null;
   profileComplete?: boolean;
@@ -68,8 +70,8 @@ if (!googleId || !googleSecret) {
   console.warn("Missing Google OAuth env (AUTH_GOOGLE_ID/SECRET).");
 }
 
-const isProfileComplete = (u?: { city?: string | null; intent?: string[] }) =>
-  Boolean(u?.city && (u.intent?.length ?? 0) > 0);
+const isProfileComplete = (u?: { city?: string | null; intent?: string[]; phone?: string | null }) =>
+  Boolean(u?.phone && u?.city && (u.intent?.length ?? 0) > 0);
 const mapTeacherStatus = (status?: string | null) => {
   if (status === "approved") return "approved" as const;
   if (status === "pending") return "pending" as const;
@@ -131,6 +133,7 @@ export const authOptions: NextAuthOptions = {
                 email: dbUser.email,
                 name: dbUser.fullName || dbUser.name || undefined,
                 fullName: dbUser.fullName || dbUser.name || undefined,
+                phone: dbUser.phone ?? null,
                 role: dbUser.role ?? "USER",
                 city: dbUser.city,
                 intent: dbUser.intent ?? [],
@@ -195,6 +198,7 @@ export const authOptions: NextAuthOptions = {
         profileToken.intent = profileUser.intent ?? profileToken.intent ?? [];
         profileToken.fullName =
           profileUser.fullName ?? profileUser.name ?? profileToken.fullName ?? null;
+        profileToken.phone = profileUser.phone ?? profileToken.phone ?? null;
         profileToken.emailVerified =
           profileUser.emailVerified ??
           profileToken.emailVerified ??
@@ -203,6 +207,7 @@ export const authOptions: NextAuthOptions = {
         profileToken.profileComplete = isProfileComplete({
           city: profileToken.city ?? undefined,
           intent: profileToken.intent,
+          phone: profileToken.phone ?? undefined,
         });
       } else if (!profileToken.city && profileToken.email) {
         // lazily fetch profile fields if missing
@@ -213,6 +218,7 @@ export const authOptions: NextAuthOptions = {
           profileToken.city = dbUser.city;
           profileToken.intent = dbUser.intent ?? [];
           profileToken.fullName = dbUser.fullName || dbUser.name || profileToken.fullName || null;
+          profileToken.phone = dbUser.phone ?? profileToken.phone ?? null;
           profileToken.emailVerified = dbUser.emailVerified ?? null;
           profileToken.image = dbUser.image ?? profileToken.image ?? null;
           profileToken.name = dbUser.fullName || dbUser.name || profileToken.name;
@@ -226,6 +232,7 @@ export const authOptions: NextAuthOptions = {
           profileToken.city = dbUser.city;
           profileToken.intent = dbUser.intent ?? [];
           profileToken.fullName = dbUser.fullName || dbUser.name || profileToken.fullName || null;
+          profileToken.phone = dbUser.phone ?? profileToken.phone ?? null;
           profileToken.emailVerified = dbUser.emailVerified ?? null;
           profileToken.image = dbUser.image ?? profileToken.image ?? null;
           profileToken.name = dbUser.fullName || dbUser.name || profileToken.name;
@@ -297,6 +304,7 @@ export const authOptions: NextAuthOptions = {
         profileUser.city = profileToken.city ?? null;
         profileUser.intent = profileToken.intent ?? [];
         profileUser.fullName = profileToken.fullName ?? profileUser.name ?? null;
+        profileUser.phone = profileToken.phone ?? null;
         profileUser.emailVerified = profileToken.emailVerified ?? null;
         profileUser.image = profileToken.image ?? profileUser.image ?? null;
         (profileUser as { profileComplete?: boolean }).profileComplete =
