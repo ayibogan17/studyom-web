@@ -26,9 +26,19 @@ export type StudioRequestItem = {
   createdAt: string;
 };
 
+export type ProducerStudioRequestItem = {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  studioName: string;
+  producerName: string;
+  producerEmail?: string | null;
+  createdAt: string;
+};
+
 type Props = {
   items: NotificationItem[];
   studioRequests: StudioRequestItem[];
+  producerRequests: ProducerStudioRequestItem[];
 };
 
 type FilterKey = "all" | "unread" | "read";
@@ -39,14 +49,17 @@ const filters: Array<{ key: FilterKey; label: string }> = [
   { key: "read", label: "Okundu" },
 ];
 
-export default function NotificationsClient({ items, studioRequests }: Props) {
+export default function NotificationsClient({ items, studioRequests, producerRequests }: Props) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [rows, setRows] = useState(items);
   const [requests, setRequests] = useState(studioRequests);
+  const [producerRequestsState, setProducerRequestsState] = useState(producerRequests);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
+  const [savingProducerId, setSavingProducerId] = useState<string | null>(null);
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [openRequests, setOpenRequests] = useState<Record<string, boolean>>({});
+  const [openProducerRequests, setOpenProducerRequests] = useState<Record<string, boolean>>({});
 
   const filteredItems = useMemo(() => {
     if (filter === "all") return rows;
@@ -63,6 +76,10 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
 
   const toggleRequest = (id: string) => {
     setOpenRequests((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleProducerRequest = (id: string) => {
+    setOpenProducerRequests((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const markRead = async (item: NotificationItem) => {
@@ -102,6 +119,25 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
       alert("Güncellenemedi");
     } finally {
       setSavingRequestId(null);
+    }
+  };
+
+  const updateProducerRequest = async (id: string, status: ProducerStudioRequestItem["status"]) => {
+    setSavingProducerId(id);
+    try {
+      const res = await fetch(`/api/producer-studio-links/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Güncellenemedi");
+      setProducerRequestsState((prev) => prev.map((row) => (row.id === id ? { ...row, status } : row)));
+    } catch (err) {
+      console.error(err);
+      alert("Güncellenemedi");
+    } finally {
+      setSavingProducerId(null);
     }
   };
 
@@ -267,6 +303,89 @@ export default function NotificationsClient({ items, studioRequests }: Props) {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 updateRequest(item.id, "rejected");
+                              }}
+                            >
+                              Reddet
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Üretici stüdyo talepleri</h2>
+            <Badge variant="muted">{producerRequestsState.length}</Badge>
+          </div>
+          {producerRequestsState.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)]">Henüz talep yok.</p>
+          ) : (
+            <div className="space-y-3">
+              {producerRequestsState.map((item) => {
+                const statusText =
+                  item.status === "approved" ? "Onaylandı" : item.status === "rejected" ? "Reddedildi" : "Beklemede";
+                const isOpen = openProducerRequests[item.id];
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3"
+                    onClick={() => toggleProducerRequest(item.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") toggleProducerRequest(item.id);
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
+                        {item.studioName} — {item.producerName}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                        <Badge
+                          variant={item.status === "pending" ? "outline" : "default"}
+                          className={cn(item.status === "rejected" ? "bg-[var(--color-danger)] text-white" : "")}
+                        >
+                          {statusText}
+                        </Badge>
+                        <span>{new Date(item.createdAt).toLocaleDateString("tr-TR")}</span>
+                      </div>
+                    </div>
+                    {isOpen && (
+                      <div className="mt-2 space-y-2">
+                        {item.producerEmail && (
+                          <p className="text-xs text-[var(--color-muted)]">{item.producerEmail}</p>
+                        )}
+                        <p className="text-sm text-[var(--color-primary)]">
+                          {item.producerName} stüdyonuzda üretim yapmak istiyor.
+                        </p>
+                        {item.status === "pending" && (
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="primary"
+                              disabled={savingProducerId === item.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateProducerRequest(item.id, "approved");
+                              }}
+                            >
+                              Kabul et
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              disabled={savingProducerId === item.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateProducerRequest(item.id, "rejected");
                               }}
                             >
                               Reddet

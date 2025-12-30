@@ -138,6 +138,19 @@ export default async function ProducerDetailPage({ params }: { params: Params | 
             </Card>
 
             <Card className="space-y-3 p-6">
+              <p className="text-sm font-semibold text-[var(--color-primary)]">Çalıştığı stüdyolar</p>
+              {producer.studiosUsed && producer.studiosUsed.length > 0 ? (
+                <ul className="space-y-2 text-sm text-[var(--color-primary)]">
+                  {producer.studiosUsed.map((studio) => (
+                    <li key={studio}>{studio}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-[var(--color-muted)]">Henüz stüdyo eklenmedi.</p>
+              )}
+            </Card>
+
+            <Card className="space-y-3 p-6">
               <p className="text-sm font-semibold text-[var(--color-primary)]">Portföy</p>
               {producer.links.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted)]">Paylaşılan bağlantı yok.</p>

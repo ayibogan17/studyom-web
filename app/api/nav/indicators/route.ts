@@ -26,6 +26,7 @@ export async function GET() {
     notificationCount,
     leadCount,
     teacherLeadCount,
+    producerStudioLinkCount,
     teacherRequestCount,
     studentTeacherMessagesCount,
     studentTeacherRequestCount,
@@ -55,6 +56,11 @@ export async function GET() {
     userEmail
       ? prisma.teacherLead.count({
           where: { studentEmail: userEmail, isRead: false, status: "new" },
+        })
+      : Promise.resolve(0),
+    userEmail
+      ? prisma.producerStudioLink.count({
+          where: { studio: { ownerEmail: userEmail }, status: "pending" },
         })
       : Promise.resolve(0),
     userId
@@ -116,7 +122,7 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
-    notificationsUnread: notificationCount + leadCount + teacherLeadCount > 0,
+    notificationsUnread: notificationCount + leadCount + teacherLeadCount + producerStudioLinkCount > 0,
     messagesUnread:
       studentTeacherMessagesCount +
         studentTeacherRequestCount +

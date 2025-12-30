@@ -16,6 +16,7 @@ export type ProducerProfile = {
   statement: string;
   links: string[];
   galleryUrls?: string[];
+  studiosUsed?: string[];
   status: ProducerStatus;
 };
 

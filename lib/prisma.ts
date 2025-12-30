@@ -44,6 +44,10 @@ async function ensureAdminSchema(client: PrismaClient) {
     'ALTER TABLE "TeacherMessage" ADD COLUMN IF NOT EXISTS "readAt" TIMESTAMPTZ',
   );
 
+  await client.$executeRawUnsafe(
+    'CREATE TABLE IF NOT EXISTS "ProducerStudioLink" ("id" TEXT PRIMARY KEY, "producerUserId" TEXT NOT NULL, "studioId" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT \'pending\', "createdAt" TIMESTAMPTZ DEFAULT now(), "updatedAt" TIMESTAMPTZ DEFAULT now())',
+  );
+
   // Teacher leads table
   await client.$executeRawUnsafe(
     'CREATE TABLE IF NOT EXISTS "TeacherLead" ("id" TEXT PRIMARY KEY, "teacherSlug" TEXT NOT NULL, "teacherName" TEXT, "studentName" TEXT NOT NULL, "studentEmail" TEXT NOT NULL, "city" TEXT NOT NULL, "preferredLessonType" TEXT, "message" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT \'new\', "createdAt" TIMESTAMPTZ DEFAULT now())',

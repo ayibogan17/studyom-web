@@ -12,6 +12,7 @@ import { ProducerProfileEditor } from "./producer-profile-editor";
 import { ProducerGalleryClient } from "./producer-gallery-client";
 import { TeacherPanelSection } from "@/app/teacher-panel/teacher-panel-section";
 import { ProducerWhatsAppSettings } from "./producer-whatsapp-settings";
+import { ProducerStudioLinksClient } from "./producer-studio-links-client";
 
 export const metadata: Metadata = {
   title: "Üretici Paneli | Stüdyom",
@@ -102,7 +103,7 @@ export default async function ProducerPanelPage() {
 
   const isApproved = application.status === "approved";
 
-  const [messageRequests, totalRequestCount, activeThreadCount] = await Promise.all([
+  const [messageRequests, totalRequestCount, activeThreadCount, studioLinks] = await Promise.all([
     prisma.producerMessageRequest.findMany({
       where: { producerUserId: dbUser.id, status: "pending" },
       orderBy: { createdAt: "desc" },
@@ -116,6 +117,11 @@ export default async function ProducerPanelPage() {
     }),
     prisma.producerMessageRequest.count({ where: { producerUserId: dbUser.id } }),
     prisma.producerThread.count({ where: { producerUserId: dbUser.id } }),
+    prisma.producerStudioLink.findMany({
+      where: { producerUserId: dbUser.id },
+      include: { studio: { select: { id: true, name: true, city: true, district: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const requestItems: ProducerMessageRequestItem[] = messageRequests.map((row) => ({
@@ -123,6 +129,13 @@ export default async function ProducerPanelPage() {
     message: row.message,
     createdAt: row.createdAt.toISOString(),
     fromUser: row.fromUser || {},
+  }));
+
+  const studioLinkItems = studioLinks.map((link) => ({
+    id: link.id,
+    status: link.status as "pending" | "approved" | "rejected",
+    createdAt: link.createdAt.toISOString(),
+    studio: link.studio,
   }));
 
   const data = parseData(application.data);
@@ -234,6 +247,10 @@ export default async function ProducerPanelPage() {
               statement: statement === "Belirtilmedi" ? "" : statement,
             }}
           />
+        </TeacherPanelSection>
+
+        <TeacherPanelSection title="Çalıştığı stüdyolar" defaultOpen>
+          <ProducerStudioLinksClient initialLinks={studioLinkItems} />
         </TeacherPanelSection>
 
         <TeacherPanelSection

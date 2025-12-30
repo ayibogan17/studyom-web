@@ -29,6 +29,7 @@ model User {
   producerMessagesReceived ProducerMessageRequest[] @relation("ProducerMessageTo")
   producerThreadsAsProducer ProducerThread[] @relation("ProducerThreadProducer")
   producerThreadsAsStudent  ProducerThread[] @relation("ProducerThreadStudent")
+  producerStudioLinks      ProducerStudioLink[]
   teacherThreadsAsTeacher  TeacherThread[] @relation("TeacherThreadTeacher")
   teacherThreadsAsStudent  TeacherThread[] @relation("TeacherThreadStudent")
   teacherMessageRequestsSent     TeacherMessageRequest[] @relation("TeacherMessageRequestStudent")
@@ -91,6 +92,7 @@ model Studio {
   rooms         Room[]
   notifications Notification[]
   teacherStudioLinks TeacherStudioLink[]
+  producerStudioLinks ProducerStudioLink[]
   ratings       Rating[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -292,6 +294,22 @@ model TeacherStudioLink {
   @@unique([teacherUserId, studioId])
   @@index([studioId, status])
   @@index([teacherUserId, status])
+}
+
+model ProducerStudioLink {
+  id             String   @id @default(cuid())
+  producerUserId String
+  studioId       String
+  status         String   @default("pending")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  producerUser User   @relation(fields: [producerUserId], references: [id], onDelete: Cascade)
+  studio       Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+
+  @@unique([producerUserId, studioId])
+  @@index([studioId, status])
+  @@index([producerUserId, status])
 }
 
 model Lead {
