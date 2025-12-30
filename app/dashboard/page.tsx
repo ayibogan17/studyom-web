@@ -257,12 +257,52 @@ export default async function DashboardPage({
       Boolean(item),
     );
 
+  const studioProducerLinks = await prisma.producerStudioLink.findMany({
+    where: { studioId: initialStudio.id, status: "approved" },
+    include: {
+      producerUser: { select: { id: true, email: true, fullName: true, name: true, image: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const producerUserIds = studioProducerLinks.map((link) => link.producerUserId);
+  const producerApps = producerUserIds.length
+    ? await prisma.producerApplication.findMany({
+        where: { userId: { in: producerUserIds }, status: "approved" },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, userId: true },
+      })
+    : [];
+  const producerAppByUser = new Map<string, { id: number; userId: string }>();
+  for (const app of producerApps) {
+    if (!producerAppByUser.has(app.userId)) {
+      producerAppByUser.set(app.userId, app);
+    }
+  }
+  const linkedProducers = studioProducerLinks
+    .map((link) => {
+      const app = producerAppByUser.get(link.producerUserId);
+      if (!app) return null;
+      const displayName =
+        link.producerUser.fullName || link.producerUser.name || link.producerUser.email || "Üretici";
+      return {
+        id: link.id,
+        name: displayName,
+        email: link.producerUser.email,
+        image: link.producerUser.image,
+        slug: `${slugify(displayName)}-${app.id}`,
+      };
+    })
+    .filter((item): item is { id: string; name: string; email: string; image: string | null; slug: string } =>
+      Boolean(item),
+    );
+
   return (
     <DashboardClient
       initialStudio={initialStudio}
       userName={user.name}
       userEmail={user.email}
       linkedTeachers={linkedTeachers}
+      linkedProducers={linkedProducers}
     />
   );
 }

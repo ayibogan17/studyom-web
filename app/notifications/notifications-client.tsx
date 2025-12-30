@@ -362,7 +362,7 @@ export default function NotificationsClient({ items, studioRequests, producerReq
                           <p className="text-xs text-[var(--color-muted)]">{item.producerEmail}</p>
                         )}
                         <p className="text-sm text-[var(--color-primary)]">
-                          {item.producerName} stüdyonuzda üretim yapmak istiyor.
+                          {item.producerName} stüdyonuzla çalıştığını belirtti.
                         </p>
                         {item.status === "pending" && (
                           <div className="flex flex-wrap gap-2">

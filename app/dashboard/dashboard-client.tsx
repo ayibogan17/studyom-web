@@ -18,6 +18,13 @@ type Props = {
     image: string | null;
     slug: string;
   }[];
+  linkedProducers?: {
+    id: string;
+    name: string;
+    email: string | null;
+    image: string | null;
+    slug: string;
+  }[];
 };
 
 const shortDays = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
@@ -477,7 +484,7 @@ const ensureSlotsForDay = (
   return { ...room, slots: { ...room.slots, [key]: generated } };
 };
 
-export function DashboardClient({ initialStudio, userName, userEmail, linkedTeachers }: Props) {
+export function DashboardClient({ initialStudio, userName, userEmail, linkedTeachers, linkedProducers }: Props) {
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
   );
@@ -510,6 +517,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
 
   const studioRooms = studio?.rooms ?? [];
   const teacherLinks = linkedTeachers ?? [];
+  const producerLinks = linkedProducers ?? [];
   const orderedRooms = useMemo(() => {
     if (!studio?.rooms) return [];
     return [...studio.rooms].sort(
@@ -1825,6 +1833,55 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                           className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
                         >
                           Hoca profiline git
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+                )}
+            </section>
+
+            <section className="mt-6 rounded-3xl border border-black/5 bg-white/80 p-6 shadow-sm backdrop-blur">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Çalışılan Üreticiler</p>
+                  <p className="text-xs text-gray-600">Onaylanan üreticiler burada listelenir.</p>
+                </div>
+              </div>
+
+              {producerLinks.length === 0 ? (
+                <p className="mt-4 text-sm text-gray-600">Henüz bağlı üretici yok.</p>
+              ) : (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {producerLinks.map((producer) => {
+                    const initial = producer.name?.charAt(0)?.toUpperCase() || "?";
+                    return (
+                      <div
+                        key={producer.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 text-sm font-semibold text-gray-700">
+                            {producer.image ? (
+                              <img
+                                src={producer.image}
+                                alt={`${producer.name} profil fotoğrafı`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span>{initial}</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{producer.name}</p>
+                            {producer.email && <p className="text-xs text-gray-600">{producer.email}</p>}
+                          </div>
+                        </div>
+                        <Link
+                          href={`/uretim/${producer.slug}`}
+                          className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
+                        >
+                          Üretici profiline git
                         </Link>
                       </div>
                     );
