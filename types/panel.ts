@@ -18,6 +18,7 @@ export type Pricing = {
   minRate?: string;
   dailyRate?: string;
   hourlyRate?: string;
+  happyHourRate?: string;
 };
 
 export type Equipment = {
@@ -49,7 +50,9 @@ export type Equipment = {
   hasDrumSplash?: boolean;
   drumSplashDetail?: string;
   hasDrumCowbell?: boolean;
+  drumCowbellDetail?: string;
   hasTwinPedal?: boolean;
+  twinPedalDetail?: string;
   micCount: number;
   micDetails: string[];
   guitarAmpCount: number;
@@ -135,6 +138,7 @@ export type Studio = {
   city?: string;
   district?: string;
   address?: string;
+  coverImageUrl?: string | null;
   owner?: string;
   phone?: string;
   email?: string;

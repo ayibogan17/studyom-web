@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 520" width="980" height="520">
+  <title>Linked Double Rack Toms (Shared Holder) SVG</title>
+
+  <defs>
+    <style>
+      .o{
+        fill:none;
+        stroke:#fff;
+        stroke-width:7;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+      .d{
+        fill:none;
+        stroke:#fff;
+        stroke-width:4;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+        opacity:.85;
+      }
+      .l{
+        fill:none;
+        stroke:#fff;
+        stroke-width:3;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+        opacity:.6;
+      }
+      .f{ fill:#fff; }
+    </style>
+  </defs>
+
+  <!-- ===== SHARED TOM HOLDER (BAR + POST) ===== -->
+  <g id="holder">
+    <!-- center post (goes into kick) -->
+    <line class="o" x1="490" y1="450" x2="490" y2="250"/>
+    <circle class="d" cx="490" cy="250" r="10"/>
+
+    <!-- horizontal bar -->
+    <line class="o" x1="330" y1="250" x2="650" y2="250"/>
+
+    <!-- bar collars -->
+    <rect class="d" x="465" y="268" width="50" height="26" rx="10"/>
+    <path class="l" d="M475 281 H505"/>
+
+    <!-- left clamp -->
+    <rect class="d" x="360" y="228" width="55" height="44" rx="10"/>
+    <circle class="f" cx="387" cy="250" r="4" opacity=".85"/>
+
+    <!-- right clamp -->
+    <rect class="d" x="565" y="228" width="55" height="44" rx="10"/>
+    <circle class="f" cx="592" cy="250" r="4" opacity=".85"/>
+
+    <!-- left L-arm -->
+    <path class="o" d="M387 272 L387 310 L355 340"/>
+    <circle class="d" cx="355" cy="340" r="8"/>
+
+    <!-- right L-arm -->
+    <path class="o" d="M592 272 L592 310 L625 340"/>
+    <circle class="d" cx="625" cy="340" r="8"/>
+  </g>
+
+  <!-- ===== LEFT RACK TOM ===== -->
+  <g id="tom-left">
+    <!-- top head -->
+    <ellipse class="o" cx="300" cy="170" rx="135" ry="50"/>
+    <!-- shell -->
+    <path class="o" d="M165 170 V280 C165 315, 435 315, 435 280 V170"/>
+    <!-- bottom rim -->
+    <ellipse class="o" cx="300" cy="280" rx="135" ry="50"/>
+
+    <!-- lugs -->
+    <line class="d" x1="300" y1="185" x2="300" y2="270"/>
+    <line class="d" x1="235" y1="188" x2="235" y2="273"/>
+    <line class="d" x1="365" y1="188" x2="365" y2="273"/>
+
+    <!-- tension hints -->
+    <line class="l" x1="268" y1="185" x2="268" y2="273"/>
+    <line class="l" x1="332" y1="185" x2="332" y2="273"/>
+
+    <!-- mount receiver -->
+    <rect class="d" x="285" y="310" width="30" height="28" rx="8"/>
+    <circle class="f" cx="300" cy="324" r="4" opacity=".85"/>
+
+    <!-- link from L-arm to mount receiver -->
+    <line class="d" x1="355" y1="340" x2="315" y2="324"/>
+  </g>
+
+  <!-- ===== RIGHT RACK TOM ===== -->
+  <g id="tom-right">
+    <!-- top head -->
+    <ellipse class="o" cx="680" cy="170" rx="145" ry="54"/>
+    <!-- shell -->
+    <path class="o" d="M535 170 V290 C535 325, 825 325, 825 290 V170"/>
+    <!-- bottom rim -->
+    <ellipse class="o" cx="680" cy="290" rx="145" ry="54"/>
+
+    <!-- lugs -->
+    <line class="d" x1="680" y1="185" x2="680" y2="280"/>
+    <line class="d" x1="612" y1="188" x2="612" y2="283"/>
+    <line class="d" x1="748" y1="188" x2="748" y2="283"/>
+
+    <!-- tension hints -->
+    <line class="l" x1="646" y1="185" x2="646" y2="283"/>
+    <line class="l" x1="714" y1="185" x2="714" y2="283"/>
+
+    <!-- mount receiver -->
+    <rect class="d" x="665" y="320" width="30" height="28" rx="8"/>
+    <circle class="f" cx="680" cy="334" r="4" opacity=".85"/>
+
+    <!-- link from L-arm to mount receiver -->
+    <line class="d" x1="625" y1="340" x2="665" y2="334"/>
+  </g>
+
+  <!-- ===== SHADOW ===== -->
+  <ellipse cx="490" cy="490" rx="360" ry="18" fill="#fff" opacity=".10"/>
+</svg>

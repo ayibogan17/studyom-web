@@ -25,6 +25,8 @@ model User {
   image     String?
   role      UserRole @default(USER)
   studios   Studio[]
+  studioCalendarBlocksCreated StudioCalendarBlock[] @relation("StudioCalendarBlockCreator")
+  happyHourSlotsCreated      StudioHappyHourSlot[] @relation("StudioHappyHourCreator")
   producerMessagesSent     ProducerMessageRequest[] @relation("ProducerMessageFrom")
   producerMessagesReceived ProducerMessageRequest[] @relation("ProducerMessageTo")
   producerThreadsAsProducer ProducerThread[] @relation("ProducerThreadProducer")
@@ -81,9 +83,11 @@ model VerificationToken {
 model Studio {
   id            String         @id @default(cuid())
   name          String
+  slug          String?        @unique
   city          String?
   district      String?
   address       String?
+  coverImageUrl String?
   ownerEmail    String
   phone         String?
   openingHours  Json?
@@ -91,6 +95,9 @@ model Studio {
   owner         User?          @relation(fields: [ownerEmail], references: [email])
   rooms         Room[]
   notifications Notification[]
+  calendarSettings StudioCalendarSettings?
+  calendarBlocks   StudioCalendarBlock[]
+  happyHourSlots   StudioHappyHourSlot[]
   teacherStudioLinks TeacherStudioLink[]
   producerStudioLinks ProducerStudioLink[]
   ratings       Rating[]
@@ -109,6 +116,7 @@ model Room {
   minRate      String?
   dailyRate    String?
   hourlyRate   String?
+  happyHourRate String?
   equipmentJson Json?
   featuresJson  Json?
   extrasJson    Json?
@@ -116,6 +124,8 @@ model Room {
   studioId     String
   studio       Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
   slots        Slot[]
+  calendarBlocks StudioCalendarBlock[]
+  happyHourSlots StudioHappyHourSlot[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -130,6 +140,58 @@ model Slot {
   room         Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+}
+
+model StudioCalendarSettings {
+  id              String   @id @default(cuid())
+  studioId        String   @unique
+  timezone        String   @default("Europe/Istanbul")
+  slotStepMinutes Int      @default(60)
+  dayCutoffHour   Int      @default(4)
+  happyHourEnabled Boolean @default(false)
+  weeklyHours     Json?
+  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model StudioCalendarBlock {
+  id              String   @id @default(cuid())
+  studioId        String
+  roomId          String
+  startAt         DateTime
+  endAt           DateTime
+  type            String
+  title           String?
+  status          String?
+  note            String?
+  createdByUserId String?
+  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdByUser   User?    @relation("StudioCalendarBlockCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([studioId, roomId, startAt])
+  @@index([roomId, startAt])
+}
+
+model StudioHappyHourSlot {
+  id              String   @id @default(cuid())
+  studioId        String
+  roomId          String
+  startAt         DateTime
+  endAt           DateTime
+  createdByUserId String?
+  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  createdByUser   User?    @relation("StudioHappyHourCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([roomId, startAt, endAt])
+  @@index([studioId, roomId, startAt])
+  @@index([roomId, startAt])
 }
 
 model Notification {

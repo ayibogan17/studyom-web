@@ -37,6 +37,11 @@ export const metadata: Metadata = {
     title: "Stüdyom",
     description: "Şehrindeki prova ve kayıt stüdyoları tek platformda.",
   },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

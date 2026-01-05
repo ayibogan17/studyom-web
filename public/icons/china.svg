@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 760" width="720" height="760">
+  <title>China Cymbal (Large, With Depth) + Stand SVG</title>
+
+  <defs>
+    <style>
+      .o{ fill:none; stroke:#fff; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; }
+      .d{ fill:none; stroke:#fff; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+      .l{ fill:none; stroke:#fff; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; opacity:.6; }
+      .f{ fill:#fff; }
+    </style>
+  </defs>
+
+  <!-- ===== CHINA CYMBAL (large, upturned edge) ===== -->
+  <!-- main dish -->
+  <ellipse class="o" cx="360" cy="170" rx="270" ry="60"/>
+
+  <!-- depth / underside (gives “bowl” feel) -->
+  <ellipse class="d" cx="360" cy="192" rx="250" ry="48"/>
+
+  <!-- upturned "trash" lip (china flange) -->
+  <path class="o" d="M110 170 C150 125, 260 105, 360 105 C460 105, 570 125, 610 170"/>
+  <path class="o" d="M110 170 C150 215, 260 235, 360 235 C460 235, 570 215, 610 170"/>
+
+  <!-- bell -->
+  <ellipse class="d" cx="360" cy="165" rx="55" ry="20"/>
+  <circle class="f" cx="360" cy="152" r="6"/>
+
+  <!-- subtle lathe rings -->
+  <ellipse class="l" cx="360" cy="170" rx="220" ry="50"/>
+  <ellipse class="l" cx="360" cy="170" rx="170" ry="40"/>
+  <ellipse class="l" cx="360" cy="170" rx="120" ry="30"/>
+
+  <!-- felt + wingnut -->
+  <line class="o" x1="360" y1="120" x2="360" y2="260"/>
+  <circle class="d" cx="360" cy="118" r="10"/>
+  <path class="d" d="M348 102 H372"/>
+
+  <!-- ===== STAND (boom for china) ===== -->
+  <!-- boom arm -->
+  <path class="o" d="M360 300 C410 330, 465 365, 520 395"/>
+  <circle class="d" cx="360" cy="300" r="10"/>
+
+  <!-- vertical tube -->
+  <line class="o" x1="340" y1="315" x2="340" y2="540"/>
+
+  <!-- collar -->
+  <rect class="d" x="318" y="415" width="44" height="26" rx="10"/>
+  <path class="l" d="M326 428 H354"/>
+
+  <!-- tripod hub -->
+  <circle class="d" cx="340" cy="540" r="16"/>
+  <circle class="f" cx="340" cy="540" r="6" opacity=".85"/>
+
+  <!-- tripod legs -->
+  <line class="o" x1="340" y1="552" x2="235" y2="670"/>
+  <line class="o" x1="340" y1="552" x2="340" y2="695"/>
+  <line class="o" x1="340" y1="552" x2="445" y2="670"/>
+
+  <!-- feet -->
+  <line class="d" x1="217" y1="684" x2="253" y2="684"/>
+  <line class="d" x1="322" y1="710" x2="358" y2="710"/>
+  <line class="d" x1="427" y1="684" x2="463" y2="684"/>
+
+  <!-- ===== SHADOW ===== -->
+  <ellipse cx="340" cy="735" rx="280" ry="18" fill="#fff" opacity=".10"/>
+</svg>

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default async function SignupPage() {
   const session = await getServerSession(authOptions);
   if (session?.user) {
-    redirect("/onboarding");
+    redirect("/auth/redirect");
   }
 
   return <SignupForm />;

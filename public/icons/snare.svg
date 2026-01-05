@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 720" width="520" height="720">
+  <title>Snare Drum on Stand SVG</title>
+
+  <defs>
+    <style>
+      .o{ fill:none; stroke:#fff; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; }
+      .d{ fill:none; stroke:#fff; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+      .l{ fill:none; stroke:#fff; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; opacity:.6; }
+      .f{ fill:#fff; }
+    </style>
+  </defs>
+
+  <!-- ===== SNARE ===== -->
+  <!-- top head -->
+  <ellipse class="o" cx="260" cy="140" rx="155" ry="56"/>
+
+  <!-- shell -->
+  <path class="o" d="M105 140 V275 C105 315, 415 315, 415 275 V140"/>
+
+  <!-- bottom rim -->
+  <ellipse class="o" cx="260" cy="275" rx="155" ry="56"/>
+
+  <!-- lugs -->
+  <line class="d" x1="260" y1="155" x2="260" y2="260"/>
+  <line class="d" x1="180" y1="160" x2="180" y2="265"/>
+  <line class="d" x1="340" y1="160" x2="340" y2="265"/>
+
+  <!-- tension hints -->
+  <line class="l" x1="220" y1="155" x2="220" y2="265"/>
+  <line class="l" x1="300" y1="155" x2="300" y2="265"/>
+
+  <!-- strainer -->
+  <rect class="d" x="372" y="210" width="30" height="50" rx="7"/>
+  <circle class="f" cx="387" cy="235" r="4" opacity=".85"/>
+
+  <!-- ===== SNARE STAND BASKET ===== -->
+  <!-- basket hub under snare -->
+  <circle class="d" cx="260" cy="330" r="16"/>
+  <circle class="f" cx="260" cy="330" r="6" opacity=".85"/>
+
+  <!-- three basket arms gripping the drum -->
+  <path class="o" d="M260 330 L205 295"/>
+  <path class="o" d="M260 330 L260 292"/>
+  <path class="o" d="M260 330 L315 295"/>
+
+  <!-- rubber tips -->
+  <circle class="d" cx="205" cy="295" r="7"/>
+  <circle class="d" cx="260" cy="292" r="7"/>
+  <circle class="d" cx="315" cy="295" r="7"/>
+
+  <!-- ===== STAND TUBE ===== -->
+  <line class="o" x1="260" y1="346" x2="260" y2="520"/>
+
+  <!-- height collar -->
+  <rect class="d" x="238" y="420" width="44" height="26" rx="10"/>
+  <path class="l" d="M246 433 H274"/>
+
+  <!-- tripod hub -->
+  <circle class="d" cx="260" cy="520" r="16"/>
+  <circle class="f" cx="260" cy="520" r="6" opacity=".85"/>
+
+  <!-- tripod legs -->
+  <line class="o" x1="260" y1="532" x2="185" y2="635"/>
+  <line class="o" x1="260" y1="532" x2="260" y2="660"/>
+  <line class="o" x1="260" y1="532" x2="335" y2="635"/>
+
+  <!-- feet -->
+  <line class="d" x1="170" y1="650" x2="200" y2="650"/>
+  <line class="d" x1="245" y1="675" x2="275" y2="675"/>
+  <line class="d" x1="320" y1="650" x2="350" y2="650"/>
+
+  <!-- ===== SHADOW ===== -->
+  <ellipse cx="260" cy="700" rx="220" ry="16" fill="#fff" opacity=".10"/>
+</svg>

@@ -11,6 +11,7 @@ type AppData = {
   city?: string | null;
   genres?: string[];
   statement?: string | null;
+  bio?: string | null;
   links?: string[];
   galleryUrls?: string[];
   whatsappNumber?: string | null;
@@ -154,6 +155,7 @@ function mapApplicationToProfile(
     typeof data.statement === "string" && data.statement.trim().length > 0
       ? data.statement.trim()
       : "Açıklama eklenmedi.";
+  const bio = typeof data.bio === "string" && data.bio.trim().length > 0 ? data.bio.trim() : "";
   const status = (app.status === "approved" ? "approved" : "pending") as ProducerStatus;
   const slug = buildProducerSlug(displayName, app.id);
   return {
@@ -168,6 +170,7 @@ function mapApplicationToProfile(
     modes,
     genres,
     statement,
+    bio,
     links,
     galleryUrls,
     studiosUsed,

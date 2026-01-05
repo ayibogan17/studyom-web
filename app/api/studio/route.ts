@@ -43,7 +43,9 @@ const defaultEquipment: Equipment = {
   hasDrumSplash: false,
   drumSplashDetail: "",
   hasDrumCowbell: false,
+  drumCowbellDetail: "",
   hasTwinPedal: false,
+  twinPedalDetail: "",
   micCount: 0,
   micDetails: [] as string[],
   guitarAmpCount: 0,
@@ -160,6 +162,28 @@ const pricingToDb = (model: string): PricingModel => {
   }
 };
 
+const parsePriceValue = (value?: string | null) => {
+  if (!value) return null;
+  const raw = value.toString().trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^\d.,]/g, "");
+  if (!cleaned) return null;
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+  if (hasComma && hasDot) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    normalized = cleaned.replace(",", ".");
+  } else if (hasDot) {
+    const parts = cleaned.split(".");
+    const tail = parts[parts.length - 1] ?? "";
+    normalized = parts.length > 1 && tail.length === 3 ? parts.join("") : cleaned;
+  }
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 type StudioWithRelations = PrismaStudio & {
   openingHours?: Prisma.JsonValue | null;
   rooms: (PrismaRoom & {
@@ -175,9 +199,12 @@ type StudioWithRelations = PrismaStudio & {
 };
 
 function mapStudioToResponse(studio: StudioWithRelations) {
+  const openingHoursRaw =
+    studio.openingHours as OpeningHours[] | null | undefined;
   const openingHours =
-    (studio.openingHours as OpeningHours[] | null | undefined) ??
-    defaultOpeningHours;
+    Array.isArray(openingHoursRaw) && openingHoursRaw.length === 7
+      ? openingHoursRaw
+      : defaultOpeningHours;
 
   return {
     id: studio.id,
@@ -185,6 +212,7 @@ function mapStudioToResponse(studio: StudioWithRelations) {
     city: studio.city ?? undefined,
     district: studio.district ?? undefined,
     address: studio.address ?? undefined,
+    coverImageUrl: studio.coverImageUrl ?? undefined,
     ownerEmail: studio.ownerEmail,
     phone: studio.phone ?? undefined,
     openingHours,
@@ -205,6 +233,7 @@ function mapStudioToResponse(studio: StudioWithRelations) {
           minRate: room.minRate ?? undefined,
           dailyRate: room.dailyRate ?? undefined,
           hourlyRate: room.hourlyRate ?? undefined,
+          happyHourRate: room.happyHourRate ?? undefined,
         },
         equipment:
           (room.equipmentJson as Equipment | null | undefined) ??
@@ -284,13 +313,14 @@ export async function PATCH(req: Request) {
     color?: string;
     order?: number;
     _delete?: boolean;
-    pricing?: {
-      model?: string;
-      flatRate?: string;
-      minRate?: string;
-      dailyRate?: string;
-      hourlyRate?: string;
-    };
+      pricing?: {
+        model?: string;
+        flatRate?: string;
+        minRate?: string;
+        dailyRate?: string;
+        hourlyRate?: string;
+        happyHourRate?: string;
+      };
     equipment?: Equipment;
     features?: Features;
     extras?: Extras;
@@ -304,6 +334,7 @@ export async function PATCH(req: Request) {
       district?: string;
       address?: string;
       phone?: string;
+      coverImageUrl?: string | null;
       openingHours?: OpeningHours[];
     };
     application?: z.infer<typeof applicationSchema>;
@@ -328,12 +359,13 @@ export async function PATCH(req: Request) {
   const studioUpdateData: Prisma.StudioUpdateInput = {};
 
   if (body.studio) {
-    const { name, city, district, address, phone, openingHours } = body.studio;
+    const { name, city, district, address, phone, coverImageUrl, openingHours } = body.studio;
     if (name !== undefined) studioUpdateData.name = name;
     if (city !== undefined) studioUpdateData.city = city;
     if (district !== undefined) studioUpdateData.district = district;
     if (address !== undefined) studioUpdateData.address = address;
     if (phone !== undefined) studioUpdateData.phone = phone;
+    if (coverImageUrl !== undefined) studioUpdateData.coverImageUrl = coverImageUrl;
     if (openingHours !== undefined) {
       studioUpdateData.openingHours = (openingHours ?? studio.openingHours ?? defaultOpeningHours) as Prisma.InputJsonValue;
     }
@@ -413,6 +445,55 @@ export async function PATCH(req: Request) {
   }
 
   if (body.rooms?.length) {
+    const existingRooms = await prisma.room.findMany({
+      where: { studioId: studio.id },
+    });
+    const roomById = new Map(existingRooms.map((room) => [room.id, room]));
+
+    const resolveBaseRate = (
+      pricing?: UpdateRoomPayload["pricing"],
+      existing?: PrismaRoom | null,
+    ) => {
+      const model =
+        (pricing?.model ??
+          (existing?.pricingModel ? existing.pricingModel.toLowerCase() : ""))?.toString().toLowerCase() ??
+        "";
+      const pick = (next?: string | null, current?: string | null) =>
+        parsePriceValue(next ?? undefined) ?? parsePriceValue(current ?? undefined);
+      switch (model) {
+        case "daily":
+          return pick(pricing?.dailyRate, existing?.dailyRate) ?? pick(pricing?.hourlyRate, existing?.hourlyRate);
+        case "hourly":
+          return pick(pricing?.hourlyRate, existing?.hourlyRate) ?? pick(pricing?.dailyRate, existing?.dailyRate);
+        case "flat":
+          return pick(pricing?.flatRate, existing?.flatRate);
+        case "variable":
+          return pick(pricing?.minRate, existing?.minRate);
+        default:
+          return (
+            pick(pricing?.hourlyRate, existing?.hourlyRate) ??
+            pick(pricing?.dailyRate, existing?.dailyRate) ??
+            pick(pricing?.flatRate, existing?.flatRate) ??
+            pick(pricing?.minRate, existing?.minRate)
+          );
+      }
+    };
+
+    const resolveHappyRate = (
+      pricing?: UpdateRoomPayload["pricing"],
+      existing?: PrismaRoom | null,
+    ) => parsePriceValue(pricing?.happyHourRate ?? existing?.happyHourRate ?? undefined);
+
+    for (const roomUpdate of body.rooms) {
+      if (roomUpdate._delete) continue;
+      const existing = roomUpdate.id ? roomById.get(roomUpdate.id) ?? null : null;
+      const baseRate = resolveBaseRate(roomUpdate.pricing, existing);
+      const happyRate = resolveHappyRate(roomUpdate.pricing, existing);
+      if (happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9) {
+        return NextResponse.json({ error: "Happy Hour minimum %10 olmalıdır." }, { status: 400 });
+      }
+    }
+
     const maxOrder = await prisma.room.aggregate({
       _max: { order: true },
       where: { studioId: studio.id },
@@ -437,6 +518,7 @@ export async function PATCH(req: Request) {
             minRate: roomUpdate.pricing?.minRate,
             dailyRate: roomUpdate.pricing?.dailyRate,
             hourlyRate: roomUpdate.pricing?.hourlyRate,
+            happyHourRate: roomUpdate.pricing?.happyHourRate,
             equipmentJson: roomUpdate.equipment ?? defaultEquipment,
             featuresJson: roomUpdate.features ?? defaultFeatures,
             extrasJson: roomUpdate.extras ?? defaultExtras,
@@ -463,6 +545,7 @@ export async function PATCH(req: Request) {
           minRate: roomUpdate.pricing?.minRate ?? room.minRate,
           dailyRate: roomUpdate.pricing?.dailyRate ?? room.dailyRate,
           hourlyRate: roomUpdate.pricing?.hourlyRate ?? room.hourlyRate,
+          happyHourRate: roomUpdate.pricing?.happyHourRate ?? room.happyHourRate,
           order: roomUpdate.order ?? room.order,
           equipmentJson: roomUpdate.equipment ?? room.equipmentJson ?? defaultEquipment,
           featuresJson: roomUpdate.features ?? room.featuresJson ?? defaultFeatures,

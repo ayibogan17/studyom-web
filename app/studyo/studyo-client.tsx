@@ -6,15 +6,20 @@ import { Section } from "@/components/design-system/components/shared/section";
 import { FilterBar } from "@/components/design-system/components/shared/filter-bar";
 import { StudioCard } from "@/components/design-system/components/shared/studio-card";
 import { EmptyState } from "@/components/design-system/components/shared/empty-state";
+import { SkeletonCard } from "@/components/design-system/components/shared/skeleton-card";
 import { loadGeo, slugify, type TRGeo } from "@/lib/geo";
 import { buildQueryString, parseFiltersFromSearchParams, type StudioFilters } from "@/lib/filters";
-import type { Equipment, Extras, Features, Pricing } from "@/types/panel";
+import { createStudioSlug } from "@/lib/studio-slug";
+import type { Equipment, Extras, Features, OpeningHours, Pricing } from "@/types/panel";
 
 export type ServerStudio = {
   id: string;
+  slug: string;
   name: string;
   province: string;
   district: string;
+  happyHourEnabled?: boolean;
+  openingHours?: OpeningHours[] | null;
   roomTypes: string[];
   rooms: Array<{
     name: string;
@@ -43,6 +48,8 @@ type StudioRoom = {
 };
 
 type Studio = {
+  id: string;
+  slug: string;
   name: string;
   address: {
     provinceId: string;
@@ -52,9 +59,11 @@ type Studio = {
   };
   roomTypes: string[];
   rooms: StudioRoom[];
+  openingHours: OpeningHours[];
   pricePerHour?: number;
   badges?: string[];
   imageUrl?: string;
+  happyHourEnabled?: boolean;
 };
 
 const roomTypeAliases: Record<string, string> = {
@@ -75,6 +84,15 @@ const normalizeRoomType = (value: string) => {
   const slug = slugify(value);
   return roomTypeAliases[slug] ?? slug;
 };
+
+const defaultOpeningHours: OpeningHours[] = Array.from({ length: 7 }, () => ({
+  open: true,
+  openTime: "10:00",
+  closeTime: "22:00",
+}));
+
+const normalizeOpeningHours = (value?: OpeningHours[] | null) =>
+  Array.isArray(value) && value.length === 7 ? value : defaultOpeningHours;
 
 const defaultEquipment: Equipment = {
   hasDrum: false,
@@ -104,7 +122,9 @@ const defaultEquipment: Equipment = {
   hasDrumSplash: false,
   drumSplashDetail: "",
   hasDrumCowbell: false,
+  drumCowbellDetail: "",
   hasTwinPedal: false,
+  twinPedalDetail: "",
   micCount: 0,
   micDetails: [],
   guitarAmpCount: 0,
@@ -304,7 +324,7 @@ function buildMockStudios(geo: TRGeo): Studio[] {
   ];
 
   return baseStudios
-    .map((studio) => {
+    .map((studio, idx) => {
       const address = pickAddress(geo, studio.province, studio.district);
       if (!address) return null;
       const rooms: StudioRoom[] = studio.roomTypes.map((type, idx) => ({
@@ -319,13 +339,17 @@ function buildMockStudios(geo: TRGeo): Studio[] {
         extras: { ...defaultExtras },
       }));
       return {
+        id: `mock-${idx + 1}`,
+        slug: createStudioSlug(studio.name),
         name: studio.name,
         address,
         roomTypes: studio.roomTypes,
         rooms,
+        openingHours: defaultOpeningHours,
         pricePerHour: studio.price,
         badges: studio.badges,
         imageUrl: studio.imageUrl,
+        happyHourEnabled: false,
       } satisfies Studio;
     })
     .filter(Boolean) as Studio[];
@@ -365,19 +389,25 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
           };
         });
         return {
+          id: studio.id,
+          slug: studio.slug,
           name: studio.name,
           address,
           roomTypes: studio.roomTypes,
           rooms,
+          openingHours: normalizeOpeningHours(studio.openingHours ?? null),
           pricePerHour: studio.pricePerHour,
           badges: studio.badges,
           imageUrl: studio.imageUrl,
+          happyHourEnabled: studio.happyHourEnabled ?? false,
         } satisfies Studio;
       })
       .filter(Boolean) as Studio[];
     return [...buildMockStudios(geo), ...mappedServer];
   }, [geo, serverStudios]);
   const [filters, setFilters] = useState<StudioFilters>(() => parseFiltersFromSearchParams(searchParams));
+  const [availableStudioIds, setAvailableStudioIds] = useState<string[] | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   useEffect(() => {
     const next = parseFiltersFromSearchParams(searchParams);
@@ -397,18 +427,69 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
     });
   }, [filters.advanced]);
 
+  useEffect(() => {
+    if (!filters.date || !filters.time) {
+      setAvailableStudioIds(null);
+      setAvailabilityLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+    params.set("date", filters.date);
+    params.set("time", filters.time);
+    params.set("duration", String(filters.duration ?? 60));
+    if (filters.province) params.set("il", filters.province);
+    if (filters.district) params.set("ilce", filters.district);
+    if (filters.roomType) params.set("oda", filters.roomType);
+
+    setAvailabilityLoading(true);
+    fetch(`/api/studio/availability?${params.toString()}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        const ids = Array.isArray(data?.studioIds) ? data.studioIds : [];
+        setAvailableStudioIds(ids);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        console.error("availability fetch failed", err);
+        setAvailableStudioIds([]);
+      })
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setAvailabilityLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [filters.date, filters.time, filters.duration, filters.district, filters.province, filters.roomType]);
+
+  const hasAvailabilityFilter = Boolean(filters.date && filters.time);
+  const availabilitySet = useMemo(() => new Set(availableStudioIds ?? []), [availableStudioIds]);
+  const availabilityPending = hasAvailabilityFilter && availableStudioIds === null;
+
   const filteredStudios = useMemo(() => {
     const advanced = filters.advanced ?? {};
 
-    if (!filters.province && !filters.roomType && !hasAdvancedFilters) return [];
+    if (hasAvailabilityFilter && availableStudioIds === null) return [];
+    if (
+      !filters.province &&
+      !filters.roomType &&
+      !hasAdvancedFilters &&
+      !hasAvailabilityFilter &&
+      !filters.happyHourOnly
+    ) {
+      return [];
+    }
 
     return studios.filter((studio) => {
+      if (hasAvailabilityFilter && !availabilitySet.has(studio.id)) return false;
       if (filters.province && studio.address.provinceId !== filters.province) return false;
       if (filters.district && studio.address.districtId !== filters.district) return false;
       if (filters.roomType) {
         const normalized = studio.roomTypes.map((type) => normalizeRoomType(type));
         if (!normalized.includes(filters.roomType)) return false;
       }
+      if (filters.happyHourOnly && !studio.happyHourEnabled) return false;
 
       if (!hasAdvancedFilters) return true;
 
@@ -580,7 +661,7 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
 
       return true;
     });
-  }, [filters, hasAdvancedFilters, studios]);
+  }, [availableStudioIds, availabilitySet, filters, hasAdvancedFilters, hasAvailabilityFilter, studios]);
 
   const sortedStudios = useMemo(() => {
     if (!filters.sort) return filteredStudios;
@@ -594,7 +675,8 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
     });
   }, [filteredStudios, filters.sort]);
 
-  const showPrompt = !filters.province && !filters.roomType && !hasAdvancedFilters;
+  const showPrompt =
+    !filters.province && !filters.roomType && !hasAdvancedFilters && !hasAvailabilityFilter && !filters.happyHourOnly;
 
   const handleFiltersChange = (next: StudioFilters) => {
     setFilters(next);
@@ -621,7 +703,9 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
             <FilterBar geo={geo} defaults={filters} onChange={handleFiltersChange} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {showPrompt ? (
+            {availabilityPending || availabilityLoading ? (
+              Array.from({ length: 6 }).map((_, idx) => <SkeletonCard key={`studio-skeleton-${idx}`} />)
+            ) : showPrompt ? (
               <div className="sm:col-span-2 xl:col-span-3">
                 <EmptyState title="Önce il veya oda türü seçin" description="Filtre seçerek listeyi görüntüleyin." />
               </div>
@@ -632,13 +716,15 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
             ) : (
               sortedStudios.map((studio) => (
                 <StudioCard
-                  key={`${studio.address.provinceId}-${studio.address.districtId}-${studio.name}`}
+                  key={studio.id}
                   name={studio.name}
                   city={studio.address.provinceName}
                   district={studio.address.districtName}
                   price={studio.pricePerHour ? `₺${studio.pricePerHour}/saat` : undefined}
                   badges={studio.badges}
                   imageUrl={studio.imageUrl}
+                  happyHourActive={studio.happyHourEnabled}
+                  href={`/studyo/${studio.slug}`}
                 />
               ))
             )}

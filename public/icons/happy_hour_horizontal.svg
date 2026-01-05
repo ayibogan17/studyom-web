@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" width="900" height="360" role="img" aria-label="Happy Hour horizontal badge">
+  <title>Happy Hour</title>
+
+  <defs>
+    <style>
+      .outer{
+        fill:none;
+        stroke:#111;
+        stroke-width:18;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+      .inner{
+        fill:none;
+        stroke:#111;
+        stroke-width:5;
+        opacity:.25;
+      }
+      .star{
+        fill:#111;
+      }
+      text{
+        fill:#111;
+        font-family: Impact, Haettenschweiler, 'Arial Black', sans-serif;
+        font-weight:900;
+        text-anchor:middle;
+      }
+    </style>
+  </defs>
+
+  <rect class="outer" x="20" y="20" rx="48" ry="48" width="860" height="320"/>
+  <rect class="inner" x="48" y="48" rx="36" ry="36" width="804" height="264"/>
+
+  <path class="star" d="M120 160 L132 190 L166 194 L140 216 L148 250 L120 232 L92 250 L100 216 L74 194 L108 190 Z"/>
+  <path class="star" d="M780 160 L792 190 L826 194 L800 216 L808 250 L780 232 L752 250 L760 216 L734 194 L768 190 Z"/>
+
+  <text x="450" y="160" font-size="96">HAPPY</text>
+  <text x="450" y="260" font-size="108">HOUR!</text>
+</svg>

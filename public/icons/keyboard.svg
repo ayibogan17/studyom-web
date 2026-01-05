@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320">
+  <title>61-Key Keyboard (SVG)</title>
+
+  <defs>
+    <style>
+      :root { --ink:#fff; }
+      .s  { fill:none; stroke:var(--ink); stroke-width:8; stroke-linecap:round; stroke-linejoin:round; }
+      .s2 { fill:none; stroke:var(--ink); stroke-width:4; stroke-linecap:round; stroke-linejoin:round; opacity:.95; }
+      .w  { fill:#fff; }
+      .b  { fill:#111; }
+      .soft { opacity:.22; }
+    </style>
+
+    <!-- Reusable: one octave black-key offsets (in white-key units) -->
+    <!-- Pattern over 7 whites: C D E F G A B -->
+    <!-- Blacks: C# (0.72), D# (1.72), F# (3.72), G# (4.72), A# (5.72) -->
+  </defs>
+
+  <!-- Keyboard body -->
+  <rect x="40" y="40" width="1120" height="240" rx="28" class="s"/>
+  <rect x="70" y="70" width="1060" height="180" rx="18" class="s2" opacity=".6"/>
+
+  <!-- Top panel (optional controls hint) -->
+  <rect x="80" y="55" width="1040" height="45" rx="14" class="s2" opacity=".7"/>
+  <circle cx="110" cy="78" r="7" class="b" opacity=".7"/>
+  <circle cx="135" cy="78" r="7" class="b" opacity=".35"/>
+  <rect x="1020" y="70" width="80" height="16" rx="8" class="s2" opacity=".6"/>
+
+  <!-- Keybed frame -->
+  <rect x="80" y="110" width="1040" height="150" rx="14" class="s2"/>
+
+  <!-- Geometry -->
+  <!-- 61 keys = 36 white + 25 black -->
+  <!-- White key width = 28, height = 140 -->
+  <!-- Black key width = 18, height = 90 -->
+  <!-- Keybed origin -->
+  <g id="keys" transform="translate(90,120)">
+    <!-- White keys (36) -->
+    <!-- Total white span = 36*28 = 1008 -->
+    <g id="white">
+      <!-- draw each white key as a rect with thin strokes -->
+      <!-- x = i*28 -->
+      <!-- height 140 -->
+      <!-- Note: fill white, stroke via .s2 -->
+      <!-- Generate manually with repetitive rectangles -->
+      <rect class="w s2" x="0"   y="0" width="28" height="140"/>
+      <rect class="w s2" x="28"  y="0" width="28" height="140"/>
+      <rect class="w s2" x="56"  y="0" width="28" height="140"/>
+      <rect class="w s2" x="84"  y="0" width="28" height="140"/>
+      <rect class="w s2" x="112" y="0" width="28" height="140"/>
+      <rect class="w s2" x="140" y="0" width="28" height="140"/>
+      <rect class="w s2" x="168" y="0" width="28" height="140"/>
+
+      <rect class="w s2" x="196" y="0" width="28" height="140"/>
+      <rect class="w s2" x="224" y="0" width="28" height="140"/>
+      <rect class="w s2" x="252" y="0" width="28" height="140"/>
+      <rect class="w s2" x="280" y="0" width="28" height="140"/>
+      <rect class="w s2" x="308" y="0" width="28" height="140"/>
+      <rect class="w s2" x="336" y="0" width="28" height="140"/>
+      <rect class="w s2" x="364" y="0" width="28" height="140"/>
+
+      <rect class="w s2" x="392" y="0" width="28" height="140"/>
+      <rect class="w s2" x="420" y="0" width="28" height="140"/>
+      <rect class="w s2" x="448" y="0" width="28" height="140"/>
+      <rect class="w s2" x="476" y="0" width="28" height="140"/>
+      <rect class="w s2" x="504" y="0" width="28" height="140"/>
+      <rect class="w s2" x="532" y="0" width="28" height="140"/>
+      <rect class="w s2" x="560" y="0" width="28" height="140"/>
+
+      <rect class="w s2" x="588" y="0" width="28" height="140"/>
+      <rect class="w s2" x="616" y="0" width="28" height="140"/>
+      <rect class="w s2" x="644" y="0" width="28" height="140"/>
+      <rect class="w s2" x="672" y="0" width="28" height="140"/>
+      <rect class="w s2" x="700" y="0" width="28" height="140"/>
+      <rect class="w s2" x="728" y="0" width="28" height="140"/>
+      <rect class="w s2" x="756" y="0" width="28" height="140"/>
+
+      <rect class="w s2" x="784" y="0" width="28" height="140"/>
+      <rect class="w s2" x="812" y="0" width="28" height="140"/>
+      <rect class="w s2" x="840" y="0" width="28" height="140"/>
+      <rect class="w s2" x="868" y="0" width="28" height="140"/>
+      <rect class="w s2" x="896" y="0" width="28" height="140"/>
+      <rect class="w s2" x="924" y="0" width="28" height="140"/>
+      <rect class="w s2" x="952" y="0" width="28" height="140"/>
+      <rect class="w s2" x="980" y="0" width="28" height="140"/>
+    </g>
+
+    <!-- Black keys -->
+    <!-- Over 36 whites starting at C:
+         5 full octaves (35 whites) + 1 extra white (C) => 25 blacks total.
+         Place blacks for each full octave (5 * 5 = 25), none for the final extra C.
+    -->
+    <g id="black">
+      <!-- Helper values -->
+      <!-- whiteW=28, blackW=18, blackH=90 -->
+      <!-- base offsets in white units: 0.72, 1.72, 3.72, 4.72, 5.72 -->
+      <!-- convert to px: x = (octaveStart + offset)*28 - blackW/2 -->
+      <!-- blackW/2 = 9 -->
+
+      <!-- Octave 1 (whites 0..6) start=0 -->
+      <rect class="b" x="11.16"  y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="39.16"  y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="95.16"  y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="123.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="151.16" y="0" width="18" height="90" rx="4"/>
+
+      <!-- Octave 2 start=7 whites => 7*28=196 -->
+      <rect class="b" x="207.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="235.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="291.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="319.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="347.16" y="0" width="18" height="90" rx="4"/>
+
+      <!-- Octave 3 start=14 whites => 392 -->
+      <rect class="b" x="403.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="431.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="487.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="515.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="543.16" y="0" width="18" height="90" rx="4"/>
+
+      <!-- Octave 4 start=21 whites => 588 -->
+      <rect class="b" x="599.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="627.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="683.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="711.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="739.16" y="0" width="18" height="90" rx="4"/>
+
+      <!-- Octave 5 start=28 whites => 784 -->
+      <rect class="b" x="795.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="823.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="879.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="907.16" y="0" width="18" height="90" rx="4"/>
+      <rect class="b" x="935.16" y="0" width="18" height="90" rx="4"/>
+    </g>
+
+    <!-- subtle key shadow line -->
+    <path class="s3 soft" d="M0 92 H1008"/>
+  </g>
+
+  <!-- Front lip -->
+  <path class="s2 soft" d="M80 252 H1120"/>
+</svg>

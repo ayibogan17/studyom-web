@@ -13,6 +13,7 @@ export type Teacher = {
   level: string;
   lessonTypes: LessonType[];
   hourlyRateMin?: number | null;
+  statement?: string;
   bio: string;
   portfolioUrls: string[];
   studiosUsed?: string[];

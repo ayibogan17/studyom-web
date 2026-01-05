@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
+import { buildUniqueStudioSlug } from "@/lib/studio-slug";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
+import type { OpeningHours } from "@/types/panel";
 import { StudyoClientPage, type ServerStudio } from "./studyo-client";
 
 export const metadata: Metadata = {
@@ -23,8 +25,12 @@ export default async function StudioListPage() {
     select: {
       id: true,
       name: true,
+      slug: true,
       city: true,
       district: true,
+      coverImageUrl: true,
+      openingHours: true,
+      calendarSettings: { select: { happyHourEnabled: true } },
       rooms: {
         orderBy: { order: "asc" },
         select: {
@@ -43,6 +49,26 @@ export default async function StudioListPage() {
       },
     },
   });
+
+  const usedSlugs = new Set(studios.map((studio) => studio.slug).filter((slug): slug is string => Boolean(slug)));
+  const missingSlugs: Array<{ id: string; slug: string }> = [];
+  const studioSlugMap = new Map<string, string>();
+
+  studios.forEach((studio) => {
+    let slug = studio.slug;
+    if (!slug) {
+      slug = buildUniqueStudioSlug(studio.name, usedSlugs);
+      usedSlugs.add(slug);
+      missingSlugs.push({ id: studio.id, slug });
+    }
+    studioSlugMap.set(studio.id, slug);
+  });
+
+  if (missingSlugs.length) {
+    await prisma.$transaction(
+      missingSlugs.map((item) => prisma.studio.update({ where: { id: item.id }, data: { slug: item.slug } })),
+    );
+  }
 
   const extractCoverImage = (value: unknown): string | null => {
     if (Array.isArray(value)) {
@@ -81,9 +107,11 @@ export default async function StudioListPage() {
       ),
     );
     const coverImage =
+      studio.coverImageUrl ??
       studio.rooms
         .map((room) => extractCoverImage(room.imagesJson))
-        .find((img) => typeof img === "string" && img.length > 0) ?? undefined;
+        .find((img) => typeof img === "string" && img.length > 0) ??
+      undefined;
     const numericRates = studio.rooms
       .map((room) => [room.hourlyRate, room.flatRate])
       .flat()
@@ -98,9 +126,12 @@ export default async function StudioListPage() {
 
     return {
       id: studio.id,
+      slug: studioSlugMap.get(studio.id) ?? studio.slug ?? buildUniqueStudioSlug(studio.name, usedSlugs),
       name: studio.name,
       province: studio.city ?? "",
       district: studio.district ?? "",
+      openingHours: (studio.openingHours as OpeningHours[] | null | undefined) ?? null,
+      happyHourEnabled: studio.calendarSettings?.happyHourEnabled ?? false,
       roomTypes,
       rooms: studio.rooms.map((room) => ({
         name: room.name,

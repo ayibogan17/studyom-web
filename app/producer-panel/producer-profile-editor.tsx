@@ -142,6 +142,7 @@ type Props = {
     years: string;
     projects: string;
     statement: string;
+    bio: string;
   };
 };
 
@@ -156,6 +157,7 @@ export function ProducerProfileEditor({ initial }: Props) {
   const [years, setYears] = useState<string>(initial.years);
   const [projects, setProjects] = useState<string>(initial.projects);
   const [statement, setStatement] = useState<string>(initial.statement);
+  const [bio, setBio] = useState<string>(initial.bio);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -196,6 +198,7 @@ export function ProducerProfileEditor({ initial }: Props) {
           years: years.trim(),
           projects: projects.trim(),
           statement: statement.trim(),
+          bio: bio.trim(),
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -406,16 +409,31 @@ export function ProducerProfileEditor({ initial }: Props) {
       </Card>
 
       <Card className="space-y-3 p-6">
-        <p className="text-sm font-semibold text-[var(--color-primary)]">Kısa açıklama</p>
+        <p className="text-sm font-semibold text-[var(--color-primary)]">Kısa Açıklama</p>
         <textarea
           value={statement}
           onChange={(e) => setStatement(e.target.value)}
           rows={4}
+          maxLength={200}
           disabled={locked}
           className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-          placeholder="Kısaca üretim yaklaşımını anlat"
+          placeholder="Buraya yazdıklarınız /Üretim sayfasındaki önizlemenizde gözükecektir. Kısaca yeteneklerinizden ve kendinizden bahsedin. Bu kısımda fiyatlandırmadan bahsetmeyin."
         />
-        <p className="text-xs text-[var(--color-muted)]">{statement.trim().length} / 400</p>
+        <p className="text-xs text-[var(--color-muted)]">{statement.trim().length} / 200</p>
+      </Card>
+
+      <Card className="space-y-3 p-6">
+        <p className="text-sm font-semibold text-[var(--color-primary)]">Biyografi</p>
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={6}
+          maxLength={1500}
+          disabled={locked}
+          className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+          placeholder="Burada kendinizden, portföyünüzden, iş ortamınızdan, ekipmanınızdan; uygun gördüğünüz tüm bilgilerden bahsedebilirsiniz. Ücretlendirmeyi kalite standartları açısından müşteri ile özelde konuşmanız ÖNERİLİR, ancak uygun görürseniz buraya da yazabilirsiniz."
+        />
+        <p className="text-xs text-[var(--color-muted)]">{bio.trim().length} / 1500</p>
       </Card>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

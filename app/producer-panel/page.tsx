@@ -26,6 +26,7 @@ type ProducerApplicationData = {
   city?: string | null;
   genres?: string[];
   statement?: string | null;
+  bio?: string | null;
   links?: string[];
   galleryUrls?: string[];
   projects?: string | null;
@@ -149,6 +150,7 @@ export default async function ProducerPanelPage() {
   const price = typeof data.price === "string" && data.price.trim() ? data.price : "Belirtilmedi";
   const statement =
     typeof data.statement === "string" && data.statement.trim() ? data.statement.trim() : "Belirtilmedi";
+  const bio = typeof data.bio === "string" && data.bio.trim() ? data.bio.trim() : "";
   const years = typeof data.years === "string" && data.years.trim() ? data.years : "Belirtilmedi";
   const projects =
     typeof data.projects === "string" && data.projects.trim() ? data.projects : "Belirtilmedi";
@@ -245,6 +247,7 @@ export default async function ProducerPanelPage() {
               years: years === "Belirtilmedi" ? "" : years,
               projects: projects === "Belirtilmedi" ? "" : projects,
               statement: statement === "Belirtilmedi" ? "" : statement,
+              bio,
             }}
           />
         </TeacherPanelSection>

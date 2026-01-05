@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <title>Guitar Amp (SVG)</title>
+  <defs>
+    <style>
+      :root { --ink:#fff; }
+      .s  { fill:none; stroke:var(--ink); stroke-width:10; stroke-linecap:round; stroke-linejoin:round; }
+      .s2 { fill:none; stroke:var(--ink); stroke-width:6;  stroke-linecap:round; stroke-linejoin:round; }
+      .s3 { fill:none; stroke:var(--ink); stroke-width:3;  stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+      .f  { fill:var(--ink); }
+      .soft { opacity:.25; }
+    </style>
+  </defs>
+
+  <rect x="120" y="120" width="560" height="380" rx="36" class="s"/>
+  <rect x="150" y="150" width="500" height="320" rx="28" class="s2"/>
+
+  <rect x="170" y="165" width="460" height="80" rx="18" class="s2"/>
+  <path class="s3 soft" d="M190 205 H610"/>
+
+  <path class="s2" d="M300 115 C300 80, 500 80, 500 115"/>
+  <path class="s3" d="M320 115 C320 92, 480 92, 480 115"/>
+
+  <g>
+    <circle cx="245" cy="205" r="18" class="s2"/>
+    <path class="s3" d="M245 205 L245 190"/>
+    <circle cx="305" cy="205" r="18" class="s2"/>
+    <path class="s3" d="M305 205 L317 195"/>
+    <circle cx="365" cy="205" r="18" class="s2"/>
+    <path class="s3" d="M365 205 L350 198"/>
+    <circle cx="425" cy="205" r="18" class="s2"/>
+    <path class="s3" d="M425 205 L425 190"/>
+    <circle cx="485" cy="205" r="18" class="s2"/>
+    <path class="s3" d="M485 205 L497 195"/>
+    <circle cx="545" cy="205" r="18" class="s2"/>
+    <path class="s3" d="M545 205 L530 198"/>
+  </g>
+
+  <g>
+    <rect x="585" y="182" width="24" height="10" rx="5" class="s3"/>
+    <circle cx="600" cy="225" r="6" class="f"/>
+    <circle cx="575" cy="225" r="6" class="f" opacity=".35"/>
+  </g>
+
+  <g>
+    <circle cx="205" cy="235" r="10" class="s3"/>
+    <circle cx="205" cy="235" r="4" class="f"/>
+  </g>
+
+  <rect x="170" y="265" width="460" height="195" rx="18" class="s2"/>
+
+  <g class="soft">
+    <path class="s3" d="M175 455 L350 270"/>
+    <path class="s3" d="M210 460 L385 270"/>
+    <path class="s3" d="M245 460 L420 270"/>
+    <path class="s3" d="M280 460 L455 270"/>
+    <path class="s3" d="M315 460 L490 270"/>
+    <path class="s3" d="M350 460 L525 270"/>
+    <path class="s3" d="M385 460 L560 270"/>
+    <path class="s3" d="M420 460 L595 270"/>
+    <path class="s3" d="M455 460 L630 270"/>
+
+    <path class="s3" d="M175 275 L350 460"/>
+    <path class="s3" d="M210 270 L385 460"/>
+    <path class="s3" d="M245 270 L420 460"/>
+    <path class="s3" d="M280 270 L455 460"/>
+    <path class="s3" d="M315 270 L490 460"/>
+    <path class="s3" d="M350 270 L525 460"/>
+    <path class="s3" d="M385 270 L560 460"/>
+    <path class="s3" d="M420 270 L595 460"/>
+    <path class="s3" d="M455 270 L630 455"/>
+  </g>
+
+  <g class="soft">
+    <circle cx="300" cy="365" r="70" class="s3"/>
+    <circle cx="500" cy="365" r="70" class="s3"/>
+    <circle cx="300" cy="365" r="22" class="s3"/>
+    <circle cx="500" cy="365" r="22" class="s3"/>
+  </g>
+
+  <rect x="330" y="445" width="140" height="36" rx="10" class="s2"/>
+  <path class="s3" d="M352 463 H448"/>
+
+  <path class="s2" d="M150 165 L150 150 L165 150"/>
+  <path class="s2" d="M635 150 L650 150 L650 165"/>
+  <path class="s2" d="M150 470 L150 485 L165 485"/>
+  <path class="s2" d="M650 470 L650 485 L635 485"/>
+
+  <g>
+    <path class="s2" d="M200 505 L185 540"/>
+    <path class="s2" d="M600 505 L615 540"/>
+    <ellipse cx="185" cy="545" rx="18" ry="7" class="f" opacity=".25"/>
+    <ellipse cx="615" cy="545" rx="18" ry="7" class="f" opacity=".25"/>
+  </g>
+</svg>

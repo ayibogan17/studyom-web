@@ -187,7 +187,7 @@ export function SignupForm() {
 
     if (values.method === "google") {
       try {
-        const res = await signIn("google", { callbackUrl: "/onboarding", redirect: true });
+        const res = await signIn("google", { callbackUrl: "/profile", redirect: true });
         if (res?.error) {
           setStatus("Google ile giriş başarısız. Tekrar deneyin.");
         }
@@ -233,7 +233,8 @@ export function SignupForm() {
         setStatus(msg);
         return;
       }
-      setStatus("Kayıt tamamlandı. E-posta doğrulaması için mail gönderdik. Doğruladıktan sonra giriş yapabilirsiniz.");
+      setStatus("Kayıt tamamlandı. Giriş sayfasına yönlendiriliyorsunuz.");
+      window.location.assign("/login");
       return;
     } catch (err) {
       console.error(err);

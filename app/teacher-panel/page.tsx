@@ -26,6 +26,7 @@ type TeacherApplicationData = {
   languages?: string[];
   price?: string | null;
   statement?: string | null;
+  bio?: string | null;
   links?: string[];
   galleryUrls?: string[];
   years?: string | null;
@@ -116,6 +117,7 @@ export default async function TeacherPanelPage() {
   const city = typeof data.city === "string" ? data.city : dbUser.city || null;
   const price = typeof data.price === "string" && data.price.trim() ? data.price : "";
   const statement = typeof data.statement === "string" && data.statement.trim() ? data.statement.trim() : "";
+  const bio = typeof data.bio === "string" && data.bio.trim() ? data.bio.trim() : "";
   const years = typeof data.years === "string" && data.years.trim() ? data.years : "";
   const students = typeof data.students === "string" && data.students.trim() ? data.students : "";
   const whatsappNumber = typeof data.whatsappNumber === "string" ? data.whatsappNumber : "";
@@ -218,6 +220,7 @@ export default async function TeacherPanelPage() {
               languages,
               price,
               statement,
+              bio,
               links,
               years,
               students,

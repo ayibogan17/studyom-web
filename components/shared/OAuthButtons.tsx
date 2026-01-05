@@ -14,7 +14,7 @@ type OAuthButtonsProps = {
 export function OAuthButtons({
   provider = "google",
   label = "Google ile giriş yap",
-  callbackUrl = "/onboarding",
+  callbackUrl = "/auth/redirect",
   className,
 }: OAuthButtonsProps) {
   return (

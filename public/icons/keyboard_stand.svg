@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <title>Keyboard Stand (X-Style) — SVG</title>
+  <defs>
+    <style>
+      :root { --ink:#fff; }
+      .s  { fill:none; stroke:var(--ink); stroke-width:14; stroke-linecap:round; stroke-linejoin:round; }
+      .s2 { fill:none; stroke:var(--ink); stroke-width:8;  stroke-linecap:round; stroke-linejoin:round; opacity:.95; }
+      .s3 { fill:none; stroke:var(--ink); stroke-width:4;  stroke-linecap:round; stroke-linejoin:round; opacity:.7; }
+      .f  { fill:var(--ink); }
+      .soft { opacity:.2; }
+    </style>
+  </defs>
+
+  <!-- Top arms -->
+  <g id="top-arms">
+    <path class="s" d="M235 160 H355"/>
+    <path class="s" d="M445 160 H565"/>
+    <!-- rubber caps -->
+    <path class="s2" d="M215 160 h25"/>
+    <path class="s2" d="M560 160 h25"/>
+  </g>
+
+  <!-- Main X legs -->
+  <g id="legs">
+    <!-- left-to-right leg -->
+    <path class="s" d="M240 165 L560 500"/>
+    <!-- right-to-left leg -->
+    <path class="s" d="M560 165 L240 500"/>
+  </g>
+
+  <!-- Center hinge / clutch -->
+  <g id="hinge">
+    <circle cx="400" cy="335" r="34" class="s2"/>
+    <circle cx="400" cy="335" r="10" class="f" opacity=".85"/>
+    <!-- adjustment teeth hint -->
+    <path class="s3 soft" d="M385 318 L372 305"/>
+    <path class="s3 soft" d="M415 318 L428 305"/>
+    <path class="s3 soft" d="M382 352 L368 366"/>
+    <path class="s3 soft" d="M418 352 L432 366"/>
+  </g>
+
+  <!-- Lower spread / stabilizer (optional bar) -->
+  <g id="stabilizer" class="soft">
+    <path class="s3" d="M285 455 H515"/>
+  </g>
+
+  <!-- Feet -->
+  <g id="feet">
+    <path class="s2" d="M220 515 h60"/>
+    <path class="s2" d="M520 515 h60"/>
+
+    <path class="s2" d="M220 150 h50"/>
+    <path class="s2" d="M530 150 h50"/>
+  </g>
+
+  <!-- Floor shadow -->
+  <ellipse cx="400" cy="535" rx="250" ry="18" fill="#000" opacity=".10"/>
+</svg>

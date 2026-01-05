@@ -67,7 +67,6 @@ export default function NotificationsClient({ items, studioRequests, producerReq
     return rows.filter((item) => item.status === "read");
   }, [rows, filter]);
 
-  const reservationItems = filteredItems.filter((item) => item.kind === "reservation");
   const leadItems = filteredItems.filter((item) => item.kind !== "reservation");
 
   const toggleItem = (id: string) => {
@@ -147,7 +146,7 @@ export default function NotificationsClient({ items, studioRequests, producerReq
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Bildirimler</h1>
           <p className="text-sm text-[var(--color-muted)]">
-            Lead ve rezervasyon isteklerini burada görürsün.
+            Lead ve başvuruları burada görürsün.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -172,69 +171,6 @@ export default function NotificationsClient({ items, studioRequests, producerReq
       </div>
 
       <div className="grid gap-6">
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Rezervasyon istekleri</h2>
-            <Badge variant="muted">{reservationItems.length}</Badge>
-          </div>
-          {reservationItems.length === 0 ? (
-            <p className="text-sm text-[var(--color-muted)]">Henüz rezervasyon isteği yok.</p>
-          ) : (
-            <div className="space-y-3">
-              {reservationItems.map((item) => {
-                const isOpen = openItems[item.id];
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3"
-                    onClick={() => toggleItem(item.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") toggleItem(item.id);
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
-                        {item.title} — {item.subtitle}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
-                        <Badge
-                          variant={item.status === "read" ? "outline" : "default"}
-                          className={cn(item.status === "read" ? "" : "bg-[var(--color-warning)] text-white")}
-                        >
-                          {item.status === "read" ? "Okundu" : "Okunmadı"}
-                        </Badge>
-                        <span>{new Date(item.createdAt).toLocaleDateString("tr-TR")}</span>
-                      </div>
-                    </div>
-                    {isOpen && (
-                      <div className="mt-2 space-y-2">
-                        <p className="text-sm text-[var(--color-primary)]">{item.message}</p>
-                        {item.status === "unread" && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="h-8 px-3 text-xs"
-                            disabled={savingId === item.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              markRead(item);
-                            }}
-                          >
-                            Okundu işaretle
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
         <Card className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-[var(--color-primary)]">Hoca stüdyo talepleri</h2>

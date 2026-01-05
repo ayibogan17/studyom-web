@@ -58,7 +58,7 @@ export function LoginForm() {
     setLoading(true);
     setStatus(null);
     const callbackUrl =
-      typeof window !== "undefined" ? `${window.location.origin}/profile` : "/profile";
+      typeof window !== "undefined" ? `${window.location.origin}/auth/redirect` : "/auth/redirect";
     try {
       const res = await signIn("credentials", {
         email: values.email,

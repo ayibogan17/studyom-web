@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 680" width="860" height="680">
+  <title>Modern 2x12 Bass Cabinet (SVG)</title>
+  <defs>
+    <style>
+      :root { --ink:#fff; }
+      .s  { fill:none; stroke:var(--ink); stroke-width:10; stroke-linecap:round; stroke-linejoin:round; }
+      .s2 { fill:none; stroke:var(--ink); stroke-width:6;  stroke-linecap:round; stroke-linejoin:round; }
+      .s3 { fill:none; stroke:var(--ink); stroke-width:3;  stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+      .f  { fill:var(--ink); }
+      .soft { opacity:.22; }
+    </style>
+  </defs>
+
+  <rect x="150" y="70" width="560" height="560" rx="20" class="s"/>
+  <rect x="178" y="110" width="504" height="492" rx="16" class="s2"/>
+
+  <g>
+    <rect x="162" y="250" width="34" height="170" rx="12" class="s2"/>
+    <path class="s3" d="M179 280 v110"/>
+    <rect x="664" y="250" width="34" height="170" rx="12" class="s2"/>
+    <path class="s3" d="M681 280 v110"/>
+  </g>
+
+  <rect x="190" y="88" width="480" height="60" rx="14" class="s2"/>
+  <path class="s3 soft" d="M210 118 H650"/>
+  <circle cx="610" cy="118" r="6" class="f"/>
+  <circle cx="635" cy="118" r="6" class="f" opacity=".35"/>
+  <rect x="555" y="105" width="34" height="10" rx="5" class="s3"/>
+
+  <rect x="205" y="170" width="470" height="430" rx="16" class="s2"/>
+
+  <g>
+    <rect x="220" y="182" width="90" height="26" rx="13" class="s2"/>
+    <rect x="570" y="182" width="90" height="26" rx="13" class="s2"/>
+    <path class="s3 soft" d="M230 195 H300"/>
+    <path class="s3 soft" d="M580 195 H650"/>
+  </g>
+
+  <g id="spkTop">
+    <circle cx="440" cy="320" r="120" class="s2"/>
+    <circle cx="440" cy="320" r="95" class="s3 soft"/>
+    <circle cx="440" cy="320" r="36" class="s3 soft"/>
+    <path class="s3 soft" d="M440 200 L440 440"/>
+    <path class="s3 soft" d="M320 320 L560 320"/>
+    <path class="s3 soft" d="M355 245 L525 395"/>
+    <path class="s3 soft" d="M525 245 L355 395"/>
+  </g>
+
+  <g id="spkBottom">
+    <circle cx="440" cy="500" r="120" class="s2"/>
+    <circle cx="440" cy="500" r="95" class="s3 soft"/>
+    <circle cx="440" cy="500" r="36" class="s3 soft"/>
+    <path class="s3 soft" d="M440 380 L440 620"/>
+    <path class="s3 soft" d="M320 500 L560 500"/>
+    <path class="s3 soft" d="M355 425 L525 575"/>
+    <path class="s3 soft" d="M525 425 L355 575"/>
+  </g>
+
+  <g class="soft">
+    <path class="s3" d="M215 595 L360 170"/>
+    <path class="s3" d="M245 600 L390 170"/>
+    <path class="s3" d="M275 600 L420 170"/>
+    <path class="s3" d="M305 600 L450 170"/>
+    <path class="s3" d="M335 600 L480 170"/>
+    <path class="s3" d="M365 600 L510 170"/>
+    <path class="s3" d="M395 600 L540 170"/>
+    <path class="s3" d="M425 600 L570 170"/>
+    <path class="s3" d="M455 600 L600 170"/>
+    <path class="s3" d="M485 600 L630 170"/>
+    <path class="s3" d="M515 600 L660 190"/>
+
+    <path class="s3" d="M215 175 L360 600"/>
+    <path class="s3" d="M245 170 L390 600"/>
+    <path class="s3" d="M275 170 L420 600"/>
+    <path class="s3" d="M305 170 L450 600"/>
+    <path class="s3" d="M335 170 L480 600"/>
+    <path class="s3" d="M365 170 L510 600"/>
+    <path class="s3" d="M395 170 L540 600"/>
+    <path class="s3" d="M425 170 L570 600"/>
+    <path class="s3" d="M455 170 L600 600"/>
+    <path class="s3" d="M485 170 L630 595"/>
+    <path class="s3" d="M515 190 L660 580"/>
+  </g>
+
+  <g>
+    <path class="s2" d="M150 92 L150 70 L172 70"/>
+    <path class="s2" d="M688 70 L710 70 L710 92"/>
+    <path class="s2" d="M150 608 L150 630 L172 630"/>
+    <path class="s2" d="M710 608 L710 630 L688 630"/>
+  </g>
+
+  <g>
+    <path class="s2" d="M235 635 L215 665"/>
+    <path class="s2" d="M625 635 L645 665"/>
+    <ellipse cx="215" cy="670" rx="18" ry="7" class="f" opacity=".25"/>
+    <ellipse cx="645" cy="670" rx="18" ry="7" class="f" opacity=".25"/>
+  </g>
+
+  <rect x="350" y="615" width="180" height="34" rx="10" class="s2"/>
+  <path class="s3" d="M380 632 H500"/>
+</svg>

@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 520" width="980" height="520">
+  <title>Twin Bass Drum Pedal (Double Kick) SVG</title>
+
+  <defs>
+    <style>
+      .o{ fill:none; stroke:#fff; stroke-width:7; stroke-linecap:round; stroke-linejoin:round; }
+      .d{ fill:none; stroke:#fff; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+      .l{ fill:none; stroke:#fff; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; opacity:.6; }
+      .f{ fill:#fff; }
+    </style>
+  </defs>
+
+  <!-- ===== LEFT PEDAL (main) ===== -->
+  <g id="left-pedal" transform="translate(0,0)">
+    <!-- base plate -->
+    <path class="o" d="M120 390 L320 360 L335 400 L135 432 Z"/>
+    <!-- heel plate -->
+    <path class="d" d="M320 360 L365 350"/>
+    <!-- toe stop -->
+    <path class="d" d="M330 398 L360 390"/>
+
+    <!-- hinge -->
+    <circle class="d" cx="165" cy="412" r="10"/>
+    <circle class="f" cx="165" cy="412" r="4" opacity=".8"/>
+
+    <!-- uprights -->
+    <path class="o" d="M165 405 L150 250"/>
+    <path class="o" d="M210 395 L230 250"/>
+
+    <!-- cam / axle -->
+    <circle class="d" cx="190" cy="250" r="22"/>
+    <circle class="f" cx="190" cy="250" r="6" opacity=".85"/>
+
+    <!-- beater shaft -->
+    <line class="o" x1="190" y1="250" x2="150" y2="140"/>
+    <!-- beater head -->
+    <ellipse class="o" cx="142" cy="124" rx="28" ry="22"/>
+    <ellipse class="l" cx="142" cy="124" rx="18" ry="14"/>
+
+    <!-- spring -->
+    <line class="d" x1="230" y1="250" x2="270" y2="315"/>
+    <path class="d" d="M270 315 C255 325, 285 340, 270 350 C255 360, 285 375, 270 385"/>
+    <!-- spring anchor -->
+    <circle class="d" cx="270" cy="388" r="9"/>
+
+    <!-- clamp -->
+    <rect class="d" x="110" y="445" width="80" height="40" rx="10"/>
+    <circle class="f" cx="150" cy="465" r="4" opacity=".8"/>
+  </g>
+
+  <!-- ===== RIGHT PEDAL (slave) ===== -->
+  <g id="right-pedal" transform="translate(520,0)">
+    <!-- base plate -->
+    <path class="o" d="M120 390 L320 360 L335 400 L135 432 Z"/>
+    <!-- heel plate -->
+    <path class="d" d="M320 360 L365 350"/>
+    <!-- toe stop -->
+    <path class="d" d="M330 398 L360 390"/>
+
+    <!-- hinge -->
+    <circle class="d" cx="165" cy="412" r="10"/>
+    <circle class="f" cx="165" cy="412" r="4" opacity=".8"/>
+
+    <!-- uprights -->
+    <path class="o" d="M165 405 L150 250"/>
+    <path class="o" d="M210 395 L230 250"/>
+
+    <!-- cam / axle -->
+    <circle class="d" cx="190" cy="250" r="22"/>
+    <circle class="f" cx="190" cy="250" r="6" opacity=".85"/>
+
+    <!-- beater shaft -->
+    <line class="o" x1="190" y1="250" x2="150" y2="140"/>
+    <!-- beater head -->
+    <ellipse class="o" cx="142" cy="124" rx="28" ry="22"/>
+    <ellipse class="l" cx="142" cy="124" rx="18" ry="14"/>
+
+    <!-- spring -->
+    <line class="d" x1="230" y1="250" x2="270" y2="315"/>
+    <path class="d" d="M270 315 C255 325, 285 340, 270 350 C255 360, 285 375, 270 385"/>
+    <!-- spring anchor -->
+    <circle class="d" cx="270" cy="388" r="9"/>
+
+    <!-- clamp -->
+    <rect class="d" x="110" y="445" width="80" height="40" rx="10"/>
+    <circle class="f" cx="150" cy="465" r="4" opacity=".8"/>
+  </g>
+
+  <!-- ===== LINKAGE SHAFT (connects the two pedals) ===== -->
+  <g id="linkage">
+    <!-- couplers -->
+    <circle class="d" cx="380" cy="250" r="10"/>
+    <circle class="d" cx="600" cy="250" r="10"/>
+    <!-- shaft -->
+    <line class="o" x1="390" y1="250" x2="590" y2="250"/>
+    <!-- small joints -->
+    <circle class="f" cx="430" cy="250" r="3" opacity=".7"/>
+    <circle class="f" cx="470" cy="250" r="3" opacity=".7"/>
+    <circle class="f" cx="510" cy="250" r="3" opacity=".7"/>
+    <circle class="f" cx="550" cy="250" r="3" opacity=".7"/>
+
+    <!-- left connector arm to left cam -->
+    <line class="d" x1="380" y1="250" x2="330" y2="250"/>
+    <!-- right connector arm to right cam -->
+    <line class="d" x1="600" y1="250" x2="660" y2="250"/>
+  </g>
+
+  <!-- ===== GROUND SHADOW ===== -->
+  <ellipse cx="490" cy="505" rx="430" ry="14" fill="#fff" opacity=".10"/>
+</svg>

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 560" width="420" height="560">
+  <title>Splash Cymbal (Small) + Stand SVG</title>
+
+  <defs>
+    <style>
+      .o{ fill:none; stroke:#fff; stroke-width:6; stroke-linecap:round; stroke-linejoin:round; }
+      .d{ fill:none; stroke:#fff; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; opacity:.85; }
+      .l{ fill:none; stroke:#fff; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; opacity:.6; }
+      .f{ fill:#fff; }
+    </style>
+  </defs>
+
+  <!-- ===== SPLASH CYMBAL ===== -->
+  <!-- main cymbal (small & shallow) -->
+  <ellipse class="o" cx="210" cy="150" rx="120" ry="28"/>
+
+  <!-- depth hint -->
+  <ellipse class="d" cx="210" cy="165" rx="105" ry="22"/>
+
+  <!-- bell -->
+  <ellipse class="d" cx="210" cy="145" rx="28" ry="10"/>
+  <circle class="f" cx="210" cy="136" r="5"/>
+
+  <!-- subtle lathe rings -->
+  <ellipse class="l" cx="210" cy="150" rx="90" ry="22"/>
+  <ellipse class="l" cx="210" cy="150" rx="65" ry="16"/>
+
+  <!-- felt + wingnut -->
+  <line class="o" x1="210" y1="120" x2="210" y2="215"/>
+  <circle class="d" cx="210" cy="118" r="9"/>
+  <path class="d" d="M200 104 H220"/>
+
+  <!-- ===== STAND ===== -->
+  <!-- short straight stand -->
+  <line class="o" x1="210" y1="230" x2="210" y2="420"/>
+
+  <!-- collar -->
+  <rect class="d" x="188" y="320" width="44" height="26" rx="10"/>
+  <path class="l" d="M196 333 H224"/>
+
+  <!-- tripod hub -->
+  <circle class="d" cx="210" cy="420" r="14"/>
+  <circle class="f" cx="210" cy="420" r="5" opacity=".85"/>
+
+  <!-- tripod legs -->
+  <line class="o" x1="210" y1="432" x2="160" y2="500"/>
+  <line class="o" x1="210" y1="432" x2="210" y2="520"/>
+  <line class="o" x1="210" y1="432" x2="260" y2="500"/>
+
+  <!-- feet -->
+  <line class="d" x1="148" y1="512" x2="172" y2="512"/>
+  <line class="d" x1="198" y1="536" x2="222" y2="536"/>
+  <line class="d" x1="248" y1="512" x2="272" y2="512"/>
+
+  <!-- ===== SHADOW ===== -->
+  <ellipse cx="210" cy="545" rx="160" ry="14" fill="#fff" opacity=".10"/>
+</svg>

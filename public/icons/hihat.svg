@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 720" width="520" height="720">
+  <title>Hi-Hat + Stand SVG</title>
+
+  <defs>
+    <style>
+      .o{
+        fill:none;
+        stroke:#fff;
+        stroke-width:7;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+      .d{
+        fill:none;
+        stroke:#fff;
+        stroke-width:4;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+        opacity:.85;
+      }
+      .l{
+        fill:none;
+        stroke:#fff;
+        stroke-width:3;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+        opacity:.6;
+      }
+      .f{ fill:#fff; }
+    </style>
+  </defs>
+
+  <!-- ===== HI-HAT CYMBALS ===== -->
+  <!-- top cymbal -->
+  <ellipse class="o" cx="260" cy="150" rx="150" ry="28"/>
+  <!-- bottom cymbal (slightly lower) -->
+  <ellipse class="o" cx="260" cy="172" rx="158" ry="32"/>
+
+  <!-- bell + clutch -->
+  <circle class="d" cx="260" cy="145" r="8"/>
+  <circle class="f" cx="260" cy="132" r="6"/>
+
+  <!-- rod -->
+  <line class="o" x1="260" y1="120" x2="260" y2="360"/>
+
+  <!-- ===== STAND TUBE ===== -->
+  <line class="o" x1="260" y1="360" x2="260" y2="520"/>
+
+  <!-- height collar -->
+  <rect class="d" x="238" y="420" width="44" height="26" rx="10"/>
+  <path class="l" d="M246 433 H274"/>
+
+  <!-- ===== TRIPOD HUB ===== -->
+  <circle class="d" cx="260" cy="520" r="16"/>
+  <circle class="f" cx="260" cy="520" r="6" opacity=".85"/>
+
+  <!-- ===== TRIPOD LEGS ===== -->
+  <line class="o" x1="260" y1="532" x2="190" y2="620"/>
+  <line class="o" x1="260" y1="532" x2="260" y2="650"/>
+  <line class="o" x1="260" y1="532" x2="330" y2="620"/>
+
+  <!-- rubber feet -->
+  <line class="d" x1="172" y1="632" x2="210" y2="632"/>
+  <line class="d" x1="242" y1="664" x2="278" y2="664"/>
+  <line class="d" x1="310" y1="632" x2="348" y2="632"/>
+
+  <!-- ===== PEDAL + LINKAGE ===== -->
+  <!-- linkage rod -->
+  <line class="d" x1="260" y1="650" x2="290" y2="610"/>
+  <!-- pedal plate -->
+  <path class="o" d="M295 610 L360 635 L350 660 L285 635 Z"/>
+  <!-- heel plate -->
+  <path class="d" d="M350 660 L392 675"/>
+
+  <!-- ===== GROUND SHADOW ===== -->
+  <ellipse cx="260" cy="690" rx="210" ry="16" fill="#fff" opacity=".10"/>
+</svg>

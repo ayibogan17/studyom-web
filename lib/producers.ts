@@ -14,6 +14,7 @@ export type ProducerProfile = {
   modes: string[];
   genres: string[];
   statement: string;
+  bio?: string;
   links: string[];
   galleryUrls?: string[];
   studiosUsed?: string[];

@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  type ReactNode,
+  type ChangeEvent,
+} from "react";
 import Link from "next/link";
-import { ChevronDown, Key } from "lucide-react";
+import { BarChart3, ChevronDown, Key, Save } from "lucide-react";
 
 import { SignOutButton } from "@/components/sign-out-button";
 import { Equipment, OpeningHours, Room, Slot, Studio } from "@/types/panel";
@@ -11,6 +19,7 @@ type Props = {
   initialStudio?: Studio;
   userName?: string | null;
   userEmail?: string | null;
+  emailVerified?: boolean;
   linkedTeachers?: {
     id: string;
     name: string;
@@ -37,6 +46,50 @@ const longDays = [
   "Cumartesi",
   "Pazar",
 ];
+
+function HappyHourIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 900 360"
+      role="img"
+      aria-label="Happy Hour"
+      className={className}
+    >
+      <title>Happy Hour</title>
+      <rect x="20" y="20" rx="48" ry="48" width="860" height="320" fill="none" stroke="currentColor" strokeWidth="18" />
+      <rect x="48" y="48" rx="36" ry="36" width="804" height="264" fill="none" stroke="currentColor" strokeWidth="5" opacity="0.25" />
+      <path
+        fill="currentColor"
+        d="M120 160 L132 190 L166 194 L140 216 L148 250 L120 232 L92 250 L100 216 L74 194 L108 190 Z"
+      />
+      <path
+        fill="currentColor"
+        d="M780 160 L792 190 L826 194 L800 216 L808 250 L780 232 L752 250 L760 216 L734 194 L768 190 Z"
+      />
+      <text
+        x="450"
+        y="160"
+        fontSize="96"
+        textAnchor="middle"
+        fill="currentColor"
+        fontFamily="Impact, Haettenschweiler, 'Arial Black', sans-serif"
+      >
+        HAPPY
+      </text>
+      <text
+        x="450"
+        y="260"
+        fontSize="108"
+        textAnchor="middle"
+        fill="currentColor"
+        fontFamily="Impact, Haettenschweiler, 'Arial Black', sans-serif"
+      >
+        HOUR!
+      </text>
+    </svg>
+  );
+}
 
 const contactMethodOptions = ["Phone", "WhatsApp", "Email"] as const;
 const roomTypeOptions = ["Prova odası", "Kayıt odası", "Vokal kabini", "Kontrol odası", "Prodüksiyon odası"] as const;
@@ -140,7 +193,9 @@ const defaultEquipment: Room["equipment"] = {
   hasDrumSplash: false,
   drumSplashDetail: "",
   hasDrumCowbell: false,
+  drumCowbellDetail: "",
   hasTwinPedal: false,
+  twinPedalDetail: "",
   micCount: 0,
   micDetails: [],
   guitarAmpCount: 0,
@@ -355,18 +410,21 @@ function normalizeRoom(room: Room): Room {
   };
 }
 
+const buildDefaultOpeningHours = (): OpeningHours[] =>
+  Array.from({ length: 7 }, () => ({
+    open: true,
+    openTime: "09:00",
+    closeTime: "21:00",
+  }));
+
+const normalizeOpeningHours = (hours?: OpeningHours[] | null): OpeningHours[] =>
+  Array.isArray(hours) && hours.length === 7 ? hours : buildDefaultOpeningHours();
+
 function normalizeStudio(data: Studio | null): Studio | null {
   if (!data) return null;
   return {
     ...data,
-    openingHours:
-      data.openingHours?.length === 7
-        ? data.openingHours
-        : Array.from({ length: 7 }, () => ({
-            open: true,
-            openTime: "09:00",
-            closeTime: "21:00",
-          })),
+    openingHours: normalizeOpeningHours(data.openingHours),
     rooms: (data.rooms ?? []).map((r) => normalizeRoom(r)),
   };
 }
@@ -386,12 +444,15 @@ const pickNextColor = (rooms: Room[]) => {
 };
 
 const pad = (n: number) => n.toString().padStart(2, "0");
+const hourOptions = Array.from({ length: 24 }, (_, h) => `${pad(h)}:00`);
+const parseTimeToMinutes = (value: string) => {
+  const [hours, minutes] = value.split(":").map((part) => Number(part));
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return hours * 60 + minutes;
+};
 const formatKey = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const parseKey = (key: string) => {
-  const [y, m, d] = key.split("-").map(Number);
-  return new Date(y, m - 1, d);
-};
 
 const weekdayIndex = (d: Date) => {
   // Monday = 0 ... Sunday = 6
@@ -413,6 +474,28 @@ const pricingLabel = (room: Room) => {
     return `Değişken • min ${pricing.minRate}₺`;
   }
   return `${type} için ücret bilgisi eklenmedi`;
+};
+
+const parsePriceValue = (value?: string | null) => {
+  if (!value) return null;
+  const raw = value.toString().trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^\d.,]/g, "");
+  if (!cleaned) return null;
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+  if (hasComma && hasDot) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    normalized = cleaned.replace(",", ".");
+  } else if (hasDot) {
+    const parts = cleaned.split(".");
+    const tail = parts[parts.length - 1] ?? "";
+    normalized = parts.length > 1 && tail.length === 3 ? parts.join("") : cleaned;
+  }
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const ensureSlotsForDay = (
@@ -484,20 +567,174 @@ const ensureSlotsForDay = (
   return { ...room, slots: { ...room.slots, [key]: generated } };
 };
 
-export function DashboardClient({ initialStudio, userName, userEmail, linkedTeachers, linkedProducers }: Props) {
+type CalendarView = "month" | "week" | "day";
+
+type CalendarBlock = {
+  id: string;
+  roomId: string;
+  startAt: string;
+  endAt: string;
+  type: "manual_block" | "reservation";
+  title?: string;
+  status?: string | null;
+  note?: string;
+};
+
+type CalendarSettings = {
+  slotStepMinutes: number;
+  dayCutoffHour: number;
+  timezone: string;
+  happyHourEnabled?: boolean;
+  weeklyHours: OpeningHours[];
+};
+
+const slotStepOptions = [30, 60, 90, 120] as const;
+const cutoffHourOptions = [0, 1, 2, 3, 4, 5, 6] as const;
+
+const minutesFromTime = (value: string) => {
+  const [h, m] = value.split(":").map(Number);
+  const hours = Number.isFinite(h) ? h : 0;
+  const minutes = Number.isFinite(m) ? m : 0;
+  return hours * 60 + minutes;
+};
+
+const buildEndTimeOptions = (openTime: string, cutoffHour: number) => {
+  const openHour = Number(openTime.split(":")[0] ?? 0);
+  const base = Array.from({ length: 24 - openHour }, (_, idx) => openHour + idx);
+  const wrap = Array.from({ length: cutoffHour + 1 }, (_, idx) => idx);
+  const order: number[] = [...base, ...wrap];
+  const seen = new Set<number>();
+  return order.filter((h) => {
+    if (seen.has(h)) return false;
+    seen.add(h);
+    return true;
+  }).map((h) => `${pad(h)}:00`);
+};
+
+const formatMinutesLabel = (totalMinutes: number) => {
+  const dayOffset = Math.floor(totalMinutes / (24 * 60));
+  const minutes = totalMinutes % (24 * 60);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const label = `${pad(h)}:${pad(m)}`;
+  return dayOffset > 0 ? `${label} (+${dayOffset})` : label;
+};
+
+const withAlpha = (hex: string, alpha: number) => {
+  const fallback = `rgba(29, 78, 216, ${alpha})`;
+  if (!hex) return fallback;
+  let value = hex.trim().replace("#", "");
+  if (value.length === 3) {
+    value = value
+      .split("")
+      .map((ch) => ch + ch)
+      .join("");
+  }
+  if (value.length !== 6) return fallback;
+  const num = Number.parseInt(value, 16);
+  if (Number.isNaN(num)) return fallback;
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60000);
+
+const startOfWeek = (date: Date) => {
+  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const offset = weekdayIndex(day);
+  day.setDate(day.getDate() - offset);
+  return day;
+};
+
+const getDayRange = (day: Date, cutoffHour: number) => {
+  const start = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  end.setHours(cutoffHour, 0, 0, 0);
+  return { start, end };
+};
+
+const getBusinessDayStartForTime = (date: Date, cutoffHour: number) => {
+  const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  if (minutes < cutoffHour * 60) {
+    base.setDate(base.getDate() - 1);
+  }
+  return base;
+};
+
+const getTimelineForDay = (day: Date, openingHours: OpeningHours[], cutoffHour: number) => {
+  const info = openingHours[weekdayIndex(day)];
+  if (!info || !info.open) {
+    return {
+      start: 0,
+      end: (24 + cutoffHour) * 60,
+      isOpen: false,
+    };
+  }
+  const openMinutes = minutesFromTime(info.openTime);
+  let closeMinutes = minutesFromTime(info.closeTime);
+  if (closeMinutes <= openMinutes) closeMinutes += 24 * 60;
+  const end = Math.max(closeMinutes, (24 + cutoffHour) * 60);
+  return { start: openMinutes, end, isOpen: true };
+};
+
+export function DashboardClient({
+  initialStudio,
+  userName,
+  userEmail,
+  emailVerified,
+  linkedTeachers,
+  linkedProducers,
+}: Props) {
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
   );
-  const [activeTab, setActiveTab] = useState<string>("panel");
-  const [selectedRoomId, setSelectedRoomId] = useState(
-    initialStudio?.rooms?.[0]?.id ?? "",
-  );
+  const [activeTab, setActiveTab] = useState<string>("calendar");
+  const [selectedRoomId, setSelectedRoomId] = useState(() => {
+    const rooms = initialStudio?.rooms ?? [];
+    if (!rooms.length) return "";
+    const sorted = [...rooms].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""),
+    );
+    return sorted[0]?.id ?? "";
+  });
+  const [calendarRoomScope, setCalendarRoomScope] = useState<string>(() => {
+    const rooms = initialStudio?.rooms ?? [];
+    if (!rooms.length) return "";
+    const sorted = [...rooms].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""),
+    );
+    return sorted[0]?.id ?? "";
+  });
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [monthCursor, setMonthCursor] = useState<Date>(new Date());
+  const [weekCursor, setWeekCursor] = useState<Date>(new Date());
+  const [calendarView, setCalendarView] = useState<CalendarView>("week");
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
+  const [calendarDraft, setCalendarDraft] = useState<CalendarSettings | null>(null);
+  const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerData, setDrawerData] = useState<{
+    id?: string;
+    day: Date;
+    roomId: string;
+    startMinutes: number;
+    endMinutes: number;
+    type: "manual_block" | "reservation";
+    title: string;
+    status: string;
+    note: string;
+  } | null>(null);
+  const [dragState, setDragState] = useState<{ day: Date; start: number; end: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [hoursDraft, setHoursDraft] = useState<OpeningHours[]>(
-    normalizeStudio(initialStudio ?? null)?.openingHours ?? [],
+    normalizeOpeningHours(normalizeStudio(initialStudio ?? null)?.openingHours ?? null),
   );
   const [showRatings, setShowRatings] = useState(false);
   const [editingHours, setEditingHours] = useState(false);
@@ -514,16 +751,75 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
   const [basicStatus, setBasicStatus] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const coverInputRef = useRef<HTMLInputElement | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverStatus, setCoverStatus] = useState<string | null>(null);
+  const [happyHourOpen, setHappyHourOpen] = useState(false);
+  const [happyHourActive, setHappyHourActive] = useState(false);
+  const [happyHourSlots, setHappyHourSlots] = useState<Record<string, boolean>>({});
+  const [happyHourDays, setHappyHourDays] = useState(() =>
+    longDays.map(() => ({ enabled: false, endTime: "22:00" })),
+  );
+  const [happyHourTouched, setHappyHourTouched] = useState(false);
+  const [happyHourSaving, setHappyHourSaving] = useState(false);
+  const [happyHourStatus, setHappyHourStatus] = useState<string | null>(null);
+  const [happyHourScheduleVersion, setHappyHourScheduleVersion] = useState(0);
+  const [calendarSummary, setCalendarSummary] = useState<{
+    weekOccupancy: number;
+    monthOccupancy: number;
+    monthRevenue: number;
+  } | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const studioRooms = studio?.rooms ?? [];
   const teacherLinks = linkedTeachers ?? [];
   const producerLinks = linkedProducers ?? [];
+  const effectiveOpeningHours =
+    normalizeOpeningHours(calendarSettings?.weeklyHours ?? studio?.openingHours ?? null);
+  const slotStepMinutes = calendarSettings?.slotStepMinutes ?? 60;
+  const dayCutoffHour = calendarSettings?.dayCutoffHour ?? 4;
   const orderedRooms = useMemo(() => {
     if (!studio?.rooms) return [];
     return [...studio.rooms].sort(
       (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name),
     );
   }, [studio?.rooms]);
+  const roomColorById = useMemo(
+    () => new Map(orderedRooms.map((room) => [room.id, room.color ?? "#1D4ED8"])),
+    [orderedRooms],
+  );
+  const roomNameById = useMemo(
+    () => new Map(orderedRooms.map((room) => [room.id, room.name || "Oda"])),
+    [orderedRooms],
+  );
+  const happyHourRoomId = calendarRoomScope === "all" ? selectedRoomId : calendarRoomScope;
+  const buildHappyHourKey = useCallback(
+    (day: Date, minutes: number) =>
+      `${happyHourRoomId}-${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(
+        day.getDate(),
+      )}-${minutes}`,
+    [happyHourRoomId],
+  );
+  const isHappyHourSlot = useCallback(
+    (day: Date, minutes: number) => {
+      if (!happyHourActive || !happyHourRoomId) return false;
+      const slotStart = addMinutes(day, minutes);
+      const businessStart = getBusinessDayStartForTime(slotStart, dayCutoffHour);
+      const minutesFromStart = Math.round(
+        (slotStart.getTime() - businessStart.getTime()) / 60000,
+      );
+      const key = buildHappyHourKey(businessStart, minutesFromStart);
+      return !!happyHourSlots[key];
+    },
+    [happyHourActive, happyHourRoomId, dayCutoffHour, buildHappyHourKey, happyHourSlots],
+  );
+  const calendarRoomIds = useMemo(() => {
+    if (!orderedRooms.length) return [];
+    if (calendarRoomScope === "all") {
+      return orderedRooms.map((room) => room.id);
+    }
+    return [calendarRoomScope];
+  }, [calendarRoomScope, orderedRooms]);
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
@@ -627,6 +923,42 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
     const data = (await res.json()) as { publicUrl?: string };
     return data.publicUrl;
   };
+  const uploadCoverImage = async (file: File) => {
+    if (!studio) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setCoverStatus("5 MB üzeri dosya eklenemez.");
+      return;
+    }
+    setCoverUploading(true);
+    setCoverStatus(null);
+    try {
+      const url = await uploadFile(file);
+      if (!url) throw new Error("Upload failed");
+      const res = await fetch("/api/studio", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studio: { coverImageUrl: url } }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json?.studio) {
+        setStudio(normalizeStudio(json.studio));
+        setCoverStatus("Kapak görseli kaydedildi.");
+      } else {
+        setCoverStatus(json?.error || "Kaydedilemedi.");
+      }
+    } catch (err) {
+      console.error(err);
+      setCoverStatus("Görsel yüklenemedi.");
+    } finally {
+      setCoverUploading(false);
+    }
+  };
+  const handleCoverChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    void uploadCoverImage(file);
+    event.target.value = "";
+  };
   const updateRoomImages = (urls: string[], replaceIndex?: number) => {
     if (!currentRoom?.id || !urls.length) return;
     setStudio((prev) =>
@@ -690,17 +1022,212 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
     arr.splice(to, 0, item);
     void persistImages(arr, "Görsel sırası kaydedildi");
   };
-  // sync hours draft when studio changes
+  // sync hours draft when studio/settings changes
   useEffect(() => {
-    if (studio?.openingHours) {
-      setHoursDraft(studio.openingHours);
-    }
-  }, [studio?.openingHours]);
+    setHoursDraft(
+      normalizeOpeningHours(calendarSettings?.weeklyHours ?? studio?.openingHours ?? null),
+    );
+  }, [studio?.openingHours, calendarSettings?.weeklyHours]);
+
+  useEffect(() => {
+    if (!studio) return;
+    let active = true;
+    const loadSettings = async () => {
+      try {
+        const res = await fetch("/api/studio/calendar-settings");
+        const json = await res.json().catch(() => ({}));
+        if (!active) return;
+        if (res.ok && json.settings) {
+          setCalendarSettings(json.settings as CalendarSettings);
+          setCalendarDraft(json.settings as CalendarSettings);
+          setHappyHourActive(!!json.settings.happyHourEnabled);
+        } else {
+          const fallback: CalendarSettings = {
+            slotStepMinutes: 60,
+            dayCutoffHour: 4,
+            timezone: "Europe/Istanbul",
+            happyHourEnabled: false,
+            weeklyHours: normalizeOpeningHours(studio.openingHours ?? hoursDraft),
+          };
+          setCalendarSettings(fallback);
+          setCalendarDraft(fallback);
+          setHappyHourActive(false);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadSettings();
+    return () => {
+      active = false;
+    };
+  }, [studio?.id]);
+
+  useEffect(() => {
+    if (!happyHourRoomId) return;
+    let active = true;
+    const loadSchedule = async () => {
+      try {
+        const res = await fetch(`/api/studio/happy-hours/schedule?roomId=${happyHourRoomId}`);
+        const json = await res.json().catch(() => ({}));
+        if (!active) return;
+        const fallback = normalizeOpeningHours(
+          calendarSettings?.weeklyHours ?? studio?.openingHours ?? null,
+        );
+        if (res.ok && Array.isArray(json.days)) {
+          const map = new Map<number, { endTime?: string; enabled?: boolean }>();
+          json.days.forEach((item: { weekday?: number; endTime?: string; enabled?: boolean }) => {
+            if (typeof item.weekday === "number") {
+              map.set(item.weekday, item);
+            }
+          });
+          setHappyHourDays(
+            longDays.map((_, idx) => {
+              const entry = map.get(idx);
+              const fallbackEnd = fallback[idx]?.closeTime ?? "22:00";
+              return {
+                enabled: !!entry?.enabled,
+                endTime: entry?.endTime ?? fallbackEnd,
+              };
+            }),
+          );
+        } else {
+          setHappyHourDays(
+            longDays.map((_, idx) => ({
+              enabled: false,
+              endTime: fallback[idx]?.closeTime ?? "22:00",
+            })),
+          );
+        }
+        setHappyHourTouched(false);
+      } catch (err) {
+        if (!active) return;
+        console.error(err);
+      }
+    };
+    loadSchedule();
+    return () => {
+      active = false;
+    };
+  }, [happyHourRoomId, calendarSettings?.weeklyHours, studio?.openingHours]);
 
   useEffect(() => {
     if (!studio || basicTouched) return;
     setBasicForm(parseBasicInfoFromStudio(studio));
   }, [studio, basicTouched]);
+
+  useEffect(() => {
+    if (!selectedDate) return;
+    setWeekCursor(selectedDate);
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!studio) return;
+    if (!calendarRoomIds.length) return;
+    let rangeStart: Date;
+    let rangeEnd: Date;
+    if (calendarView === "month") {
+      const startOfMonth = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+      const offset = weekdayIndex(startOfMonth);
+      const firstVisible = new Date(startOfMonth);
+      firstVisible.setDate(startOfMonth.getDate() - offset);
+      const totalCells = Math.ceil((offset + new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate()) / 7) * 7;
+      const lastVisible = new Date(firstVisible);
+      lastVisible.setDate(firstVisible.getDate() + totalCells - 1);
+      rangeStart = new Date(firstVisible.getFullYear(), firstVisible.getMonth(), firstVisible.getDate());
+      rangeEnd = getDayRange(lastVisible, dayCutoffHour).end;
+    } else if (calendarView === "week") {
+      const baseDay = weekCursor;
+      rangeStart = startOfWeek(baseDay);
+      rangeEnd = addMinutes(
+        new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + 7),
+        dayCutoffHour * 60,
+      );
+    } else {
+      const baseDay = selectedDate ?? new Date();
+      const dayStart = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate());
+      rangeStart = dayStart;
+      rangeEnd = getDayRange(dayStart, dayCutoffHour).end;
+    }
+
+    const loadBlocks = async () => {
+      setCalendarLoading(true);
+      setCalendarError(null);
+      try {
+        const roomQuery =
+          calendarRoomScope === "all"
+            ? `roomIds=${calendarRoomIds.join(",")}`
+            : `roomId=${calendarRoomIds[0]}`;
+        const blocksPromise = fetch(
+          `/api/studio/calendar-blocks?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
+        );
+        const happyPromise = happyHourRoomId
+          ? fetch(
+              `/api/studio/happy-hours?roomId=${happyHourRoomId}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
+            )
+          : null;
+        const [blocksRes, happyRes] = await Promise.all([blocksPromise, happyPromise]);
+        const blocksJson = await blocksRes.json().catch(() => ({}));
+        if (!blocksRes.ok) {
+          setCalendarError(blocksJson.error || "Takvim blokları alınamadı.");
+          setCalendarBlocks([]);
+          setCalendarLoading(false);
+          return;
+        }
+        setCalendarBlocks((blocksJson.blocks as CalendarBlock[]) ?? []);
+        if (happyRes) {
+          const happyJson = await happyRes.json().catch(() => ({}));
+          if (happyRes.ok) {
+            const nextSlots: Record<string, boolean> = {};
+            (happyJson.slots as { startAt: string; endAt: string }[] | undefined)?.forEach(
+              (slot) => {
+                const start = new Date(slot.startAt);
+                const end = new Date(slot.endAt);
+                const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+                const minutesFromStart = Math.round(
+                  (start.getTime() - businessStart.getTime()) / 60000,
+                );
+                const minutesToEnd = Math.round(
+                  (end.getTime() - businessStart.getTime()) / 60000,
+                );
+                if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
+                const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
+                for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
+                  nextSlots[buildHappyHourKey(businessStart, m)] = true;
+                }
+              },
+            );
+            setHappyHourSlots(nextSlots);
+          } else {
+            setHappyHourSlots({});
+          }
+        } else {
+          setHappyHourSlots({});
+        }
+      } catch (err) {
+        console.error(err);
+        setCalendarError("Takvim blokları alınamadı.");
+        setCalendarBlocks([]);
+        setHappyHourSlots({});
+      } finally {
+        setCalendarLoading(false);
+      }
+    };
+
+    void loadBlocks();
+  }, [
+    calendarView,
+    calendarRoomScope,
+    calendarRoomIds,
+    happyHourRoomId,
+    buildHappyHourKey,
+    happyHourScheduleVersion,
+    selectedDate,
+    weekCursor,
+    monthCursor,
+    dayCutoffHour,
+    studio,
+  ]);
 
   const updateBasicField = <K extends keyof BasicInfoForm>(key: K, value: BasicInfoForm[K]) => {
     setBasicTouched(true);
@@ -910,11 +1437,29 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
     }
   }, [orderedRooms, selectedRoomId]);
 
+  useEffect(() => {
+    if (!orderedRooms.length) return;
+    if (calendarRoomScope === "all") return;
+    if (calendarRoomScope !== selectedRoomId) {
+      setCalendarRoomScope(selectedRoomId);
+    }
+  }, [calendarRoomScope, orderedRooms.length, selectedRoomId]);
+
+  useEffect(() => {
+    if (orderedRooms.length > 1) return;
+    if (calendarRoomScope === "all") {
+      setCalendarRoomScope(selectedRoomId || orderedRooms[0]?.id || "");
+    }
+  }, [calendarRoomScope, orderedRooms, selectedRoomId]);
+
   const handleTabChange = (key: string) => {
     setActiveTab(key);
     if (key.startsWith("room-")) {
       const id = key.replace("room-", "");
       setSelectedRoomId(id);
+    }
+    if (key === "calendar") {
+      setCalendarView("week");
     }
   };
 
@@ -926,12 +1471,234 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
             ...prev,
             rooms: prev.rooms.map((room) => {
               if (room.id !== currentRoom.id) return room;
-              return ensureSlotsForDay(room, day, prev.openingHours);
+              return ensureSlotsForDay(room, day, effectiveOpeningHours);
             }),
           }
         : prev,
     );
     setSelectedDate(day);
+    setCalendarView("day");
+  };
+
+  const handleCalendarViewChange = (view: CalendarView) => {
+    setCalendarView(view);
+    if (view === "week" && selectedDate) {
+      setWeekCursor(selectedDate);
+    }
+    if (view === "day" && !selectedDate) {
+      setSelectedDate(new Date());
+    }
+  };
+
+  const openDrawerForRange = (day: Date, startMinutes: number, endMinutes: number) => {
+    if (!currentRoom) return;
+    const start = Math.min(startMinutes, endMinutes);
+    const end = Math.max(startMinutes, endMinutes);
+    setDrawerData({
+      day,
+      roomId: currentRoom.id,
+      startMinutes: start,
+      endMinutes: end,
+      type: "reservation",
+      title: "",
+      status: "approved",
+      note: "",
+    });
+    setDrawerOpen(true);
+  };
+
+  const openDrawerForBlock = (day: Date, block: CalendarBlock) => {
+    const base = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const startAt = new Date(block.startAt);
+    const endAt = new Date(block.endAt);
+    const startMinutes = Math.round((startAt.getTime() - base.getTime()) / 60000);
+    const endMinutes = Math.round((endAt.getTime() - base.getTime()) / 60000);
+    setDrawerData({
+      id: block.id,
+      day,
+      roomId: block.roomId,
+      startMinutes,
+      endMinutes,
+      type: block.type,
+      title: block.title ?? "",
+      status: block.status ?? "pending",
+      note: block.note ?? "",
+    });
+    setDrawerOpen(true);
+  };
+
+  const toggleHappyHourSlot = async (day: Date, minutes: number, active: boolean) => {
+    if (!happyHourRoomId) return;
+    setCalendarError(null);
+    const base = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const startAt = addMinutes(base, minutes);
+    const endAt = addMinutes(base, minutes + slotStepMinutes);
+    const key = buildHappyHourKey(day, minutes);
+    const prevValue = !!happyHourSlots[key];
+    setHappyHourSlots((prev) => ({ ...prev, [key]: active }));
+    try {
+      const res = await fetch("/api/studio/happy-hours", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomId: happyHourRoomId,
+          startAt: startAt.toISOString(),
+          endAt: endAt.toISOString(),
+          active,
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setCalendarError(json.error || "Happy hour kaydedilemedi.");
+        setHappyHourSlots((prev) => ({ ...prev, [key]: prevValue }));
+      }
+    } catch (err) {
+      console.error(err);
+      setCalendarError("Happy hour kaydedilemedi.");
+      setHappyHourSlots((prev) => ({ ...prev, [key]: prevValue }));
+    }
+  };
+
+  const setHappyHourEnabled = async (next: boolean) => {
+    const prev = happyHourActive;
+    setHappyHourActive(next);
+    setCalendarError(null);
+    try {
+      const res = await fetch("/api/studio/calendar-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ happyHourEnabled: next }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.settings) {
+        setHappyHourActive(prev);
+        setCalendarError(json.error || "Happy hour kaydedilemedi.");
+        return;
+      }
+      const settings = json.settings as CalendarSettings;
+      setCalendarSettings((prevSettings) =>
+        prevSettings ? { ...prevSettings, happyHourEnabled: settings.happyHourEnabled } : prevSettings,
+      );
+      setCalendarDraft((prevDraft) =>
+        prevDraft ? { ...prevDraft, happyHourEnabled: settings.happyHourEnabled } : prevDraft,
+      );
+    } catch (err) {
+      console.error(err);
+      setHappyHourActive(prev);
+      setCalendarError("Happy hour kaydedilemedi.");
+    }
+  };
+
+  const saveHappyHourSchedule = useCallback(async () => {
+    if (!happyHourRoomId) {
+      setHappyHourStatus("Oda seçilmedi.");
+      return;
+    }
+    const invalid = happyHourDays.find(
+      (day) => day.enabled && parseTimeToMinutes(day.endTime) === null,
+    );
+    if (invalid) {
+      setHappyHourStatus("Saat formatı geçersiz.");
+      return;
+    }
+    const payload = {
+      roomId: happyHourRoomId,
+      days: happyHourDays.map((day, idx) => ({
+        weekday: idx,
+        enabled: day.enabled,
+        endTime: day.endTime,
+      })),
+    };
+    setHappyHourSaving(true);
+    setHappyHourStatus(null);
+    try {
+      const res = await fetch("/api/studio/happy-hours/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setHappyHourStatus(json.error || "Happy Hour kaydedilemedi.");
+      } else {
+        setHappyHourStatus("Happy Hour kaydedildi.");
+        setHappyHourScheduleVersion((prev) => prev + 1);
+      }
+    } catch (err) {
+      console.error(err);
+      setHappyHourStatus("Happy Hour kaydedilemedi.");
+    } finally {
+      setHappyHourSaving(false);
+    }
+  }, [happyHourDays, happyHourRoomId]);
+
+  useEffect(() => {
+    if (!happyHourTouched || !happyHourRoomId || happyHourSaving) return;
+    const timer = setTimeout(() => {
+      void saveHappyHourSchedule();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [happyHourDays, happyHourTouched, happyHourRoomId, happyHourSaving, saveHappyHourSchedule]);
+
+  const saveCalendarBlock = async () => {
+    if (!drawerData || !currentRoom) return;
+    const base = new Date(drawerData.day.getFullYear(), drawerData.day.getMonth(), drawerData.day.getDate());
+    const startAt = addMinutes(base, drawerData.startMinutes);
+    const endAt = addMinutes(base, drawerData.endMinutes);
+    setCalendarError(null);
+    try {
+      const payload = {
+        roomId: drawerData.roomId,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        type: drawerData.type,
+        title: drawerData.title,
+        status: drawerData.type === "reservation" ? drawerData.status : null,
+        note: drawerData.note,
+      };
+      const res = await fetch(
+        drawerData.id ? `/api/studio/calendar-blocks/${drawerData.id}` : "/api/studio/calendar-blocks",
+        {
+          method: drawerData.id ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCalendarError(json.error || "Kaydedilemedi.");
+        return;
+      }
+      const block = (json.block ?? json) as CalendarBlock;
+      setCalendarBlocks((prev) => {
+        const filtered = prev.filter((item) => item.id !== block.id);
+        return [...filtered, block].sort((a, b) => a.startAt.localeCompare(b.startAt));
+      });
+      setDrawerOpen(false);
+      setDrawerData(null);
+    } catch (err) {
+      console.error(err);
+      setCalendarError("Kaydedilemedi.");
+    }
+  };
+
+  const deleteCalendarBlock = async () => {
+    if (!drawerData?.id) return;
+    setCalendarError(null);
+    try {
+      const res = await fetch(`/api/studio/calendar-blocks/${drawerData.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setCalendarError(json.error || "Silinemedi.");
+        return;
+      }
+      setCalendarBlocks((prev) => prev.filter((item) => item.id !== drawerData.id));
+      setDrawerOpen(false);
+      setDrawerData(null);
+    } catch (err) {
+      console.error(err);
+      setCalendarError("Silinemedi.");
+    }
   };
 
   const updateSlot = (
@@ -949,7 +1716,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
               const roomWithSlots = ensureSlotsForDay(
                 room,
                 date,
-                prev.openingHours,
+                effectiveOpeningHours,
               );
               const key = formatKey(date);
               const updatedSlots = roomWithSlots.slots[key].map((slot, i) =>
@@ -1046,7 +1813,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
       if (res.ok && json.studio) {
         setStudio(normalizeStudio(json.studio));
         if (data.openingHours) {
-          setHoursDraft(data.openingHours);
+          setHoursDraft(normalizeOpeningHours(data.openingHours));
         }
         setStatus("Kaydedildi");
       } else {
@@ -1054,6 +1821,49 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
       }
     } catch (e) {
       console.error(e);
+      setStatus("Kaydedilemedi");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveCalendarSettings = async () => {
+    if (!studio || !calendarDraft) return;
+    setSaving(true);
+    setStatus(null);
+    try {
+      const res = await fetch("/api/studio/calendar-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slotStepMinutes: calendarDraft.slotStepMinutes,
+          dayCutoffHour: calendarDraft.dayCutoffHour,
+          timezone: calendarDraft.timezone,
+          happyHourEnabled: calendarDraft.happyHourEnabled,
+          weeklyHours: hoursDraft,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.settings) {
+        const settings = json.settings as CalendarSettings;
+        setCalendarSettings({
+          ...settings,
+          weeklyHours: normalizeOpeningHours(settings.weeklyHours),
+        });
+        setCalendarDraft({
+          ...settings,
+          weeklyHours: normalizeOpeningHours(settings.weeklyHours),
+        });
+        setHappyHourActive(!!settings.happyHourEnabled);
+        setStudio((prev) =>
+          prev ? { ...prev, openingHours: normalizeOpeningHours(settings.weeklyHours) } : prev,
+        );
+        setStatus("Takvim ayarları kaydedildi");
+      } else {
+        setStatus(json.error || "Kaydedilemedi");
+      }
+    } catch (err) {
+      console.error(err);
       setStatus("Kaydedilemedi");
     } finally {
       setSaving(false);
@@ -1107,6 +1917,27 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
 
   const saveRoomBasics = async (roomId: string, patch: Partial<Room>) => {
     if (!studio) return;
+    const existingRoom = studio.rooms.find((room) => room.id === roomId);
+    const mergedPricing =
+      patch.pricing || existingRoom?.pricing
+        ? { ...(existingRoom?.pricing ?? {}), ...(patch.pricing ?? {}) }
+        : undefined;
+    const model = mergedPricing?.model ?? existingRoom?.pricing?.model;
+    const baseRate =
+      model === "daily"
+        ? parsePriceValue(mergedPricing?.dailyRate ?? existingRoom?.pricing?.dailyRate) ??
+          parsePriceValue(mergedPricing?.hourlyRate ?? existingRoom?.pricing?.hourlyRate)
+        : model === "hourly"
+          ? parsePriceValue(mergedPricing?.hourlyRate ?? existingRoom?.pricing?.hourlyRate) ??
+            parsePriceValue(mergedPricing?.dailyRate ?? existingRoom?.pricing?.dailyRate)
+          : model === "flat"
+            ? parsePriceValue(mergedPricing?.flatRate ?? existingRoom?.pricing?.flatRate)
+            : parsePriceValue(mergedPricing?.minRate ?? existingRoom?.pricing?.minRate);
+    const happyRate = parsePriceValue(mergedPricing?.happyHourRate ?? existingRoom?.pricing?.happyHourRate);
+    if (happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9) {
+      setStatus("Happy Hour minimum %10 olmalıdır.");
+      return;
+    }
     setSaving(true);
     setStatus(null);
     try {
@@ -1120,7 +1951,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
               name: patch.name,
               type: patch.type,
               color: patch.color,
-              pricing: patch.pricing,
+              pricing: mergedPricing,
               equipment: patch.equipment,
               extras: patch.extras,
               features: patch.features,
@@ -1196,53 +2027,30 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
     }
   };
 
-  const metrics = useMemo(() => {
-    if (!studio) {
-      return { todayConfirmed: 0, weekConfirmed: 0, occupancy: 0 };
-    }
-    const now = new Date();
-    const todayKey = formatKey(now);
-    const start = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() - weekdayIndex(now),
-    );
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-
-    let todayConfirmed = 0;
-    let weekConfirmed = 0;
-    let weekTotal = 0;
-
-    studio.rooms.forEach((room) => {
-      Object.entries(room.slots).forEach(([key, slots]) => {
-        const dateObj = parseKey(key);
-        const confirmed = slots.filter((s) => s.status === "confirmed").length;
-        if (key === todayKey) {
-          todayConfirmed += confirmed;
+  useEffect(() => {
+    if (!studio) return;
+    const run = async () => {
+      setSummaryLoading(true);
+      try {
+        const res = await fetch("/api/studio/calendar-summary");
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(json.error || "Özet alınamadı");
         }
-        if (dateObj >= start && dateObj <= end) {
-          weekConfirmed += confirmed;
-          weekTotal += slots.length;
-        }
-      });
-    });
-
-    const occupancy =
-      weekTotal === 0 ? 0 : Math.round((weekConfirmed / weekTotal) * 1000) / 10;
-
-    return { todayConfirmed, weekConfirmed, occupancy };
-  }, [studio]);
-
-  const copyLink = async () => {
-    try {
-      const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://studyom.net";
-      await navigator.clipboard.writeText(`${baseUrl}/studyo`);
-      setStatus("Stüdyo bağlantısı kopyalandı.");
-    } catch (e) {
-      console.error("Link kopyalanamadı", e);
-    }
-  };
+        const data = json.summary as {
+          weekOccupancy: number;
+          monthOccupancy: number;
+          monthRevenue: number;
+        };
+        setCalendarSummary(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+    run();
+  }, [studio?.id]);
 
   const buildRoomsPayload = (rooms: Room[]) =>
     rooms.map((r) => ({
@@ -1274,9 +2082,68 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
   const slotList = (() => {
     if (!currentRoom || !selectedDate || !studio) return [];
     const key = formatKey(selectedDate);
-    const withSlots = ensureSlotsForDay(currentRoom, selectedDate, studio.openingHours);
+    const withSlots = ensureSlotsForDay(currentRoom, selectedDate, effectiveOpeningHours);
     return withSlots.slots[key] || [];
   })();
+  const selectedDayStart = selectedDate
+    ? new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate())
+    : null;
+  const selectedDayRange = selectedDayStart ? getDayRange(selectedDayStart, dayCutoffHour) : null;
+  const selectedBlocks = selectedDayStart
+    ? calendarBlocks.filter((block) => {
+        const start = new Date(block.startAt);
+        const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+        return businessStart.getTime() === selectedDayStart.getTime();
+      })
+    : [];
+  const selectedBlockMinutes =
+    selectedDayStart && selectedDayRange
+      ? selectedBlocks.reduce((acc, block) => {
+          const status = (block.status ?? "").toLowerCase();
+          if (block.type === "reservation" && status !== "approved" && status !== "onaylı") {
+            return acc;
+          }
+          const start = new Date(block.startAt).getTime();
+          const end = new Date(block.endAt).getTime();
+          const clampedStart = Math.max(start, selectedDayRange.start.getTime());
+          const clampedEnd = Math.min(end, selectedDayRange.end.getTime());
+          const diff = Math.max(0, clampedEnd - clampedStart);
+          return acc + diff / 60000;
+        }, 0)
+      : 0;
+  const selectedSlotHours = slotList.filter((slot) => slot.status === "confirmed").length;
+  const selectedFilledHours =
+    selectedBlocks.length > 0 ? selectedBlockMinutes / 60 : selectedSlotHours;
+  const selectedFilledLabel =
+    Number.isInteger(selectedFilledHours) ? String(selectedFilledHours) : selectedFilledHours.toFixed(1);
+  const formatPercent = (value: number) =>
+    Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`;
+  const formatCurrency = (value: number) => `${Math.round(value).toLocaleString("tr-TR")} TL`;
+  const weekOccupancy = calendarSummary?.weekOccupancy ?? 0;
+  const monthOccupancy = calendarSummary?.monthOccupancy ?? 0;
+  const monthRevenue = calendarSummary?.monthRevenue ?? 0;
+
+  const getFilledHoursForDay = (date: Date) => {
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const range = getDayRange(dayStart, dayCutoffHour);
+    const minutes = calendarBlocks.reduce((acc, block) => {
+      const start = new Date(block.startAt);
+      const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+      if (businessStart.getTime() !== dayStart.getTime()) return acc;
+      const status = (block.status ?? "").toLowerCase();
+      if (block.type === "reservation" && status !== "approved" && status !== "onaylı") {
+        return acc;
+      }
+      const end = new Date(block.endAt);
+      const clampedStart = Math.max(start.getTime(), range.start.getTime());
+      const clampedEnd = Math.min(end.getTime(), range.end.getTime());
+      const diff = Math.max(0, clampedEnd - clampedStart);
+      return acc + diff / 60000;
+    }, 0);
+    if (minutes <= 0) return 0;
+    const hours = minutes / 60;
+    return Number.isInteger(hours) ? Number(hours.toFixed(0)) : Number(hours.toFixed(1));
+  };
 
 
   if (!studio) {
@@ -1329,7 +2196,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                 }}
                 onDragEnd={() => setDragRoomId(null)}
                 onClick={() => handleTabChange(item.key)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                className={`rounded-full border px-5 py-2.5 text-base font-semibold transition ${
                   activeTab === item.key
                     ? "border-blue-500 bg-blue-500 text-white shadow-sm"
                     : "border-blue-100 bg-white text-gray-800 hover:border-blue-200"
@@ -1350,7 +2217,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
             ))}
             <button
               onClick={addRoom}
-              className="rounded-full border border-dashed border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-700"
+              className="rounded-full border border-dashed border-gray-200 px-5 py-2.5 text-base font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-700"
             >
               + Oda ekle
             </button>
@@ -1359,26 +2226,68 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
         {activeTab === "panel" && (
           <>
             <section className="grid gap-4 lg:grid-cols-3">
-            <button
-              onClick={() => setShowRatings(true)}
-              className="rounded-2xl border border-green-100 bg-green-50/80 p-4 text-left transition hover:border-green-200 hover:shadow-sm"
-            >
-              <p className="text-sm font-semibold text-green-900">Puan</p>
-              <p className="mt-2 text-4xl font-bold text-green-800">
-                {studio.ratings.length
-                  ? (studio.ratings.reduce((a, b) => a + b, 0) / studio.ratings.length).toFixed(1)
-                  : "0.0"}
-              </p>
-              <p className="mt-1 text-xs text-green-700 underline">Yorumları aç</p>
-            </button>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 lg:col-span-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-blue-900">Rezervasyon özeti</p>
+                <Link
+                  href="/dashboard/reservation-stats?as=studio"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#9A3412] text-[#9A3412] transition hover:border-[#7C2D12] hover:text-[#7C2D12]"
+                  aria-label="Rezervasyon istatistikleri"
+                  title="Rezervasyon istatistikleri"
+                >
+                  <BarChart3 className="h-6 w-6 text-[#9A3412] stroke-[#9A3412]" />
+                </Link>
+              </div>
+              <div className="mt-2 space-y-1 text-sm text-blue-800">
+                <p>
+                  Bu haftaki doluluk:{" "}
+                  {summaryLoading ? "Hesaplanıyor..." : formatPercent(weekOccupancy)}
+                </p>
+                <p>
+                  Bu ayki doluluk:{" "}
+                  {summaryLoading ? "Hesaplanıyor..." : formatPercent(monthOccupancy)}
+                </p>
+                <p>
+                  Tahmini aylık gelir:{" "}
+                  {summaryLoading ? "Hesaplanıyor..." : formatCurrency(monthRevenue)}
+                </p>
+              </div>
+            </div>
 
             <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
-              <p className="text-sm font-semibold text-blue-900">Rezervasyon özeti</p>
-              <div className="mt-2 space-y-1 text-sm text-blue-800">
-                <p>Bugün onaylanan: {metrics.todayConfirmed}</p>
-                <p>Bu hafta onaylanan: {metrics.weekConfirmed}</p>
-                <p>Doluluk: {metrics.occupancy}%</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-blue-900">Onay yöntemi</p>
+                <div className="group relative inline-flex items-center">
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-200 text-[10px] font-semibold text-blue-700">
+                    i
+                  </span>
+                  <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs text-blue-900 opacity-0 shadow-lg transition group-hover:opacity-100">
+                    Talep otomatik onaylanır olarak seçtiğinizde, müzisyenler Studyom üzerinden sizinle hiç iletişime geçmeden bir odanızın bir saatini kapatabilirler. Whatsapp ve Mail üzerinden bilgilendirilirsiniz.
+                  </div>
+                </div>
               </div>
+              <div className="mt-3 space-y-2 text-sm text-blue-900">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="booking-approval"
+                    className="h-3.5 w-3.5"
+                    defaultChecked
+                    disabled
+                  />
+                  <span>Talebi ben onaylarım</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="booking-approval"
+                    className="h-3.5 w-3.5"
+                    disabled
+                  />
+                  <span>Talep otomatik onaylanır</span>
+                </label>
+              </div>
+              <p className="mt-3 text-xs text-blue-700">Rezervasyon ayarları yakında aktif olacaktır.</p>
             </div>
 
             <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
@@ -1410,7 +2319,15 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setEditingHours((v) => !v)}
+                    onClick={() => {
+                      if (editingHours) {
+                        if (calendarSettings) {
+                          setCalendarDraft(calendarSettings);
+                          setHoursDraft(calendarSettings.weeklyHours);
+                        }
+                      }
+                      setEditingHours((v) => !v);
+                    }}
                     className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
                   >
                     {editingHours ? "İptal" : "Saatleri düzenle"}
@@ -1418,11 +2335,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                   {editingHours && (
                     <button
                       disabled={saving}
-                      onClick={() =>
-                        saveStudioMeta({
-                          openingHours: hoursDraft,
-                        })
-                      }
+                      onClick={saveCalendarSettings}
                       className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
                     >
                       {saving ? "Kaydediliyor..." : "Kaydet"}
@@ -1436,7 +2349,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                 )}
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                {(editingHours ? hoursDraft : studio.openingHours).map((h, idx) => (
+                {(editingHours ? hoursDraft : effectiveOpeningHours).map((h, idx) => (
                   <div
                     key={idx}
                     className={`flex flex-col gap-2 rounded-xl border px-3 py-2 text-sm ${
@@ -1468,20 +2381,36 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                     </div>
                     {editingHours && h.open && (
                       <div className="flex items-center gap-2 text-xs">
-                        <input
-                          className="w-20 rounded-lg border border-gray-200 px-2 py-1"
+                        <select
+                          className="w-24 rounded-lg border border-gray-200 bg-white px-2 py-1"
                           value={h.openTime}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const nextOpen = e.target.value;
+                            const nextOptions = buildEndTimeOptions(nextOpen, dayCutoffHour);
                             setHoursDraft((prev) =>
                               prev.map((item, i) =>
-                                i === idx ? { ...item, openTime: e.target.value } : item,
+                                i === idx
+                                  ? {
+                                      ...item,
+                                      openTime: nextOpen,
+                                      closeTime: nextOptions.includes(item.closeTime)
+                                        ? item.closeTime
+                                        : nextOptions[0],
+                                    }
+                                  : item,
                               ),
-                            )
-                          }
-                        />
+                            );
+                          }}
+                        >
+                          {hourOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
                         <span>-</span>
-                        <input
-                          className="w-20 rounded-lg border border-gray-200 px-2 py-1"
+                        <select
+                          className="w-24 rounded-lg border border-gray-200 bg-white px-2 py-1"
                           value={h.closeTime}
                           onChange={(e) =>
                             setHoursDraft((prev) =>
@@ -1490,7 +2419,13 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                               ),
                             )
                           }
-                        />
+                        >
+                          {buildEndTimeOptions(h.openTime, dayCutoffHour).map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     )}
                     {!editingHours && (
@@ -1499,17 +2434,217 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                   </div>
                 ))}
               </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-600">Blok süresi</p>
+                  <select
+                    value={calendarDraft?.slotStepMinutes ?? slotStepMinutes}
+                    onChange={(e) =>
+                      setCalendarDraft((prev) => ({
+                        ...(prev ?? {
+                          slotStepMinutes,
+                          dayCutoffHour,
+                          timezone: "Europe/Istanbul",
+                          weeklyHours: hoursDraft,
+                        }),
+                        slotStepMinutes: Number(e.target.value),
+                      }))
+                    }
+                    disabled={!editingHours}
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:border-blue-400 focus:outline-none disabled:opacity-60"
+                  >
+                    {slotStepOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt} dk
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-600">İş günü bitişi</p>
+                  <select
+                    value={calendarDraft?.dayCutoffHour ?? dayCutoffHour}
+                    onChange={(e) =>
+                      setCalendarDraft((prev) => ({
+                        ...(prev ?? {
+                          slotStepMinutes,
+                          dayCutoffHour,
+                          timezone: "Europe/Istanbul",
+                          weeklyHours: hoursDraft,
+                        }),
+                        dayCutoffHour: Number(e.target.value),
+                      }))
+                    }
+                    disabled={!editingHours}
+                    className="h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 focus:border-blue-400 focus:outline-none disabled:opacity-60"
+                  >
+                    {cutoffHourOptions.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {pad(opt)}:00
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-purple-100 bg-purple-50/80 p-4">
-              <p className="text-sm font-semibold text-purple-900">Hızlı paylaşım</p>
-              <p className="mt-2 text-sm text-purple-800">Stüdyo linki panoya kopyalanır.</p>
+            <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
+              <p className="text-sm font-semibold text-blue-900">Stüdyo Kapak Görseli</p>
+              <p className="mt-2 text-sm text-blue-800">
+                Stüdyo arayanlar kapak olarak bu görseli görecekler.
+              </p>
+              <p className="mt-1 text-xs text-blue-700">
+                Tek foto, max 5 MB. Yatay olması önerilir.
+              </p>
+              <div className="mt-3 overflow-hidden rounded-xl border border-blue-100 bg-white/80">
+                {studio?.coverImageUrl ? (
+                  <img
+                    src={studio.coverImageUrl}
+                    alt="Stüdyo kapak görseli"
+                    className="h-40 w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-40 items-center justify-center text-xs text-blue-700">
+                    Henüz kapak görseli eklenmedi
+                  </div>
+                )}
+              </div>
               <button
-                onClick={copyLink}
-                className="mt-3 w-full rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700"
+                onClick={() => coverInputRef.current?.click()}
+                disabled={coverUploading}
+                className="mt-3 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
               >
-                Linki kopyala
+                {coverUploading ? "Yükleniyor..." : "Kapak görseli yükle"}
               </button>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleCoverChange}
+                className="hidden"
+              />
+              {coverStatus && (
+                <p className="mt-2 text-xs text-blue-800">{coverStatus}</p>
+              )}
+              <p className="mt-2 text-xs text-blue-700">
+                Buraya yüklenen fotoğraf, Stüdyo arama kısmındaki önizlemede kapak olarak kullanılacak.
+              </p>
+            </div>
+
+            <div
+              className={`rounded-2xl border border-amber-200 bg-amber-100/80 p-2 lg:col-span-3 ${
+                happyHourOpen ? "" : "min-h-[86px] flex flex-col justify-center"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setHappyHourOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between text-left"
+              >
+                <div className="pl-4">
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm font-semibold uppercase tracking-wide text-amber-900">Happy Hour</p>
+                    <HappyHourIcon className="h-[5.1rem] w-[5.1rem] text-amber-900" />
+                  </div>
+                </div>
+                <span className="text-xs font-semibold text-amber-900">
+                  {happyHourOpen ? "Gizle" : "Göster"}
+                </span>
+              </button>
+              {happyHourOpen && (
+                <div className="mt-2 space-y-2 text-xs text-amber-900">
+                  <p className="text-xs text-amber-800">
+                    Happy Hour fiyatlandırması oda fiyatlandırmasındadır.
+                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-amber-900">Happy Hour günleri ve saatleri</p>
+                    <div className="space-y-2">
+                      {longDays.map((day, idx) => {
+                        const row = happyHourDays[idx];
+                        return (
+                          <div
+                            key={day}
+                            className="flex flex-col gap-2 rounded-lg border border-amber-200/70 bg-white/70 px-3 py-2 sm:flex-row sm:items-center"
+                          >
+                            <label className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+                              <input
+                                type="checkbox"
+                                checked={row?.enabled ?? false}
+                                onChange={(e) =>
+                                  setHappyHourDays((prev) => {
+                                    setHappyHourTouched(true);
+                                    return prev.map((item, index) =>
+                                      index === idx ? { ...item, enabled: e.target.checked } : item,
+                                    );
+                                  })
+                                }
+                                className="h-4 w-4 rounded border border-amber-400/60 bg-white text-amber-700 focus:ring-2 focus:ring-amber-500"
+                              />
+                              {day}
+                            </label>
+                            {row?.enabled && (
+                              <label className="flex items-center gap-2 text-xs text-amber-900 sm:ml-auto">
+                                <span>Saat kaça kadar?</span>
+                                <select
+                                  value={row.endTime}
+                                  onChange={(e) =>
+                                    setHappyHourDays((prev) => {
+                                      setHappyHourTouched(true);
+                                      return prev.map((item, index) =>
+                                        index === idx ? { ...item, endTime: e.target.value } : item,
+                                      );
+                                    })
+                                  }
+                                  className="h-8 rounded-lg border border-amber-200/80 bg-white px-2 text-xs font-semibold text-amber-900 focus:border-amber-400 focus:outline-none"
+                                >
+                                  {hourOptions.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={saveHappyHourSchedule}
+                      disabled={happyHourSaving}
+                      className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
+                    >
+                      {happyHourSaving ? "Kaydediliyor..." : "Günleri kaydet"}
+                    </button>
+                    {happyHourStatus && (
+                      <span className="text-xs text-amber-900">{happyHourStatus}</span>
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-amber-900">
+                    Durum: {happyHourActive ? "Aktif" : "Kapalı"}
+                  </p>
+                  <p className="text-xs font-semibold text-amber-900">Happy Hour aktifleştir</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHappyHourEnabled(true)}
+                      className="rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white"
+                    >
+                      Aktifleştir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHappyHourEnabled(false)}
+                      className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white"
+                    >
+                      Kapat
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             </section>
 
@@ -1919,36 +3054,121 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
               <div>
                 <p className="text-sm font-semibold text-gray-900">Takvim</p>
                 <p className="text-xs text-gray-600">
-                  {currentRoom.name} için slotları düzenle. Kapalı günler tıklanamaz.
+                  {currentRoom.name} için slotları düzenle.
                 </p>
+                {calendarView === "day" && selectedDate && (
+                  <p className="mt-1 text-xs font-semibold text-gray-700">
+                    Seçili gün:{" "}
+                    {selectedDate.toLocaleDateString("tr-TR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </p>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() =>
-                    setMonthCursor(
-                      new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1),
-                    )
-                  }
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                >
-                  Önceki
-                </button>
-                <div className="min-w-[160px] text-center text-sm font-semibold">
-                  {monthCursor.toLocaleDateString("tr-TR", {
-                    month: "long",
-                    year: "numeric",
-                  })}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-lg border border-gray-200 bg-white text-xs font-semibold">
+                  {([
+                    { key: "month", label: "Ay" },
+                    { key: "week", label: "Hafta" },
+                    { key: "day", label: "Gün" },
+                  ] as const).map((item, idx) => (
+                    <button
+                      key={item.key}
+                      onClick={() => handleCalendarViewChange(item.key as CalendarView)}
+                      className={`px-3 py-2 ${
+                        calendarView === item.key
+                          ? "bg-gray-900 text-white"
+                          : "text-gray-700 hover:bg-gray-50"
+                      } ${idx === 0 ? "rounded-l-lg" : ""} ${
+                        idx === 2 ? "rounded-r-lg" : ""
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
                 </div>
-                <button
-                  onClick={() =>
-                    setMonthCursor(
-                      new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1),
-                    )
-                  }
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                >
-                  Sonraki
-                </button>
+                {calendarView === "month" ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        setMonthCursor(
+                          new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1),
+                        )
+                      }
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                    >
+                      Önceki
+                    </button>
+                    <div className="min-w-[160px] text-center text-sm font-semibold text-gray-900">
+                      {monthCursor.toLocaleDateString("tr-TR", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </div>
+                    <button
+                      onClick={() =>
+                        setMonthCursor(
+                          new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1),
+                        )
+                      }
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (calendarView === "week") {
+                          setWeekCursor((prev) => addMinutes(prev, -7 * 24 * 60));
+                        } else {
+                          setSelectedDate((prev) =>
+                            prev ? new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 1) : new Date(),
+                          );
+                        }
+                      }}
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                    >
+                      Önceki
+                    </button>
+                    <div className="min-w-[180px] text-center text-sm font-semibold text-gray-900">
+                      {calendarView === "week"
+                        ? (() => {
+                            const start = startOfWeek(weekCursor);
+                            const end = addMinutes(start, 6 * 24 * 60);
+                            return `${start.toLocaleDateString("tr-TR", {
+                              day: "numeric",
+                              month: "short",
+                            })} - ${end.toLocaleDateString("tr-TR", {
+                              day: "numeric",
+                              month: "short",
+                            })}`;
+                          })()
+                        : (selectedDate ?? new Date()).toLocaleDateString("tr-TR", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          })}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (calendarView === "week") {
+                          setWeekCursor((prev) => addMinutes(prev, 7 * 24 * 60));
+                        } else {
+                          setSelectedDate((prev) =>
+                            prev ? new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 1) : new Date(),
+                          );
+                        }
+                      }}
+                      className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                    >
+                      Sonraki
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1958,153 +3178,678 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                   key={room.id}
                   onClick={() => {
                     setSelectedRoomId(room.id);
+                    setCalendarRoomScope(room.id);
                     handleTabChange("calendar");
                   }}
                   style={
-                    room.id === currentRoom.id
+                    calendarRoomScope === room.id
                       ? { backgroundColor: room.color, borderColor: room.color, color: "#fff" }
                       : { borderColor: "#e5e7eb" }
                   }
                   className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                    room.id === currentRoom.id ? "" : "bg-gray-50 text-gray-700 hover:border-blue-300"
+                    calendarRoomScope === room.id ? "" : "bg-gray-50 text-gray-700 hover:border-blue-300"
                   }`}
                 >
                   {room.name}
                 </button>
               ))}
+              {orderedRooms.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCalendarRoomScope("all");
+                    handleTabChange("calendar");
+                  }}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    calendarRoomScope === "all"
+                      ? "border-blue-500 bg-blue-500 text-white shadow-sm"
+                      : "border-gray-200 bg-gray-50 text-gray-700 hover:border-blue-300"
+                  }`}
+                >
+                  Tümü
+                </button>
+              ) : null}
             </div>
 
-            <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50/60 p-3">
-              <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-gray-700">
-                {shortDays.map((d) => (
-                  <div key={d} className="py-1">
-                    {d}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-2 grid grid-cols-7 gap-2 text-sm">
-                {Array.from({ length: totalCells }).map((_, idx) => {
-                  const dayNum = idx - startOffset + 1;
-                  if (dayNum < 1 || dayNum > daysInMonth) {
-                    return <div key={idx} />;
-                  }
-                  const date = new Date(
-                    monthCursor.getFullYear(),
-                    monthCursor.getMonth(),
-                    dayNum,
-                  );
-                  const key = formatKey(date);
-                  const dayIdx = weekdayIndex(date);
-                  const isOpen = studio.openingHours[dayIdx]?.open;
-                  const slots = currentRoom.slots[key] || [];
-                  const confirmed = slots.filter((s) => s.status === "confirmed").length;
-                  const isSelected =
-                    selectedDate &&
-                    formatKey(selectedDate) === key &&
-                    selectedRoomId === currentRoom.id;
-                  const selectedStyle = isSelected
-                    ? {
-                        borderColor: currentRoom.color,
-                        backgroundColor: `${currentRoom.color}22`,
-                      }
-                    : {};
-
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => isOpen && handleDaySelect(date)}
-                      style={selectedStyle}
-                      className={`flex h-16 flex-col rounded-xl border text-left transition ${
-                        !isOpen
-                          ? "cursor-not-allowed border-red-100 bg-red-50 text-red-700"
-                          : !isSelected
-                            ? "border-gray-200 bg-white hover:border-blue-300"
-                            : ""
-                      }`}
-                    >
-                      <span className="px-2 py-1 text-sm font-semibold">{dayNum}</span>
-                      {confirmed > 0 && (
-                        <span className="px-2 text-xs text-green-700">
-                          {confirmed} onaylı
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {selectedDate && currentRoom && (
-              <div className="mt-4 rounded-2xl border border-gray-100 bg-white/90 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {currentRoom.name} •{" "}
-                      {selectedDate.toLocaleDateString("tr-TR", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                      })}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      Slotların durumunu değiştir. İsim kutucuğu opsiyonel.
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700">
-                    {pricingLabel(currentRoom)}
-                  </span>
-                </div>
-                <div className="mt-3 space-y-2">
-                  {slotList.length === 0 && (
-                    <p className="text-sm text-gray-600">
-                      Bu gün için slot yok (kapalı veya henüz oluşturulmadı).
-                    </p>
-                  )}
-                  {slotList.map((slot, i) => (
-                    <div
-                      key={i}
-                      className={`flex flex-col gap-2 rounded-xl border px-3 py-2 sm:flex-row sm:items-center sm:gap-3 ${
-                        slot.status === "confirmed"
-                          ? "border-green-200 bg-green-50"
-                          : "border-gray-200 bg-white"
-                      }`}
-                    >
-                      <div className="min-w-[140px] font-semibold text-gray-900">
-                        {slot.timeLabel}
+            {calendarView === "month" && (
+              <>
+                <div className="mt-4 rounded-2xl border border-gray-100 bg-gray-50/60 p-3">
+                  <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-gray-700">
+                    {shortDays.map((d) => (
+                      <div key={d} className="py-1">
+                        {d}
                       </div>
-                      <input
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-400 focus:outline-none"
-                        placeholder="İsim (opsiyonel)"
-                        value={slot.name ?? ""}
-                        onChange={(e) =>
-                          updateSlotAndPersist(i, { name: e.target.value }, selectedDate)
+                    ))}
+                  </div>
+                  <div className="mt-2 grid grid-cols-7 gap-2 text-sm">
+                    {Array.from({ length: totalCells }).map((_, idx) => {
+                      const dayNum = idx - startOffset + 1;
+                      if (dayNum < 1 || dayNum > daysInMonth) {
+                        return <div key={idx} />;
+                      }
+                      const date = new Date(
+                        monthCursor.getFullYear(),
+                        monthCursor.getMonth(),
+                        dayNum,
+                      );
+                      const key = formatKey(date);
+                      const dayIdx = weekdayIndex(date);
+                      const isOpen = effectiveOpeningHours[dayIdx]?.open;
+                      const isSelected =
+                        selectedDate &&
+                        formatKey(selectedDate) === key &&
+                        selectedRoomId === currentRoom.id;
+                      const filledHours = getFilledHoursForDay(date);
+                      const selectedStyle = isSelected
+                        ? {
+                            borderColor: currentRoom.color,
+                            backgroundColor: `${currentRoom.color}22`,
+                          }
+                        : {};
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => isOpen && handleDaySelect(date)}
+                          style={selectedStyle}
+                          className={`flex h-16 flex-col rounded-xl border text-left transition ${
+                            !isOpen
+                              ? "cursor-not-allowed border-red-100 bg-red-50 text-red-700"
+                              : !isSelected
+                                ? "border-gray-200 bg-white hover:border-blue-300"
+                                : ""
+                          }`}
+                        >
+                          <span className="px-2 py-1 text-sm font-semibold">{dayNum}</span>
+                          {filledHours > 0 && (
+                            <span className="px-2 text-xs text-green-700">
+                              {filledHours} saat dolu
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </>
+            )}
+
+            {calendarView !== "month" && (
+              <div className="mt-4 space-y-3">
+                {calendarError ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                    {calendarError}
+                  </div>
+                ) : null}
+                <div className="rounded-2xl border border-gray-100 bg-white/90 p-4">
+                  {calendarLoading ? (
+                    <p className="text-sm text-gray-600">Takvim yükleniyor...</p>
+                  ) : calendarView === "day" ? (
+                    (() => {
+                      const day = selectedDate ?? new Date();
+                      const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+                      const range = getDayRange(dayStart, dayCutoffHour);
+                      const baseTimeline = getTimelineForDay(dayStart, effectiveOpeningHours, dayCutoffHour);
+                      const dayBlocks = calendarBlocks.filter((block) => {
+                        const start = new Date(block.startAt);
+                        const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+                        return businessStart.getTime() === dayStart.getTime();
+                      });
+                      const visibleDayBlocks = dayBlocks.filter((block) => block.type !== "manual_block");
+                      const blockExtents = visibleDayBlocks.map((block) => {
+                        const start = new Date(block.startAt);
+                        const end = new Date(block.endAt);
+                        return {
+                          start: (start.getTime() - range.start.getTime()) / 60000,
+                          end: (end.getTime() - range.start.getTime()) / 60000,
+                        };
+                      });
+                      const minBlock = blockExtents.length ? Math.min(...blockExtents.map((b) => b.start)) : null;
+                      const maxBlock = blockExtents.length ? Math.max(...blockExtents.map((b) => b.end)) : null;
+                      const timeline = {
+                        start: minBlock !== null ? Math.min(baseTimeline.start, minBlock) : baseTimeline.start,
+                        end: maxBlock !== null ? Math.max(baseTimeline.end, maxBlock) : baseTimeline.end,
+                      };
+                      const openInfo = effectiveOpeningHours[weekdayIndex(dayStart)];
+                      const openMinutes = openInfo?.open ? minutesFromTime(openInfo.openTime) : null;
+                      let closeMinutes = openInfo?.open ? minutesFromTime(openInfo.closeTime) : null;
+                      if (openInfo?.open && openMinutes !== null && closeMinutes !== null && closeMinutes <= openMinutes) {
+                        closeMinutes += 24 * 60;
+                      }
+                      const slots: number[] = [];
+                      for (let m = timeline.start; m < timeline.end; m += slotStepMinutes) {
+                        slots.push(m);
+                      }
+                      const slotHeight = 36;
+                      const totalHeight = slots.length * slotHeight;
+                      return (
+                        <div className="grid grid-cols-[72px_1fr] gap-3">
+                          <div className="flex flex-col">
+                            {slots.map((m) => (
+                              <div
+                                key={`label-${m}`}
+                                className="flex items-center justify-end pr-2 text-xs text-gray-500"
+                                style={{ height: slotHeight }}
+                              >
+                                {formatMinutesLabel(m)}
+                              </div>
+                            ))}
+                          </div>
+                          <div
+                            className="relative rounded-xl border border-gray-100 bg-gray-50"
+                            style={{ height: totalHeight }}
+                            onMouseUp={() => {
+                              if (dragState) {
+                                openDrawerForRange(dayStart, dragState.start, dragState.end);
+                                setDragState(null);
+                              }
+                            }}
+                          >
+                            {slots.map((m) => {
+                              const isHappy = isHappyHourSlot(dayStart, m);
+                              return (
+                              <div
+                                key={`slot-${m}`}
+                                className={`relative border-b border-gray-200/60 ${
+                                  !openInfo?.open ||
+                                  openMinutes === null ||
+                                  closeMinutes === null ||
+                                  m < openMinutes ||
+                                  m + slotStepMinutes > closeMinutes
+                                    ? "bg-gray-200/70"
+                                    : ""
+                                }`}
+                                style={{ height: slotHeight }}
+                                onMouseDown={() => setDragState({ day: dayStart, start: m, end: m + slotStepMinutes })}
+                                onMouseEnter={() => {
+                                  if (!dragState) return;
+                                  setDragState((prev) => (prev ? { ...prev, end: m + slotStepMinutes } : prev));
+                                }}
+                                onClick={() => {
+                                  if (dragState) return;
+                                  openDrawerForRange(dayStart, m, m + slotStepMinutes);
+                                }}
+                              >
+                                {isHappy && (
+                                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-40">
+                                    <HappyHourIcon className="h-14 w-14 text-amber-600" />
+                                  </div>
+                                )}
+                              </div>
+                              );
+                            })}
+                            {dragState && dragState.day.toDateString() === dayStart.toDateString() && (
+                              <div
+                                className="absolute left-2 right-2 rounded-xl border border-blue-300 bg-blue-200/40"
+                                style={{
+                                  top:
+                                    ((Math.min(dragState.start, dragState.end) - timeline.start) /
+                                      slotStepMinutes) *
+                                    slotHeight,
+                                  height:
+                                    (Math.abs(dragState.end - dragState.start) / slotStepMinutes) *
+                                    slotHeight,
+                                }}
+                              />
+                            )}
+                            {visibleDayBlocks.map((block) => {
+                              const start = new Date(block.startAt);
+                              const end = new Date(block.endAt);
+                              const minutesFromStart = (start.getTime() - range.start.getTime()) / 60000;
+                              const minutesToEnd = (end.getTime() - range.start.getTime()) / 60000;
+                              const top = ((minutesFromStart - timeline.start) / slotStepMinutes) * slotHeight;
+                              const height = ((minutesToEnd - minutesFromStart) / slotStepMinutes) * slotHeight;
+                              if (height <= 0) return null;
+                              const status = (block.status ?? "").toLowerCase();
+                              const isAllRooms = calendarRoomScope === "all";
+                              const roomColor = roomColorById.get(block.roomId ?? "") ?? "#1D4ED8";
+                              const roomLabel = roomNameById.get(block.roomId ?? "") ?? "Oda";
+                              const palette =
+                                block.type === "manual_block"
+                                  ? "border-blue-300/60 bg-blue-400/30 text-blue-900"
+                                  : status === "approved" || status === "onaylı"
+                                    ? "border-green-300/60 bg-green-400/30 text-green-900"
+                                    : status === "cancelled" || status === "iptal"
+                                      ? "border-red-300/60 bg-red-400/30 text-red-900"
+                                      : "border-yellow-300/60 bg-yellow-300/30 text-yellow-900";
+                              const inlineStyle = isAllRooms
+                                ? {
+                                    top,
+                                    height,
+                                    borderColor: withAlpha(roomColor, 0.55),
+                                    backgroundColor: withAlpha(roomColor, 0.22),
+                                    color: "#0f172a",
+                                  }
+                                : { top, height };
+                              return (
+                                <div
+                                  key={block.id}
+                                  className={`absolute left-2 right-2 rounded-xl border ${
+                                    isAllRooms ? "" : palette
+                                  }`}
+                                  style={inlineStyle}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openDrawerForBlock(dayStart, block);
+                                    }}
+                                    className="w-full rounded-xl px-3 py-2 text-left text-xs"
+                                  >
+                                    <p className="font-semibold">
+                                      {formatMinutesLabel(minutesFromStart)} -{" "}
+                                      {formatMinutesLabel(minutesToEnd)}
+                                    </p>
+                                    {isAllRooms ? (
+                                      <p className="text-[10px] font-semibold">{roomLabel}</p>
+                                    ) : null}
+                                    <p className="truncate">
+                                      {block.title?.trim()
+                                        ? block.title
+                                        : block.type === "manual_block"
+                                          ? "Manuel blok"
+                                          : "Rezervasyon"}
+                                    </p>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    (() => {
+                      const weekStart = startOfWeek(weekCursor);
+                      const days = Array.from({ length: 7 }).map((_, idx) =>
+                        new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + idx),
+                      );
+                      const timelines = days.map((day) =>
+                        getTimelineForDay(day, effectiveOpeningHours, dayCutoffHour),
+                      );
+                      let minStart = Math.min(...timelines.map((t) => t.start));
+                      let maxEnd = Math.max(...timelines.map((t) => t.end));
+                      const dayRanges = days.map((day) => getDayRange(day, dayCutoffHour));
+                      days.forEach((day, idx) => {
+                        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+                        const range = dayRanges[idx];
+                        const blocks = calendarBlocks.filter((block) => {
+                          const start = new Date(block.startAt);
+                          const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+                          return businessStart.getTime() === dayStart.getTime();
+                        });
+                        const visibleBlocks = blocks.filter((block) => block.type !== "manual_block");
+                        if (visibleBlocks.length) {
+                          const extents = visibleBlocks.map((block) => {
+                            const start = new Date(block.startAt);
+                            const end = new Date(block.endAt);
+                            return {
+                              start: (start.getTime() - range.start.getTime()) / 60000,
+                              end: (end.getTime() - range.start.getTime()) / 60000,
+                            };
+                          });
+                          minStart = Math.min(minStart, ...extents.map((e) => e.start));
+                          maxEnd = Math.max(maxEnd, ...extents.map((e) => e.end));
                         }
-                      />
-                      <div className="flex gap-2">
-                        {slot.status !== "confirmed" && (
-                          <button
-                            onClick={() =>
-                              updateSlotAndPersist(i, { status: "confirmed" }, selectedDate)
+                      });
+                      const timeline = { start: minStart, end: maxEnd };
+                      const slots: number[] = [];
+                      for (let m = timeline.start; m < timeline.end; m += slotStepMinutes) {
+                        slots.push(m);
+                      }
+                      const slotHeight = 28;
+                      const totalHeight = slots.length * slotHeight;
+                      return (
+                        <div className="grid grid-cols-[72px_1fr] gap-3">
+                          <div className="flex flex-col">
+                            {slots.map((m) => (
+                              <div
+                                key={`week-label-${m}`}
+                                className="flex items-center justify-end pr-2 text-xs text-gray-500"
+                                style={{ height: slotHeight }}
+                              >
+                                {formatMinutesLabel(m)}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-7 gap-2">
+                            {days.map((day) => {
+                              const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+                              const range = getDayRange(dayStart, dayCutoffHour);
+                              const openInfo = effectiveOpeningHours[weekdayIndex(dayStart)];
+                              const openMinutes = openInfo?.open ? minutesFromTime(openInfo.openTime) : null;
+                              let closeMinutes = openInfo?.open ? minutesFromTime(openInfo.closeTime) : null;
+                              if (openInfo?.open && openMinutes !== null && closeMinutes !== null && closeMinutes <= openMinutes) {
+                                closeMinutes += 24 * 60;
+                              }
+                              const dayBlocks = calendarBlocks.filter((block) => {
+                                const start = new Date(block.startAt);
+                                const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+                                return businessStart.getTime() === dayStart.getTime();
+                              });
+                              const visibleDayBlocks = dayBlocks.filter(
+                                (block) => block.type !== "manual_block",
+                              );
+                              return (
+                                <div key={day.toISOString()} className="space-y-2">
+                                  <div className="text-xs font-semibold text-gray-600">
+                                    {day.toLocaleDateString("tr-TR", { weekday: "short", day: "numeric" })}
+                                  </div>
+                                  <div
+                                    className="relative rounded-xl border border-gray-100 bg-gray-50"
+                                    style={{ height: totalHeight }}
+                                    onMouseUp={() => {
+                                      if (dragState) {
+                                        openDrawerForRange(day, dragState.start, dragState.end);
+                                        setDragState(null);
+                                      }
+                                    }}
+                                  >
+                                    {slots.map((m) => {
+                                      const isHappy = isHappyHourSlot(dayStart, m);
+                                      return (
+                                      <div
+                                        key={`week-slot-${day.toDateString()}-${m}`}
+                                        className={`relative border-b border-gray-200/60 ${
+                                          !openInfo?.open ||
+                                          openMinutes === null ||
+                                          closeMinutes === null ||
+                                          m < openMinutes ||
+                                          m + slotStepMinutes > closeMinutes
+                                            ? "bg-gray-200/70"
+                                            : ""
+                                        }`}
+                                        style={{ height: slotHeight }}
+                                        onMouseDown={() => setDragState({ day, start: m, end: m + slotStepMinutes })}
+                                        onMouseEnter={() => {
+                                          if (!dragState) return;
+                                          setDragState((prev) =>
+                                            prev ? { ...prev, end: m + slotStepMinutes } : prev,
+                                          );
+                                        }}
+                                        onClick={() => {
+                                          if (dragState) return;
+                                          openDrawerForRange(day, m, m + slotStepMinutes);
+                                        }}
+                                      >
+                                        {isHappy && (
+                                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-40">
+                                            <HappyHourIcon className="h-12 w-12 text-amber-600" />
+                                          </div>
+                                        )}
+                                      </div>
+                                      );
+                                    })}
+                                    {dragState && dragState.day.toDateString() === day.toDateString() && (
+                                      <div
+                                        className="absolute left-2 right-2 rounded-xl border border-blue-300 bg-blue-200/40"
+                                        style={{
+                                          top:
+                                            ((Math.min(dragState.start, dragState.end) - timeline.start) /
+                                              slotStepMinutes) *
+                                            slotHeight,
+                                          height:
+                                            (Math.abs(dragState.end - dragState.start) / slotStepMinutes) *
+                                            slotHeight,
+                                        }}
+                                      />
+                                    )}
+                                    {visibleDayBlocks.map((block) => {
+                                      const start = new Date(block.startAt);
+                                      const end = new Date(block.endAt);
+                                      const minutesFromStart = (start.getTime() - range.start.getTime()) / 60000;
+                                      const minutesToEnd = (end.getTime() - range.start.getTime()) / 60000;
+                                      const top =
+                                        ((minutesFromStart - timeline.start) / slotStepMinutes) * slotHeight;
+                                      const height =
+                                        ((minutesToEnd - minutesFromStart) / slotStepMinutes) * slotHeight;
+                                      if (height <= 0) return null;
+                                      const status = (block.status ?? "").toLowerCase();
+                                      const isAllRooms = calendarRoomScope === "all";
+                                      const roomColor = roomColorById.get(block.roomId ?? "") ?? "#1D4ED8";
+                                      const roomLabel = roomNameById.get(block.roomId ?? "") ?? "Oda";
+                                      const palette =
+                                        block.type === "manual_block"
+                                          ? "border-blue-300/60 bg-blue-400/30 text-blue-900"
+                                          : status === "approved" || status === "onaylı"
+                                            ? "border-green-300/60 bg-green-400/30 text-green-900"
+                                            : status === "cancelled" || status === "iptal"
+                                              ? "border-red-300/60 bg-red-400/30 text-red-900"
+                                              : "border-yellow-300/60 bg-yellow-300/30 text-yellow-900";
+                                      const inlineStyle = isAllRooms
+                                        ? {
+                                            top,
+                                            height,
+                                            borderColor: withAlpha(roomColor, 0.55),
+                                            backgroundColor: withAlpha(roomColor, 0.22),
+                                            color: "#0f172a",
+                                          }
+                                        : { top, height };
+                                      return (
+                                        <div
+                                          key={block.id}
+                                          className={`absolute left-2 right-2 rounded-xl border ${
+                                            isAllRooms ? "" : palette
+                                          }`}
+                                          style={inlineStyle}
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openDrawerForBlock(day, block);
+                                            }}
+                                            className="w-full rounded-xl px-2 py-1 text-left text-[10px]"
+                                          >
+                                            <p className="font-semibold">
+                                              {formatMinutesLabel(minutesFromStart)}-
+                                              {formatMinutesLabel(minutesToEnd)}
+                                            </p>
+                                            {isAllRooms ? (
+                                              <p className="text-[10px] font-semibold">{roomLabel}</p>
+                                            ) : null}
+                                            <p className="truncate">
+                                              {block.title?.trim()
+                                                ? block.title
+                                                : block.type === "manual_block"
+                                                  ? "Manuel blok"
+                                                  : "Rezervasyon"}
+                                            </p>
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+              </div>
+            )}
+
+            {drawerOpen && drawerData && (
+              <div className="fixed inset-y-0 right-0 z-50 w-full max-w-sm border-l border-gray-200 bg-white p-5 shadow-2xl">
+                {(() => {
+                  const timeline = getTimelineForDay(drawerData.day, effectiveOpeningHours, dayCutoffHour);
+                  const minOption = Math.min(
+                    timeline.start,
+                    drawerData.startMinutes,
+                    drawerData.endMinutes,
+                  );
+                  const maxOption = Math.max(
+                    timeline.end,
+                    drawerData.startMinutes,
+                    drawerData.endMinutes,
+                  );
+                  const options: number[] = [];
+                  for (let m = minOption; m <= maxOption; m += slotStepMinutes) {
+                    options.push(m);
+                  }
+                  const duration = Math.max(0, drawerData.endMinutes - drawerData.startMinutes);
+                  const drawerRoomLabel =
+                    roomNameById.get(drawerData.roomId) ?? currentRoom?.name ?? "Oda";
+                  return (
+                    <div className="flex h-full flex-col gap-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">Slot detayı</p>
+                          <p className="text-xs text-gray-600">
+                            {drawerData.day.toLocaleDateString("tr-TR", {
+                              weekday: "long",
+                              day: "numeric",
+                              month: "long",
+                            })}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setDrawerOpen(false);
+                            setDrawerData(null);
+                          }}
+                          className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-700 hover:border-blue-300"
+                        >
+                          Kapat
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 text-xs text-gray-600">
+                        <p>Oda: {drawerRoomLabel}</p>
+                        <p>Süre: {duration} dk</p>
+                      </div>
+
+                      <div className="grid gap-3">
+                        <label className="flex flex-col gap-2 text-xs text-gray-600">
+                          Rezervasyon adı
+                          <input
+                            value={drawerData.title}
+                            onChange={(e) =>
+                              setDrawerData((prev) => (prev ? { ...prev, title: e.target.value } : prev))
                             }
-                            className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white hover:bg-green-700"
+                            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900"
+                            placeholder="Grup adı veya isim girin"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-2 text-xs text-gray-600">
+                          Başlangıç
+                          <select
+                            value={drawerData.startMinutes}
+                            onChange={(e) => {
+                              const value = Number(e.target.value);
+                              setDrawerData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      startMinutes: value,
+                                      endMinutes: Math.max(prev.endMinutes, value + slotStepMinutes),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900"
                           >
-                            Onayla
-                          </button>
-                        )}
-                        {slot.status !== "empty" && (
-                          <button
-                            onClick={() =>
-                              updateSlotAndPersist(i, { status: "empty", name: "" }, selectedDate)
+                            {options.map((m) => (
+                              <option key={`start-${m}`} value={m}>
+                                {formatMinutesLabel(m)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-2 text-xs text-gray-600">
+                          Bitiş
+                          <select
+                            value={drawerData.endMinutes}
+                            onChange={(e) => {
+                              const value = Number(e.target.value);
+                              setDrawerData((prev) =>
+                                prev ? { ...prev, endMinutes: Math.max(value, prev.startMinutes + slotStepMinutes) } : prev,
+                              );
+                            }}
+                            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900"
+                          >
+                            {options
+                              .filter((m) => m > drawerData.startMinutes)
+                              .map((m) => (
+                                <option key={`end-${m}`} value={m}>
+                                  {formatMinutesLabel(m)}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-2 text-xs text-gray-600">
+                          Tip
+                          <select
+                            value={drawerData.type}
+                            onChange={(e) =>
+                              setDrawerData((prev) =>
+                                prev ? { ...prev, type: e.target.value as "manual_block" | "reservation" } : prev,
+                              )
                             }
-                            className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-800 hover:border-blue-300"
+                            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900"
                           >
-                            Boşalt
-                          </button>
+                            <option value="reservation">Rezervasyon</option>
+                            <option value="manual_block">Manuel blok</option>
+                          </select>
+                        </label>
+                        {drawerData.type === "reservation" && (
+                          <label className="flex flex-col gap-2 text-xs text-gray-600">
+                            Durum
+                            <select
+                              value={drawerData.status}
+                              onChange={(e) =>
+                                setDrawerData((prev) =>
+                                  prev ? { ...prev, status: e.target.value } : prev,
+                                )
+                              }
+                              className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900"
+                            >
+                              <option value="pending">Beklemede</option>
+                              <option value="approved">Onaylı</option>
+                              <option value="cancelled">İptal</option>
+                            </select>
+                          </label>
                         )}
+                        <label className="flex flex-col gap-2 text-xs text-gray-600">
+                          Not
+                          <textarea
+                            value={drawerData.note}
+                            onChange={(e) =>
+                              setDrawerData((prev) => (prev ? { ...prev, note: e.target.value } : prev))
+                            }
+                            rows={4}
+                            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
+                            placeholder="Not ekle (opsiyonel)"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-auto flex flex-wrap items-center justify-between gap-3">
+                        {drawerData.id ? (
+                          <button
+                            onClick={deleteCalendarBlock}
+                            className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:border-red-300"
+                          >
+                            Sil
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                        <button
+                          onClick={saveCalendarBlock}
+                          className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                        >
+                          Kaydet
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
             )}
           </section>
@@ -2146,6 +3891,25 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                   >
                     ✏️
                   </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      saveRoomBasics(currentRoom.id, {
+                        name: currentRoom.name,
+                        type: currentRoom.type,
+                        color: currentRoom.color,
+                      })
+                    }
+                    disabled={saving}
+                    className="rounded-full border border-gray-200 p-2 text-gray-700 hover:border-blue-300 hover:text-blue-700 disabled:opacity-60"
+                    aria-label="Oda bilgilerini kaydet"
+                    title="Kaydet"
+                  >
+                    <Save className="h-4 w-4" aria-hidden />
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    Buradaki bütün bilgiler herkese görünür olacaktır.
+                  </span>
                 </div>
                 {showPalette && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -2221,88 +3985,149 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                       currentRoom.pricing.model === "daily" || currentRoom.pricing.model === "hourly"
                         ? currentRoom.pricing.model
                         : "hourly";
+                    const baseRate = parsePriceValue(
+                      activePricingModel === "daily"
+                        ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate
+                        : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate,
+                    );
+                    const happyRate = parsePriceValue(currentRoom.pricing.happyHourRate);
+                    const happyRateInvalid =
+                      happyHourActive && happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9;
                     return (
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
-                    <label className="flex items-center gap-2">
-                      <span>Ücretlendirme</span>
-                      <select
-                        className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:outline-none"
-                        value={activePricingModel}
-                        onChange={(e) => {
-                          const nextModel = e.target.value as Room["pricing"]["model"];
-                          const rate =
-                            nextModel === "daily"
-                              ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate ?? ""
-                              : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate ?? "";
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id
-                                      ? {
-                                          ...r,
-                                          pricing: {
-                                            ...r.pricing,
-                                            model: nextModel,
-                                            dailyRate: nextModel === "daily" ? rate : "",
-                                            hourlyRate: nextModel === "hourly" ? rate : "",
-                                            flatRate: "",
-                                            minRate: "",
-                                          },
-                                        }
-                                      : r,
-                                  ),
-                                }
-                              : prev,
-                          );
-                        }}
-                      >
-                        <option value="daily">Günlük</option>
-                        <option value="hourly">Saatlik</option>
-                      </select>
-                    </label>
-                    <input
-                      className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-400 focus:outline-none"
-                      placeholder="Ücret"
-                      value={
-                        activePricingModel === "daily"
-                          ? currentRoom.pricing.dailyRate ?? ""
-                          : currentRoom.pricing.hourlyRate ?? ""
-                      }
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setStudio((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                rooms: prev.rooms.map((r) =>
-                                  r.id === currentRoom.id
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
+                          <label className="flex items-center gap-2">
+                            <span>Ücretlendirme</span>
+                            <select
+                              className="rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-400 focus:outline-none"
+                              value={activePricingModel}
+                              onChange={(e) => {
+                                const nextModel = e.target.value as Room["pricing"]["model"];
+                                const rate =
+                                  nextModel === "daily"
+                                    ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate ?? ""
+                                    : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate ?? "";
+                                setStudio((prev) =>
+                                  prev
                                     ? {
-                                        ...r,
-                                        pricing: {
-                                          ...r.pricing,
-                                          model: activePricingModel,
-                                          dailyRate:
-                                            (activePricingModel === "daily" ? val : r.pricing.dailyRate) ?? "",
-                                          hourlyRate:
-                                            (activePricingModel === "hourly" ? val : r.pricing.hourlyRate) ?? "",
-                                          flatRate: "",
-                                          minRate: "",
-                                        },
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                pricing: {
+                                                  ...r.pricing,
+                                                  model: nextModel,
+                                                  dailyRate: nextModel === "daily" ? rate : "",
+                                                  hourlyRate: nextModel === "hourly" ? rate : "",
+                                                  flatRate: "",
+                                                  minRate: "",
+                                                },
+                                              }
+                                            : r,
+                                        ),
                                       }
-                                    : r,
-                                ),
-                              }
-                            : prev,
-                        );
-                      }}
-                    />
-                  </div>
+                                    : prev,
+                                );
+                              }}
+                            >
+                              <option value="daily">Günlük</option>
+                              <option value="hourly">Saatlik</option>
+                            </select>
+                          </label>
+                          <input
+                            className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-400 focus:outline-none"
+                            placeholder="Ücret"
+                            value={
+                              activePricingModel === "daily"
+                                ? currentRoom.pricing.dailyRate ?? ""
+                                : currentRoom.pricing.hourlyRate ?? ""
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setStudio((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === currentRoom.id
+                                          ? {
+                                              ...r,
+                                              pricing: {
+                                                ...r.pricing,
+                                                model: activePricingModel,
+                                                dailyRate:
+                                                  (activePricingModel === "daily" ? val : r.pricing.dailyRate) ?? "",
+                                                hourlyRate:
+                                                  (activePricingModel === "hourly" ? val : r.pricing.hourlyRate) ?? "",
+                                                flatRate: "",
+                                                minRate: "",
+                                              },
+                                            }
+                                          : r,
+                                      ),
+                                    }
+                                  : prev,
+                              );
+                            }}
+                          />
+                        </div>
+                        {happyHourActive && (
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
+                            <label className="flex items-center gap-2">
+                              <HappyHourIcon className="h-5 w-5 text-amber-600" />
+                              <span>Happy Hour ücretlendirmesi</span>
+                            </label>
+                            <input
+                              className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-400 focus:outline-none"
+                              placeholder="Ücret"
+                              value={currentRoom.pricing.happyHourRate ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setStudio((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        rooms: prev.rooms.map((r) =>
+                                          r.id === currentRoom.id
+                                            ? {
+                                                ...r,
+                                                pricing: {
+                                                  ...r.pricing,
+                                                  happyHourRate: val,
+                                                },
+                                              }
+                                            : r,
+                                        ),
+                                      }
+                                    : prev,
+                                );
+                              }}
+                            />
+                            {happyRateInvalid && (
+                              <span className="text-xs font-semibold text-red-600">
+                                Happy Hour minimum %10 olmalıdır.
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })()}
                   <button
-                    disabled={saving}
+                    disabled={saving || (happyHourActive && (() => {
+                      const activePricingModel =
+                        currentRoom.pricing.model === "daily" || currentRoom.pricing.model === "hourly"
+                          ? currentRoom.pricing.model
+                          : "hourly";
+                      const baseRate = parsePriceValue(
+                        activePricingModel === "daily"
+                          ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate
+                          : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate,
+                      );
+                      const happyRate = parsePriceValue(currentRoom.pricing.happyHourRate);
+                      return happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9;
+                    })())}
                     onClick={() =>
                       saveRoomBasics(currentRoom.id, {
                         name: currentRoom.name,
@@ -3139,6 +4964,8 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                             { flag: "hasDrumCrash4", detail: "drumCrash4Detail", label: "Crash 4" },
                             { flag: "hasDrumChina", detail: "drumChinaDetail", label: "China" },
                             { flag: "hasDrumSplash", detail: "drumSplashDetail", label: "Splash" },
+                            { flag: "hasDrumCowbell", detail: "drumCowbellDetail", label: "Cowbell" },
+                            { flag: "hasTwinPedal", detail: "twinPedalDetail", label: "Twin pedal" },
                           ] as const
                         ).map((item) => (
                           <label
@@ -3157,11 +4984,15 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                                         rooms: prev.rooms.map((r) => {
                                           if (r.id !== currentRoom.id) return r;
                                           const eq: Equipment = { ...r.equipment, [item.flag]: e.target.checked };
+                                          const detailKey = item.detail;
+                                          if (!detailKey) {
+                                            return { ...r, equipment: eq };
+                                          }
                                           const nextDetail =
-                                            e.target.checked && typeof r.equipment[item.detail] === "string"
-                                              ? (r.equipment[item.detail] as string)
+                                            e.target.checked && typeof r.equipment[detailKey] === "string"
+                                              ? (r.equipment[detailKey] as string)
                                               : "";
-                                          return { ...r, equipment: { ...eq, [item.detail]: nextDetail } };
+                                          return { ...r, equipment: { ...eq, [detailKey]: nextDetail } };
                                         }),
                                       }
                                     : prev,
@@ -3170,7 +5001,7 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                             />
                             <div className="flex-1 space-y-2">
                               <span>{item.label}</span>
-                              {currentRoom.equipment[item.flag] && (
+                              {item.detail && currentRoom.equipment[item.flag] && (
                                 <input
                                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-400 focus:outline-none"
                                   value={(currentRoom.equipment[item.detail] as string) ?? ""}
@@ -3191,80 +5022,12 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                                         : prev,
                                     )
                                   }
-                                  placeholder={`Örn: ${item.label}`}
+                                  placeholder="Marka/Model"
                                 />
                               )}
                             </div>
                           </label>
                         ))}
-                      </div>
-                      <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs font-semibold text-gray-800">
-                        <p className="mb-2">Cowbell var mı?</p>
-                        <div className="flex gap-2">
-                          {["Evet", "Hayır"].map((label, idx) => {
-                            const val = idx === 0;
-                            return (
-                              <button
-                                key={label}
-                                type="button"
-                                onClick={() =>
-                                  setStudio((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          rooms: prev.rooms.map((r) =>
-                                            r.id === currentRoom.id
-                                              ? { ...r, equipment: { ...r.equipment, hasDrumCowbell: val } }
-                                              : r,
-                                          ),
-                                        }
-                                      : prev,
-                                  )
-                                }
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                  currentRoom.equipment?.hasDrumCowbell === val
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-200 text-gray-800"
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-gray-200 bg-white p-3 text-xs font-semibold text-gray-800">
-                        <p className="mb-2">Twin pedal</p>
-                        <div className="flex gap-2">
-                          {["Var", "Yok"].map((label, idx) => {
-                            const val = idx === 0;
-                            return (
-                              <button
-                                key={label}
-                                type="button"
-                                onClick={() =>
-                                  setStudio((prev) =>
-                                    prev
-                                      ? {
-                                          ...prev,
-                                          rooms: prev.rooms.map((r) =>
-                                            r.id === currentRoom.id ? { ...r, equipment: { ...r.equipment, hasTwinPedal: val } } : r,
-                                          ),
-                                        }
-                                      : prev,
-                                  )
-                                }
-                                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                                  currentRoom.equipment?.hasTwinPedal === val
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-200 text-gray-800"
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            );
-                          })}
-                        </div>
                       </div>
                       <button
                         type="button"
@@ -3726,6 +5489,10 @@ export function DashboardClient({ initialStudio, userName, userEmail, linkedTeac
                   disabled={saving || orderedRooms.length <= 1}
                   onClick={() => {
                     if (!currentRoom) return;
+                    if (!emailVerified) {
+                      setStatus("Odayı silmek için e-posta doğrulaması gerekiyor.");
+                      return;
+                    }
                     if (!window.confirm("Bu odayı silmek istediğine emin misin?")) return;
                     setSaving(true);
                     fetch("/api/studio", {

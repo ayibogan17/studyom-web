@@ -148,6 +148,7 @@ type Props = {
     languages: string[];
     price: string;
     statement: string;
+    bio: string;
     links: string[];
     years: string;
     students: string;
@@ -163,6 +164,7 @@ export function TeacherProfileEditor({ initial }: Props) {
   const [languages, setLanguages] = useState<string[]>(initial.languages);
   const [price, setPrice] = useState<string>(initial.price);
   const [statement, setStatement] = useState<string>(initial.statement);
+  const [bio, setBio] = useState<string>(initial.bio);
   const [links, setLinks] = useState<string[]>(initial.links.length ? initial.links : [""]);
   const [years, setYears] = useState<string>(initial.years);
   const [students, setStudents] = useState<string>(initial.students);
@@ -199,6 +201,7 @@ export function TeacherProfileEditor({ initial }: Props) {
           languages,
           price: price.trim(),
           statement: statement.trim(),
+          bio: bio.trim(),
           links: cleanLinks,
           years: years.trim(),
           students: students.trim(),
@@ -420,11 +423,26 @@ export function TeacherProfileEditor({ initial }: Props) {
           value={statement}
           onChange={(e) => setStatement(e.target.value)}
           rows={4}
+          maxLength={200}
           disabled={locked}
           className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-          placeholder="Kendini ve öğretim yaklaşımını kısaca anlat"
+          placeholder="Buraya yazdıklarınız /Hocalar sayfasındaki önizlemenizde gözükecektir. Kısaca yeteneklerinizden ve kendinizden bahsedin. Bu kısımda fiyatlandırmadan bahsetmeyin."
         />
-        <p className="text-xs text-[var(--color-muted)]">{statement.trim().length} / 400</p>
+        <p className="text-xs text-[var(--color-muted)]">{statement.trim().length} / 200</p>
+      </Card>
+
+      <Card className="space-y-3 p-6">
+        <p className="text-sm font-semibold text-[var(--color-primary)]">Biyografi</p>
+        <textarea
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={6}
+          maxLength={1500}
+          disabled={locked}
+          className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+          placeholder="Burada kendinizden, portföyünüzden, iş ortamınızdan, ekipmanınızdan; uygun gördüğünüz tüm bilgilerden bahsedebilirsiniz. Ücretlendirmeyi kalite standartları açısından müşteri ile özelde konuşmanız ÖNERİLİR, ancak uygun görürseniz buraya da yazabilirsiniz."
+        />
+        <p className="text-xs text-[var(--color-muted)]">{bio.trim().length} / 1500</p>
       </Card>
 
       <Card className="space-y-4 p-6">

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { loadGeo } from "@/lib/geo";
 import { notifyAdmin } from "@/lib/admin-notify";
+import { createStudioSlug } from "@/lib/studio-slug";
 
 const applicantRoles = ["Sahibiyim", "Ortağım", "Yetkili yöneticiyim"] as const;
 const contactMethods = ["Phone", "WhatsApp", "Email"] as const;
@@ -82,10 +83,19 @@ export async function POST(req: Request) {
   const district = province?.districts.find((d) => d.id === data.district);
   const neighborhood = district?.neighborhoods.find((n) => n.id === data.neighborhood);
 
+  const baseSlug = createStudioSlug(data.studioName);
+  let slug = baseSlug;
+  let suffix = 1;
+  while (await prisma.studio.findUnique({ where: { slug } })) {
+    slug = createStudioSlug(data.studioName, suffix);
+    suffix += 1;
+  }
+
   try {
     const studio = await prisma.studio.create({
       data: {
         name: data.studioName,
+        slug,
         city: province?.name ?? data.city,
         district: district?.name ?? data.district,
         address: `${neighborhood?.name ?? data.neighborhood} - ${data.address}`,

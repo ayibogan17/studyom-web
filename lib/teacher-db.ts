@@ -12,6 +12,7 @@ type AppData = {
   languages?: string[];
   price?: string | null;
   statement?: string | null;
+  bio?: string | null;
   links?: string[];
   galleryUrls?: string[];
   years?: string | null;
@@ -49,6 +50,11 @@ function mapApplicationToTeacher(
   const galleryUrls = Array.isArray(data.galleryUrls)
     ? data.galleryUrls.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
+  const statement = typeof data.statement === "string" && data.statement.trim() ? data.statement.trim() : "";
+  const bio =
+    typeof data.bio === "string" && data.bio.trim()
+      ? data.bio.trim()
+      : statement || "Biyografi eklenmedi.";
   return {
     id: `app-${app.id}`,
     slug,
@@ -62,7 +68,8 @@ function mapApplicationToTeacher(
     level: Array.isArray(data.levels) ? data.levels.join(" / ") : "Belirtilmedi",
     lessonTypes: lessonTypes.length ? lessonTypes : ["online"],
     hourlyRateMin: parsePriceToMin(data.price),
-    bio: data.statement || "Açıklama yok.",
+    statement: statement || undefined,
+    bio,
     portfolioUrls: Array.isArray(data.links) ? data.links.filter(Boolean) : [],
     studiosUsed,
     isActive: true,

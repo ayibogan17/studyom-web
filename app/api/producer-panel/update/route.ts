@@ -139,7 +139,8 @@ const schema = z
     price: z.enum(priceOptions).optional().or(z.literal("")),
     years: z.enum(yearsOptions).optional().or(z.literal("")),
     projects: z.enum(projectOptions).optional().or(z.literal("")),
-    statement: z.string().min(10).max(400),
+    statement: z.string().min(10).max(200),
+    bio: z.string().max(1500).optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
     if (data.modes.some((mode) => mode !== "Online") && !data.city) {
@@ -181,6 +182,7 @@ export async function POST(req: Request) {
     years: parsed.data.years || null,
     projects: parsed.data.projects || null,
     statement: parsed.data.statement,
+    bio: parsed.data.bio || null,
   };
 
   await prisma.producerApplication.update({

@@ -93,9 +93,12 @@ type StudioWithRelations = PrismaStudio & {
 };
 
 function mapStudioToResponse(studio: StudioWithRelations) {
+  const openingHoursRaw =
+    studio.openingHours as OpeningHours[] | null | undefined;
   const openingHours =
-    (studio.openingHours as OpeningHours[] | null | undefined) ??
-    defaultOpeningHours;
+    Array.isArray(openingHoursRaw) && openingHoursRaw.length === 7
+      ? openingHoursRaw
+      : defaultOpeningHours;
 
   return {
     id: studio.id,
@@ -105,6 +108,7 @@ function mapStudioToResponse(studio: StudioWithRelations) {
     address: studio.address ?? undefined,
     ownerEmail: studio.ownerEmail,
     phone: studio.phone ?? undefined,
+    coverImageUrl: studio.coverImageUrl ?? undefined,
     openingHours,
     ratings: studio.ratings?.map((r) => r.value) ?? [],
     notifications: studio.notifications?.map((n) => n.message) ?? [],
@@ -120,6 +124,7 @@ function mapStudioToResponse(studio: StudioWithRelations) {
           minRate: room.minRate ?? undefined,
           dailyRate: room.dailyRate ?? undefined,
           hourlyRate: room.hourlyRate ?? undefined,
+          happyHourRate: room.happyHourRate ?? undefined,
         },
         equipment: (room.equipmentJson as Equipment | null | undefined) ?? defaultEquipment,
         features: (room.featuresJson as Features | null | undefined) ?? defaultFeatures,
@@ -301,6 +306,7 @@ export default async function DashboardPage({
       initialStudio={initialStudio}
       userName={user.name}
       userEmail={user.email}
+      emailVerified={Boolean(user.emailVerified)}
       linkedTeachers={linkedTeachers}
       linkedProducers={linkedProducers}
     />
