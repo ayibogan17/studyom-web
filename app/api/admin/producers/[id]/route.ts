@@ -39,7 +39,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   }
 
   try {
-    const beforeRows = await prisma.$queryRaw<{ status: string; userId: string }[]>`
+    const beforeRows = await prisma.$queryRaw<
+      {
+        status: string;
+        userId: string;
+        adminNote: string | null;
+        adminTags: string[] | null;
+        rejectReason: string | null;
+        changesRequestedNote: string | null;
+        visibilityStatus: string | null;
+        moderationNote: string | null;
+      }[]
+    >`
       SELECT status, "userId", "adminNote", "adminTags", "rejectReason", "changesRequestedNote", "visibilityStatus", "moderationNote"
       FROM "ProducerApplication" WHERE id = ${appId} LIMIT 1
     `;
