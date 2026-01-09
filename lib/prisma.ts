@@ -1,11 +1,14 @@
-import { PrismaClient } from "@prisma/client";
+process.env.PRISMA_CLIENT_ENGINE_TYPE = process.env.PRISMA_CLIENT_ENGINE_TYPE || "binary";
+
+const { PrismaClient } = await import("@prisma/client");
+type PrismaClientType = InstanceType<typeof PrismaClient>;
 
 const globalForPrisma = global as unknown as {
-  prisma?: PrismaClient;
+  prisma?: PrismaClientType;
   prismaInit?: Promise<void>;
 };
 
-async function ensureAdminSchema(client: PrismaClient) {
+async function ensureAdminSchema(client: PrismaClientType) {
   // Add columns used by admin/guard flows
   await client.$executeRawUnsafe(
     'ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isDisabled" BOOLEAN NOT NULL DEFAULT false',
