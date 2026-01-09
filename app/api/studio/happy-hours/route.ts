@@ -17,6 +17,14 @@ const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
 
 const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60000);
 
+const getBusinessDayStart = (date: Date, cutoffHour: number) => {
+  const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (date.getHours() < cutoffHour) {
+    dayStart.setDate(dayStart.getDate() - 1);
+  }
+  return dayStart;
+};
+
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email?.toLowerCase();
