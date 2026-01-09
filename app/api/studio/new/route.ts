@@ -98,7 +98,7 @@ export async function POST(req: Request) {
       ? {
           isStudioOwner: true,
           roles: { set: mergeRoles(normalizeRoles(user), ["studio_owner"]) },
-          role: "STUDIO",
+          role: "STUDIO" as const,
           fullName: name || undefined,
         }
       : { isStudioOwner: true, fullName: name || undefined };
