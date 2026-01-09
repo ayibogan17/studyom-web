@@ -499,8 +499,8 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
               studioName={studio.name}
               studioSlug={slug}
               studioPhone={studio.phone}
-              bookingApprovalMode={studio.calendarSettings?.bookingApprovalMode ?? "manual"}
-              bookingCutoffUnit={studio.calendarSettings?.bookingCutoffUnit ?? "hours"}
+              bookingApprovalMode={(studio.calendarSettings?.bookingApprovalMode ?? "manual") as "manual" | "auto"}
+              bookingCutoffUnit={(studio.calendarSettings?.bookingCutoffUnit ?? "hours") as "hours" | "days"}
               bookingCutoffValue={studio.calendarSettings?.bookingCutoffValue ?? 24}
             />
         </div>
