@@ -128,6 +128,7 @@ type ProducerApp = {
   userId: string;
   data: unknown;
   status: string;
+  visibilityStatus?: string | null;
   createdAt: Date | string;
 };
 
