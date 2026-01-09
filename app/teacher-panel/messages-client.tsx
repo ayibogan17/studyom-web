@@ -187,6 +187,7 @@ export function TeacherMessagesClient({
           id: json.threadId as string,
           teacherSlug: request.teacherSlug,
           channel: json.channel as string | null,
+          locked: false,
           student: request.student,
           messages: json.message
             ? [
