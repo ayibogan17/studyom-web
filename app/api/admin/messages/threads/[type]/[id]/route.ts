@@ -24,10 +24,6 @@ function pickThreadModel(type: string) {
 export async function PATCH(req: Request, context: { params: Promise<{ type: string; id: string }> }) {
   const { type, id } = await context.params;
   const admin = await requireAdmin();
-  const model = pickThreadModel(type);
-  if (!model) {
-    return NextResponse.json({ ok: false, error: "Geçersiz tip" }, { status: 400 });
-  }
 
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
@@ -49,11 +45,28 @@ export async function PATCH(req: Request, context: { params: Promise<{ type: str
   }
 
   try {
-    const before = await model.findUnique({ where: { id } });
+    const before =
+      type === "studio"
+        ? await prisma.studioThread.findUnique({ where: { id } })
+        : type === "teacher"
+          ? await prisma.teacherThread.findUnique({ where: { id } })
+          : type === "producer"
+            ? await prisma.producerThread.findUnique({ where: { id } })
+            : null;
     if (!before) {
       return NextResponse.json({ ok: false, error: "Kayıt bulunamadı" }, { status: 404 });
     }
-    const updated = await model.update({ where: { id }, data: updateData });
+    const updated =
+      type === "studio"
+        ? await prisma.studioThread.update({ where: { id }, data: updateData })
+        : type === "teacher"
+          ? await prisma.teacherThread.update({ where: { id }, data: updateData })
+          : type === "producer"
+            ? await prisma.producerThread.update({ where: { id }, data: updateData })
+            : null;
+    if (!updated) {
+      return NextResponse.json({ ok: false, error: "Geçersiz tip" }, { status: 400 });
+    }
     await logAdminAction({
       adminId: admin.id,
       entityType: "message_thread",
