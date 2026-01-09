@@ -168,6 +168,7 @@ export function ProducerMessagesClient({
           id: json.threadId as string,
           producerSlug: json.producerSlug as string,
           channel: json.channel as string | null,
+          locked: false,
           student: request.student,
           messages: json.message
             ? [
