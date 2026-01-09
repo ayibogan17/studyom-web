@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, Loader2, Lock, Mail, MapPin, Link as LinkIcon, Phone, User, Building2 } from "lucide-react";
@@ -124,7 +124,7 @@ export function StudioSignupForm() {
     formState: { errors, isValid },
     getValues,
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     mode: "onChange",
     defaultValues: {
       method: "email",
