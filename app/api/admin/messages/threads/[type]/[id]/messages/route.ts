@@ -40,12 +40,26 @@ async function loadMessages(type: string, threadId: string) {
 export async function GET(req: Request, context: { params: Promise<{ type: string; id: string }> }) {
   const { type, id } = await context.params;
   const admin = await requireAdmin();
-  const model = pickThreadModel(type);
-  if (!model) {
+  let thread: { id: string; investigationEnabled: boolean } | null = null;
+  if (type === "studio") {
+    thread = await prisma.studioThread.findUnique({
+      where: { id },
+      select: { id: true, investigationEnabled: true },
+    });
+  } else if (type === "teacher") {
+    thread = await prisma.teacherThread.findUnique({
+      where: { id },
+      select: { id: true, investigationEnabled: true },
+    });
+  } else if (type === "producer") {
+    thread = await prisma.producerThread.findUnique({
+      where: { id },
+      select: { id: true, investigationEnabled: true },
+    });
+  } else {
     return NextResponse.json({ ok: false, error: "Geçersiz tip" }, { status: 400 });
   }
 
-  const thread = await model.findUnique({ where: { id }, select: { id: true, investigationEnabled: true } });
   if (!thread) {
     return NextResponse.json({ ok: false, error: "Kayıt bulunamadı" }, { status: 404 });
   }
