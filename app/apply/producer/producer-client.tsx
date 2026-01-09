@@ -199,7 +199,7 @@ export function ProducerApplyClient() {
     setValue,
     watch,
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     mode: "onChange",
     defaultValues: {
       areas: [],
