@@ -1472,7 +1472,9 @@ export function StudioRoomDetails({
                       </p>
                     )}
                   </div>
-                  <div ref={(node) => (calendarRefs.current[room.id] = node)}>
+                  <div ref={(node) => {
+                    calendarRefs.current[room.id] = node;
+                  }}>
                     <RoomCalendarPreview calendar={room.calendar} onSlotSelect={(startAt) => openReservation(room, startAt)} />
                   </div>
                 </div>
