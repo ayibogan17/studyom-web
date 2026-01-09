@@ -32,7 +32,7 @@ export async function GET(req: Request) {
 
   const studio = await prisma.studio.findFirst({
     where: { ownerEmail: email },
-    select: { id: true },
+    select: { id: true, openingHours: true },
   });
   if (!studio) return NextResponse.json({ error: "Studio not found" }, { status: 404 });
 
