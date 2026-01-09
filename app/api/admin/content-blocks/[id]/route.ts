@@ -28,8 +28,8 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const updated = await prisma.contentBlock.update({
       where: { id },
       data: {
-        title: typeof parsed.data.title !== "undefined" ? parsed.data.title : undefined,
-        body: typeof parsed.data.body !== "undefined" ? parsed.data.body : undefined,
+        title: parsed.data.title === null ? undefined : parsed.data.title,
+        body: parsed.data.body === null ? undefined : parsed.data.body,
         status: parsed.data.status,
       },
     });
