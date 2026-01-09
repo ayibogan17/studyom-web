@@ -280,7 +280,7 @@ export default async function DashboardPage({
     where: { studioId: initialStudio.id },
     select: { bookingApprovalMode: true },
   });
-  const bookingApprovalMode = calendarSettings?.bookingApprovalMode ?? "manual";
+  const bookingApprovalMode = (calendarSettings?.bookingApprovalMode ?? "manual") as "manual" | "auto";
 
   if (rawRequests.length > 0 && bookingApprovalMode === "manual") {
     await prisma.studioReservationRequest.updateMany({
