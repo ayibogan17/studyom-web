@@ -87,6 +87,7 @@ export function StudioCard({
   href = "#",
   happyHourActive = false,
 }: StudioCardProps) {
+  const isR2Image = Boolean(imageUrl && imageUrl.includes(".r2.dev/"));
   return (
     <Card className="flex h-full flex-col overflow-hidden rounded-2xl p-0">
       <div className="relative h-48 w-full bg-[var(--color-secondary)]">
@@ -99,6 +100,7 @@ export function StudioCard({
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 33vw"
+          unoptimized={isR2Image}
           priority={false}
         />
         {happyHourActive ? (

@@ -102,6 +102,9 @@ export async function POST(req: Request) {
   if (!thread) {
     return NextResponse.json({ error: "Önce ilk mesaj isteği gönderilmeli." }, { status: 400 });
   }
+  if (thread.locked) {
+    return NextResponse.json({ error: "Sohbet kilitli." }, { status: 423 });
+  }
 
   const senderRole = thread.teacherUserId === userId ? "teacher" : "student";
 

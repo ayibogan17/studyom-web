@@ -14,7 +14,7 @@ import { TeacherWhatsAppSettings } from "./teacher-whatsapp-settings";
 import { TeacherPanelSection } from "./teacher-panel-section";
 
 export const metadata: Metadata = {
-  title: "Hoca Paneli | Stüdyom",
+  title: "Hoca Paneli | Studyom",
   description: "Onaylanan hoca başvurunun özetini görüntüleyin.",
 };
 

@@ -122,10 +122,18 @@ const studioSelect = {
   address: true,
   isActive: true,
   ownerEmail: true,
+  phone: true,
   coverImageUrl: true,
   openingHours: true,
   calendarSettings: {
-    select: { dayCutoffHour: true, weeklyHours: true, happyHourEnabled: true },
+    select: {
+      dayCutoffHour: true,
+      weeklyHours: true,
+      happyHourEnabled: true,
+      bookingApprovalMode: true,
+      bookingCutoffUnit: true,
+      bookingCutoffValue: true,
+    },
   },
   notifications: {
     select: { message: true },
@@ -484,7 +492,17 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
               ) : null}
             </div>
 
-            <StudioRoomDetails rooms={roomsForClient} availability={availability} contactHref="/iletisim" />
+            <StudioRoomDetails
+              rooms={roomsForClient}
+              availability={availability}
+              studioId={studio.id}
+              studioName={studio.name}
+              studioSlug={slug}
+              studioPhone={studio.phone}
+              bookingApprovalMode={studio.calendarSettings?.bookingApprovalMode ?? "manual"}
+              bookingCutoffUnit={studio.calendarSettings?.bookingCutoffUnit ?? "hours"}
+              bookingCutoffValue={studio.calendarSettings?.bookingCutoffValue ?? 24}
+            />
         </div>
       </Section>
     </main>

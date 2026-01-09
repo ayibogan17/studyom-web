@@ -1,121 +1,76 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin";
 import { Section } from "@/components/design-system/components/shared/section";
 import { Card } from "@/components/design-system/components/ui/card";
-import ApplicationsClient from "./applications-client";
 
 export const revalidate = 0;
 
 export default async function AdminApplicationsPage() {
   await requireAdmin();
 
-  const [studioApps, teacherApps, producerApps] = await Promise.all([
-    prisma.studio.findMany({
-      where: { isActive: false },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      select: {
-        id: true,
-        name: true,
-        city: true,
-        district: true,
-        address: true,
-        ownerEmail: true,
-        phone: true,
-        openingHours: true,
-        createdAt: true,
-        isActive: true,
-        notifications: {
-          select: { message: true, createdAt: true },
-          orderBy: { createdAt: "desc" },
-        },
-      },
+  const [studioPending, teacherPending, producerPending] = await Promise.all([
+    prisma.studio.count({
+      where: { applicationStatus: { in: ["pending", "changes_requested"] } },
     }),
-    prisma.teacherApplication.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 100,
+    prisma.teacherApplication.count({
+      where: { status: { in: ["pending", "changes_requested"] } },
     }),
-    fetchProducerApplications(),
+    countProducerApplications(),
   ]);
-
-  const userIds = Array.from(
-    new Set([...teacherApps, ...producerApps].map((app) => app.userId)),
-  );
-  const users = userIds.length
-    ? await prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, email: true, fullName: true, city: true },
-      })
-    : [];
-  const userMap = new Map(users.map((u) => [u.id, u]));
-
-  const teacherItems = teacherApps.map((app) => ({
-    id: app.id,
-    userId: app.userId,
-    status: app.status,
-    createdAt: app.createdAt,
-    data: app.data,
-    user: userMap.get(app.userId) || null,
-  }));
-
-  const producerItems = producerApps.map((app) => ({
-    id: app.id,
-    userId: app.userId,
-    status: app.status,
-    createdAt: app.createdAt,
-    data: app.data,
-    user: userMap.get(app.userId) || null,
-  }));
 
   return (
     <Section containerClassName="space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Başvurular</h1>
-        <p className="text-sm text-[var(--color-muted)]">Stüdyo, hoca ve üretici başvurularını tek yerden takip et.</p>
+        <p className="text-sm text-[var(--color-muted)]">Stüdyo, hoca ve üretici başvurularını ayrı sekmelerde inceleyin.</p>
       </div>
 
-      <Card className="space-y-4 p-4">
-        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Stüdyo başvuruları</h2>
-        <ApplicationsClient
-          kind="studio"
-          studios={studioApps}
-          teacherApps={[]}
-          producerApps={[]}
+      <div className="grid gap-4 md:grid-cols-3">
+        <ApplicationCard
+          title="Stüdyo başvuruları"
+          count={studioPending}
+          href="/admin/applications/studios"
         />
-      </Card>
-
-      <Card className="space-y-4 p-4">
-        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Hoca başvuruları</h2>
-        <ApplicationsClient kind="teacher" studios={[]} teacherApps={teacherItems} producerApps={[]} />
-      </Card>
-
-      <Card className="space-y-4 p-4">
-        <h2 className="text-lg font-semibold text-[var(--color-primary)]">Üretici başvuruları</h2>
-        <ApplicationsClient kind="producer" studios={[]} teacherApps={[]} producerApps={producerItems} />
-      </Card>
+        <ApplicationCard
+          title="Hoca başvuruları"
+          count={teacherPending}
+          href="/admin/applications/teachers"
+        />
+        <ApplicationCard
+          title="Üretici başvuruları"
+          count={producerPending}
+          href="/admin/applications/producers"
+        />
+      </div>
     </Section>
   );
 }
 
-type ProducerAppRow = {
-  id: number;
-  userId: string;
-  status: string;
-  createdAt: Date;
-  data: unknown;
-};
+function ApplicationCard({ title, count, href }: { title: string; count: number; href: string }) {
+  return (
+    <Card className="space-y-3 p-4">
+      <div>
+        <p className="text-sm text-[var(--color-muted)]">{title}</p>
+        <p className="text-3xl font-semibold text-[var(--color-primary)]">{count}</p>
+      </div>
+      <Link href={href} className="text-sm font-semibold text-[var(--color-accent)]">
+        Listeyi aç →
+      </Link>
+    </Card>
+  );
+}
 
-async function fetchProducerApplications(): Promise<ProducerAppRow[]> {
+async function countProducerApplications() {
   try {
-    const rows = await prisma.$queryRaw<ProducerAppRow[]>`
-      SELECT id, "userId", status, "createdAt", data
-      FROM "ProducerApplication"
-      ORDER BY "createdAt" DESC
-      LIMIT 100
+    const rows = await prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*)::bigint AS count FROM "ProducerApplication"
+      WHERE status IN ('pending', 'changes_requested')
     `;
-    return rows;
+    const value = rows[0]?.count;
+    return typeof value === "bigint" ? Number(value) : Number(value ?? 0);
   } catch (err) {
-    console.error("producer application list failed", err);
-    return [];
+    console.error("producer application count failed", err);
+    return 0;
   }
 }

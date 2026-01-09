@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { mergeRoles, normalizeRoles } from "@/lib/roles";
 import {
   Prisma,
   PricingModel,
@@ -272,17 +273,23 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const email = session.user.email;
+  const email = session.user.email.toLowerCase();
   const name = session.user.name;
+
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, roles: true, role: true, isTeacher: true, isProducer: true, isStudioOwner: true },
+  });
+  const nextRoles = existing ? mergeRoles(normalizeRoles(existing), ["studio_owner"]) : ["musician", "studio_owner"];
 
   await prisma.user.upsert({
     where: { email },
-    update: { name: name ?? undefined, role: "STUDIO" },
-    create: { email, name: name ?? undefined, role: "STUDIO" },
+    update: { name: name ?? undefined, role: "STUDIO", roles: { set: nextRoles }, isStudioOwner: true },
+    create: { email, name: name ?? undefined, role: "STUDIO", roles: nextRoles, isStudioOwner: true },
   });
 
   const studio = (await prisma.studio.findFirst({
-    where: { ownerEmail: email },
+    where: { ownerEmail: { equals: email, mode: "insensitive" } },
     include: {
       rooms: { include: { slots: true }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
       notifications: true,
@@ -348,8 +355,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  const ownerEmail = session.user.email.toLowerCase();
   const studio = await prisma.studio.findFirst({
-    where: { ownerEmail: session.user.email },
+    where: { ownerEmail: { equals: ownerEmail, mode: "insensitive" } },
   });
 
   if (!studio) {

@@ -37,7 +37,7 @@ export function StudioLoginForm({ redirect }: StudioLoginFormProps) {
   });
 
   const email = watch("email");
-  const defaultRedirect = redirect || "/dashboard?as=studio";
+  const defaultRedirect = redirect || "/dashboard?as=studio&tab=calendar";
 
   const onSubmit = async (values: FormValues) => {
     setLoading(true);

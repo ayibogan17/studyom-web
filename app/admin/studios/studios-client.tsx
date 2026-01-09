@@ -6,12 +6,18 @@ import { Button } from "@/components/design-system/components/ui/button";
 type StudioRow = {
   id: string;
   name: string;
+  slug: string | null;
   city: string | null;
   district: string | null;
   address: string | null;
   ownerEmail: string;
   phone: string | null;
   isActive: boolean;
+  visibilityStatus: string | null;
+  moderationNote: string | null;
+  complaintsCount: number;
+  flagsCount: number;
+  contactCount: number;
   createdAt: Date;
   updatedAt: Date;
   openingHours: unknown;
@@ -41,16 +47,20 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
 
-  const toggleActive = async (id: string, next: boolean) => {
+  const updateRow = (id: string, patch: Partial<StudioRow>) => {
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const updateStudio = async (id: string, payload: Record<string, unknown>) => {
     setSaving(id);
     try {
       const res = await fetch(`/api/admin/studios/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: next }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Güncellenemedi");
-      setRows((prev) => prev.map((s) => (s.id === id ? { ...s, isActive: next } : s)));
+      setRows((prev) => prev.map((s) => (s.id === id ? { ...s, ...payload } : s)));
     } catch (err) {
       console.error(err);
       alert("Kaydedilemedi");
@@ -59,6 +69,15 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
     }
   };
 
+  const publish = (studio: StudioRow) =>
+    updateStudio(studio.id, { visibilityStatus: "published" });
+
+  const hide = (studio: StudioRow) =>
+    updateStudio(studio.id, { visibilityStatus: "hidden" });
+
+  const markNeedsChanges = (studio: StudioRow) =>
+    updateStudio(studio.id, { visibilityStatus: "draft", moderationNote: studio.moderationNote ?? null });
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
@@ -66,10 +85,10 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
           <tr>
             <th className="p-2">Stüdyo</th>
             <th className="p-2">Şehir</th>
-            <th className="p-2">İlçe</th>
-            <th className="p-2">Adres</th>
-            <th className="p-2">İletişim</th>
             <th className="p-2">Durum</th>
+            <th className="p-2">Etkileşim (30g)</th>
+            <th className="p-2">Şikayet</th>
+            <th className="p-2">Flag</th>
             <th className="p-2">İşlem</th>
           </tr>
         </thead>
@@ -79,34 +98,56 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
               <tr className="align-top">
                 <td className="p-2 font-semibold text-[var(--color-primary)]">{studio.name}</td>
                 <td className="p-2">{studio.city || "-"}</td>
-                <td className="p-2">{studio.district || "-"}</td>
-                <td className="p-2 text-[var(--color-muted)]">{studio.address || "-"}</td>
-                <td className="p-2">
-                  <div className="space-y-1 text-[var(--color-muted)]">
-                    <div>{studio.ownerEmail}</div>
-                    {studio.phone ? <div>{studio.phone}</div> : null}
-                  </div>
-                </td>
                 <td className="p-2">
                   <span
                     className={`rounded-full px-2 py-1 text-xs ${
-                      studio.isActive
+                      (studio.visibilityStatus || (studio.isActive ? "published" : "hidden")) === "published"
                         ? "bg-[var(--color-success)]/20 text-[var(--color-success)]"
-                        : "bg-[var(--color-danger)]/20 text-[var(--color-danger)]"
+                        : "bg-[var(--color-warning)]/20 text-[var(--color-warning)]"
                     }`}
                   >
-                    {studio.isActive ? "Aktif" : "Pasif"}
+                    {studio.visibilityStatus || (studio.isActive ? "published" : "hidden")}
                   </span>
                 </td>
+                <td className="p-2">{studio.contactCount ?? 0}</td>
+                <td className="p-2">{studio.complaintsCount ?? 0}</td>
+                <td className="p-2">{studio.flagsCount ?? 0}</td>
                 <td className="p-2 space-x-2">
                   <Button
                     variant="secondary"
                     size="sm"
                     disabled={saving === studio.id}
-                    onClick={() => toggleActive(studio.id, !studio.isActive)}
+                    onClick={() => publish(studio)}
                   >
-                    {saving === studio.id ? "Kaydediliyor..." : studio.isActive ? "Pasifleştir" : "Aktifleştir"}
+                    {saving === studio.id ? "Kaydediliyor..." : "Yayınla"}
                   </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={saving === studio.id}
+                    onClick={() => hide(studio)}
+                    className="border-[var(--color-danger)]/40 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                  >
+                    Gizle
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={saving === studio.id}
+                    onClick={() => markNeedsChanges(studio)}
+                  >
+                    Değişiklik iste
+                  </Button>
+                  {studio.slug ? (
+                    <a
+                      href={`/studyo/${studio.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex rounded-lg px-2 py-1 text-xs font-semibold text-[var(--color-accent)]"
+                    >
+                      Görüntüle
+                    </a>
+                  ) : null}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -119,6 +160,27 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
               {openRow === studio.id ? (
                 <tr className="bg-[var(--color-secondary)]/40">
                   <td colSpan={7} className="p-3 text-xs text-[var(--color-muted)]">
+                    <div className="mb-3 grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
+                      <div>
+                        <div className="font-semibold text-[var(--color-primary)]">Moderasyon notu</div>
+                        <textarea
+                          value={studio.moderationNote ?? ""}
+                          onChange={(e) => updateRow(studio.id, { moderationNote: e.target.value })}
+                          className="mt-2 h-20 w-full resize-none rounded-lg border border-[var(--color-border)] bg-transparent p-2 text-[var(--color-primary)]"
+                          placeholder="Needs changes notu"
+                        />
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={saving === studio.id}
+                          onClick={() => updateStudio(studio.id, { moderationNote: studio.moderationNote ?? null })}
+                        >
+                          {saving === studio.id ? "Kaydediliyor..." : "Notu kaydet"}
+                        </Button>
+                      </div>
+                    </div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       <div>
                         <span className="font-semibold text-[var(--color-primary)]">ID:</span> {studio.id}
@@ -126,6 +188,10 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
                       <div>
                         <span className="font-semibold text-[var(--color-primary)]">Güncellendi:</span>{" "}
                         {new Date(studio.updatedAt).toLocaleString("tr-TR")}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-[var(--color-primary)]">İletişim:</span>{" "}
+                        {studio.ownerEmail} {studio.phone ? `· ${studio.phone}` : ""}
                       </div>
                       <div>
                         <span className="font-semibold text-[var(--color-primary)]">Açılış saatleri:</span>{" "}

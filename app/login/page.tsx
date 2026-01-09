@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { LoginForm } from "./_components/LoginForm";
 
 export const metadata = {
-  title: "Giriş Yap | Stüdyom",
+  title: "Giriş Yap | Studyom",
 };
 
 export default function LoginPage() {

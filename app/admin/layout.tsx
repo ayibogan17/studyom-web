@@ -9,13 +9,40 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const navItems = [
-  { href: "/admin/applications", label: "Başvurular" },
-  { href: "/admin", label: "Özet" },
-  { href: "/admin/studios", label: "Stüdyolar" },
-  { href: "/admin/users", label: "Kullanıcılar" },
-  { href: "/admin/teachers", label: "Hocalar" },
-  { href: "/admin/leads", label: "Lead'ler" },
+const navSections = [
+  {
+    title: "Genel",
+    items: [
+      { href: "/admin", label: "Dashboard" },
+    ],
+  },
+  {
+    title: "Başvurular",
+    items: [
+      { href: "/admin/applications/studios", label: "Stüdyolar" },
+      { href: "/admin/applications/teachers", label: "Hocalar" },
+      { href: "/admin/applications/producers", label: "Üreticiler" },
+    ],
+  },
+  {
+    title: "İlan Moderasyonu",
+    items: [
+      { href: "/admin/studios", label: "Stüdyolar" },
+      { href: "/admin/teachers", label: "Hocalar" },
+      { href: "/admin/producers", label: "Üreticiler" },
+    ],
+  },
+  {
+    title: "Yönetim",
+    items: [
+      { href: "/admin/users", label: "Kullanıcılar" },
+      { href: "/admin/messages", label: "Mesajlar" },
+      { href: "/admin/analytics", label: "Analitik" },
+      { href: "/admin/content", label: "İçerik" },
+      { href: "/admin/audit-log", label: "Audit Log" },
+      { href: "/admin/settings", label: "Ayarlar" },
+    ],
+  },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -30,15 +57,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <p className="text-sm font-semibold">{admin.email}</p>
           </div>
           <div className="h-px w-full bg-[var(--color-border)]" />
-          <nav className="space-y-2 text-sm">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
-              >
-                {item.label}
-              </Link>
+          <nav className="space-y-4 text-sm">
+            {navSections.map((section) => (
+              <div key={section.title} className="space-y-2">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+                  {section.title}
+                </p>
+                <div className="space-y-1">
+                  {section.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="block rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
         </Card>

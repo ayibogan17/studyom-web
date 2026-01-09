@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     threadId: thread?.id ?? null,
+    locked: thread?.locked ?? false,
     channel: thread?.id ? getTeacherThreadChannel(thread.id) : null,
     teacher: {
       slug: teacherSlug,

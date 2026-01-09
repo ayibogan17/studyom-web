@@ -9,9 +9,9 @@ export default function HakkindaPage() {
       <Section>
         <div className="space-y-4">
           <p className="text-sm font-semibold text-[var(--color-primary)]">Hakkında</p>
-          <h1 className="text-3xl font-semibold text-[var(--color-primary)]">Stüdyom nedir?</h1>
+          <h1 className="text-3xl font-semibold text-[var(--color-primary)]">Studyom nedir?</h1>
           <Card className="space-y-3 text-[var(--color-primary)]">
-            <p>Stüdyom, müzik üretiminin etrafındaki dağınıklığı toparlamak için kuruldu.</p>
+            <p>Studyom, müzik üretiminin etrafındaki dağınıklığı toparlamak için kuruldu.</p>
             <p>
               Bir tarafta prova yapacak, kayıt alacak ya da şarkısını bir adım ileri taşımak isteyen müzisyenler var. Diğer
               tarafta stüdyosunu işletenler, ders veren hocalar, mix–mastering, edit, aranje gibi işleri yapan teknisyenler. Herkes
@@ -22,7 +22,7 @@ export default function HakkindaPage() {
               beklentiler ve dağınık iletişim demek.
             </p>
             <p>
-              Stüdyom’un amacı bu parçaları tek bir yerde, net ve düzenli biçimde buluşturmak.
+              Studyom’un amacı bu parçaları tek bir yerde, net ve düzenli biçimde buluşturmak.
             </p>
             <div className="space-y-2">
               <p>Bu platformda:</p>
@@ -37,16 +37,16 @@ export default function HakkindaPage() {
               </ul>
             </div>
             <p>
-              Stüdyom, kimsenin işine karışmaz. Fiyatı, yöntemi, kuralları herkes kendisi belirler. Biz sadece bilgiyi sadeleştirir,
+              Studyom, kimsenin işine karışmaz. Fiyatı, yöntemi, kuralları herkes kendisi belirler. Biz sadece bilgiyi sadeleştirir,
               beklentileri netleştirir ve doğru kişilerin birbirine ulaşmasını kolaylaştırırız.
             </p>
             <p>
               Burası bir sosyal ağ değil. Gösterişe değil, işin kendisine odaklanır. İletişimi uzatmaz, yanlış anlaşılmaları azaltır.
             </p>
             <p>
-              Stüdyom, müzik üretiminin her aşamasında yer alan insanlar için karmaşayı azaltan, süreci netleştiren bir ortak zemindir.
+              Studyom, müzik üretiminin her aşamasında yer alan insanlar için karmaşayı azaltan, süreci netleştiren bir ortak zemindir.
             </p>
-            <p>Müzik üretmek zaten emek ister. Stüdyom, bu emeğin önündeki gereksiz engelleri kaldırmak için var.</p>
+            <p>Müzik üretmek zaten emek ister. Studyom, bu emeğin önündeki gereksiz engelleri kaldırmak için var.</p>
             <p>
               Yapay zekâ üretimin bazı yollarını hızlandırabilir, kolaylaştırabilir. Ama müziğin özü hızda değil; birinin gerçekten
               çalmasında, bir sesin tereddüdünde, insanın kendinden bir şey bırakmasında saklıdır.

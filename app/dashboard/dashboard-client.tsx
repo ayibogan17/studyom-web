@@ -10,13 +10,38 @@ import {
   type ChangeEvent,
 } from "react";
 import Link from "next/link";
-import { BarChart3, ChevronDown, Key, Save } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, History, Key, Save } from "lucide-react";
 
 import { SignOutButton } from "@/components/sign-out-button";
 import { Equipment, OpeningHours, Room, Slot, Studio } from "@/types/panel";
 
+type ReservationRequest = {
+  id: string;
+  roomId: string;
+  roomName: string;
+  requesterName: string;
+  requesterPhone: string;
+  requesterEmail: string | null;
+  requesterImage: string | null;
+  requesterIsAnon: boolean;
+  note: string | null;
+  startAt: string;
+  endAt: string;
+  hours: number;
+  totalPrice: number | null;
+  status: string;
+  studioUnread: boolean;
+  createdAt: string;
+  updatedAt: string;
+  calendarBlockId: string | null;
+};
+
 type Props = {
   initialStudio?: Studio;
+  reservationRequests?: ReservationRequest[];
+  initialTab?: string | null;
+  bookingApprovalMode?: "manual" | "auto";
   userName?: string | null;
   userEmail?: string | null;
   emailVerified?: boolean;
@@ -498,6 +523,61 @@ const parsePriceValue = (value?: string | null) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const formatReservationTime = (value?: string | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+};
+const formatReservationPrice = (value?: number | null) => {
+  if (value === null || value === undefined) return "Fiyat bilgisi yok";
+  return `${Math.round(value).toLocaleString("tr-TR")} ₺`;
+};
+const formatReservationStatus = (value?: string | null) => {
+  const status = (value ?? "").toLowerCase();
+  if (status === "approved" || status === "onaylı" || status === "onayli") return "Onaylandı";
+  if (status === "rejected" || status === "reddedildi") return "Reddedildi";
+  return "Beklemede";
+};
+const getInitials = (value: string) => {
+  const parts = value
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const first = parts[0]?.[0] || "";
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] : "";
+  return `${first}${last}`.toUpperCase();
+};
+
+function ReservationAvatar({
+  name,
+  image,
+  isAnon,
+}: {
+  name: string;
+  image?: string | null;
+  isAnon?: boolean;
+}) {
+  if (image && !isAnon) {
+    return <img src={image} alt={name} className="h-10 w-10 rounded-full object-cover" />;
+  }
+  const initials = isAnon ? "AN" : getInitials(name) || "AN";
+  const label = isAnon ? "Anon kullanıcı" : name || "Kullanıcı";
+  return (
+    <div
+      className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-200 bg-blue-100 text-xs font-semibold text-blue-800"
+      aria-label={label}
+      title={label}
+    >
+      {initials}
+    </div>
+  );
+}
+const isReservationPending = (value?: string | null) => {
+  const status = (value ?? "").toLowerCase();
+  return status === "" || status === "pending" || status === "beklemede";
+};
+
 const ensureSlotsForDay = (
   room: Room,
   day: Date,
@@ -585,6 +665,9 @@ type CalendarSettings = {
   dayCutoffHour: number;
   timezone: string;
   happyHourEnabled?: boolean;
+  bookingApprovalMode: "manual" | "auto";
+  bookingCutoffUnit: "hours" | "days";
+  bookingCutoffValue: number;
   weeklyHours: OpeningHours[];
 };
 
@@ -683,22 +766,70 @@ const getTimelineForDay = (day: Date, openingHours: OpeningHours[], cutoffHour: 
 
 export function DashboardClient({
   initialStudio,
+  reservationRequests,
+  initialTab,
+  bookingApprovalMode,
   userName,
   userEmail,
   emailVerified,
   linkedTeachers,
   linkedProducers,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
   );
-  const [activeTab, setActiveTab] = useState<string>("calendar");
+  const reservationItems = reservationRequests ?? [];
+  const [reservationRequestsState, setReservationRequestsState] = useState<ReservationRequest[]>(reservationItems);
+  const [reservationAction, setReservationAction] = useState<{ id: string; action: "approve" | "reject" | "read" } | null>(
+    null,
+  );
+  const [reservationIndex, setReservationIndex] = useState(0);
+  const approvalCardRef = useRef<HTMLDivElement | null>(null);
+  const [reservationCardHeight, setReservationCardHeight] = useState<number | null>(null);
+
+  const initialTabValue = typeof initialTab === "string" ? initialTab.trim() : "";
+  const initialRoomIdFromTab =
+    initialTabValue.startsWith("room-") && initialTabValue.length > 5
+      ? initialTabValue.slice(5)
+      : "";
+  const initialRooms = initialStudio?.rooms ?? [];
+  const initialRoomValid = initialRoomIdFromTab
+    ? initialRooms.some((room) => room.id === initialRoomIdFromTab)
+    : false;
+  const initialActiveTab =
+    initialRoomValid
+      ? `room-${initialRoomIdFromTab}`
+      : initialTabValue === "panel" || initialTabValue === "calendar"
+        ? initialTabValue
+        : "calendar";
+
+  useEffect(() => {
+    setReservationRequestsState(reservationItems);
+  }, [reservationItems]);
+  const reservationPendingList = reservationRequestsState.filter((item) => isReservationPending(item.status));
+
+  const [activeTab, setActiveTab] = useState<string>(initialActiveTab);
+  useEffect(() => {
+    if (activeTab !== "panel") return;
+    const updateHeight = () => {
+      if (!approvalCardRef.current) return;
+      const height = Math.round(approvalCardRef.current.getBoundingClientRect().height);
+      if (height > 0) setReservationCardHeight(height);
+    };
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, [activeTab]);
   const [selectedRoomId, setSelectedRoomId] = useState(() => {
     const rooms = initialStudio?.rooms ?? [];
     if (!rooms.length) return "";
     const sorted = [...rooms].sort(
       (a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""),
     );
+    if (initialRoomValid) return initialRoomIdFromTab;
     return sorted[0]?.id ?? "";
   });
   const [calendarRoomScope, setCalendarRoomScope] = useState<string>(() => {
@@ -741,6 +872,93 @@ export function DashboardClient({
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  const handleReservationDecision = async (request: ReservationRequest, action: "approve" | "reject") => {
+    if (reservationAction) return;
+    setReservationAction({ id: request.id, action });
+    setStatus(null);
+    try {
+      const res = await fetch(`/api/studio-reservation-requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || "Güncellenemedi.");
+      }
+      setReservationRequestsState((prev) =>
+        prev.map((item) =>
+          item.id === request.id
+            ? {
+                ...item,
+                status: json.status || (action === "approve" ? "approved" : "rejected"),
+                calendarBlockId: json.calendarBlockId ?? item.calendarBlockId,
+                updatedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      );
+      if (action === "approve" && json.calendarBlockId) {
+        const noteLines = [
+          `İsim: ${request.requesterName}`,
+          `Telefon: ${request.requesterPhone}`,
+          request.requesterEmail ? `E-posta: ${request.requesterEmail}` : null,
+          request.note ? `Not: ${request.note}` : null,
+          request.totalPrice ? `Ücret: ${formatReservationPrice(request.totalPrice)}` : null,
+        ].filter(Boolean);
+        setCalendarBlocks((prev) =>
+          prev.some((block) => block.id === json.calendarBlockId)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: json.calendarBlockId as string,
+                  roomId: request.roomId,
+                  startAt: request.startAt,
+                  endAt: request.endAt,
+                  type: "reservation",
+                  status: "approved",
+                  title: `Rezervasyon - ${request.requesterName}`,
+                  note: noteLines.join("\n"),
+                },
+              ],
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus("Rezervasyon isteği güncellenemedi.");
+    } finally {
+      setReservationAction(null);
+    }
+  };
+
+  const handleReservationRead = async (request: ReservationRequest) => {
+    if (reservationAction) return;
+    setReservationAction({ id: request.id, action: "read" });
+    setStatus(null);
+    try {
+      const res = await fetch(`/api/studio-reservation-requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "read" }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || "Güncellenemedi.");
+      }
+      setReservationRequestsState((prev) =>
+        prev.map((item) =>
+          item.id === request.id ? { ...item, studioUnread: false, updatedAt: new Date().toISOString() } : item,
+        ),
+      );
+    } catch (err) {
+      console.error(err);
+      setStatus("Rezervasyon güncellenemedi.");
+    } finally {
+      setReservationAction(null);
+    }
+  };
   const [basicForm, setBasicForm] = useState<BasicInfoForm>(() =>
     parseBasicInfoFromStudio(initialStudio ?? null),
   );
@@ -757,10 +975,14 @@ export function DashboardClient({
   const [happyHourOpen, setHappyHourOpen] = useState(false);
   const [happyHourActive, setHappyHourActive] = useState(false);
   const [happyHourSlots, setHappyHourSlots] = useState<Record<string, boolean>>({});
+  const [happyHourRoomSelection, setHappyHourRoomSelection] = useState<Record<string, boolean>>({});
   const [happyHourDays, setHappyHourDays] = useState(() =>
     longDays.map(() => ({ enabled: false, endTime: "22:00" })),
   );
   const [happyHourTouched, setHappyHourTouched] = useState(false);
+  const [happyHourSelectionTouched, setHappyHourSelectionTouched] = useState(false);
+  const [happyHourSelectionLoaded, setHappyHourSelectionLoaded] = useState(false);
+  const [happyHourScheduleLoading, setHappyHourScheduleLoading] = useState(false);
   const [happyHourSaving, setHappyHourSaving] = useState(false);
   const [happyHourStatus, setHappyHourStatus] = useState<string | null>(null);
   const [happyHourScheduleVersion, setHappyHourScheduleVersion] = useState(0);
@@ -770,6 +992,38 @@ export function DashboardClient({
     monthRevenue: number;
   } | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  const approvalMode = calendarDraft?.bookingApprovalMode ?? bookingApprovalMode ?? "manual";
+  const reservationList = useMemo(
+    () =>
+      approvalMode === "auto"
+        ? reservationRequestsState.filter((item) => item.studioUnread)
+        : reservationPendingList,
+    [approvalMode, reservationPendingList, reservationRequestsState],
+  );
+
+  useEffect(() => {
+    setReservationIndex((prev) => {
+      const maxIndex = Math.max(0, reservationList.length - 1);
+      return Math.min(prev, maxIndex);
+    });
+  }, [reservationList.length]);
+
+  useEffect(() => {
+    if (!pathname) return;
+    const params = new URLSearchParams(searchParams?.toString());
+    const currentTab = params.get("tab") ?? "";
+    if (activeTab && currentTab === activeTab) return;
+    if (!activeTab && !currentTab) return;
+    if (activeTab) {
+      params.set("tab", activeTab);
+    } else {
+      params.delete("tab");
+    }
+    const query = params.toString();
+    const nextUrl = query ? `${pathname}?${query}` : pathname;
+    router.replace(nextUrl, { scroll: false });
+  }, [activeTab, pathname, router, searchParams]);
 
   const studioRooms = studio?.rooms ?? [];
   const teacherLinks = linkedTeachers ?? [];
@@ -792,27 +1046,6 @@ export function DashboardClient({
     () => new Map(orderedRooms.map((room) => [room.id, room.name || "Oda"])),
     [orderedRooms],
   );
-  const happyHourRoomId = calendarRoomScope === "all" ? selectedRoomId : calendarRoomScope;
-  const buildHappyHourKey = useCallback(
-    (day: Date, minutes: number) =>
-      `${happyHourRoomId}-${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(
-        day.getDate(),
-      )}-${minutes}`,
-    [happyHourRoomId],
-  );
-  const isHappyHourSlot = useCallback(
-    (day: Date, minutes: number) => {
-      if (!happyHourActive || !happyHourRoomId) return false;
-      const slotStart = addMinutes(day, minutes);
-      const businessStart = getBusinessDayStartForTime(slotStart, dayCutoffHour);
-      const minutesFromStart = Math.round(
-        (slotStart.getTime() - businessStart.getTime()) / 60000,
-      );
-      const key = buildHappyHourKey(businessStart, minutesFromStart);
-      return !!happyHourSlots[key];
-    },
-    [happyHourActive, happyHourRoomId, dayCutoffHour, buildHappyHourKey, happyHourSlots],
-  );
   const calendarRoomIds = useMemo(() => {
     if (!orderedRooms.length) return [];
     if (calendarRoomScope === "all") {
@@ -820,6 +1053,48 @@ export function DashboardClient({
     }
     return [calendarRoomScope];
   }, [calendarRoomScope, orderedRooms]);
+  const happyHourSelectedRoomIds = useMemo(() => {
+    if (!orderedRooms.length) return [];
+    if (orderedRooms.length === 1) return [orderedRooms[0].id];
+    return orderedRooms.filter((room) => happyHourRoomSelection[room.id]).map((room) => room.id);
+  }, [orderedRooms, happyHourRoomSelection]);
+  const happyHourSelectedSet = useMemo(
+    () => new Set(happyHourSelectedRoomIds),
+    [happyHourSelectedRoomIds],
+  );
+  const happyHourRoomId = calendarRoomScope === "all" ? selectedRoomId : calendarRoomScope;
+  const happyHourScheduleRoomId = useMemo(() => {
+    if (!happyHourSelectedRoomIds.length) return "";
+    if (happyHourSelectedSet.has(selectedRoomId)) return selectedRoomId;
+    return happyHourSelectedRoomIds[0];
+  }, [happyHourSelectedRoomIds, happyHourSelectedSet, selectedRoomId]);
+  const happyHourDisplayRoomIds = useMemo(() => {
+    if (calendarRoomScope === "all") {
+      return calendarRoomIds.filter((roomId) => happyHourSelectedSet.has(roomId));
+    }
+    return happyHourRoomId && happyHourSelectedSet.has(happyHourRoomId) ? [happyHourRoomId] : [];
+  }, [calendarRoomScope, calendarRoomIds, happyHourRoomId, happyHourSelectedSet]);
+  const canEditHappyHourSchedule =
+    orderedRooms.length === 1 || happyHourSelectedRoomIds.length > 0;
+  const buildHappyHourKey = useCallback((roomId: string | null | undefined, day: Date, minutes: number) => {
+    if (!roomId) return "";
+    return `${roomId}-${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}-${minutes}`;
+  }, []);
+  const isHappyHourSlot = useCallback(
+    (day: Date, minutes: number) => {
+      if (!happyHourActive || happyHourDisplayRoomIds.length === 0) return false;
+      const slotStart = addMinutes(day, minutes);
+      const businessStart = getBusinessDayStartForTime(slotStart, dayCutoffHour);
+      const minutesFromStart = Math.round(
+        (slotStart.getTime() - businessStart.getTime()) / 60000,
+      );
+      return happyHourDisplayRoomIds.some((roomId) => {
+        const key = buildHappyHourKey(roomId, businessStart, minutesFromStart);
+        return key ? !!happyHourSlots[key] : false;
+      });
+    },
+    [happyHourActive, happyHourDisplayRoomIds, dayCutoffHour, buildHappyHourKey, happyHourSlots],
+  );
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
@@ -1030,6 +1305,56 @@ export function DashboardClient({
   }, [studio?.openingHours, calendarSettings?.weeklyHours]);
 
   useEffect(() => {
+    if (!orderedRooms.length) return;
+    if (orderedRooms.length === 1) {
+      setHappyHourRoomSelection({ [orderedRooms[0].id]: true });
+      return;
+    }
+    setHappyHourRoomSelection((prev) => {
+      const next: Record<string, boolean> = {};
+      orderedRooms.forEach((room) => {
+        if (prev[room.id]) next[room.id] = true;
+      });
+      return next;
+    });
+  }, [orderedRooms]);
+
+  useEffect(() => {
+    if (!orderedRooms.length || orderedRooms.length === 1) return;
+    if (happyHourSelectionLoaded || happyHourSelectionTouched) return;
+    let active = true;
+    const loadSelection = async () => {
+      try {
+        const responses = await Promise.all(
+          orderedRooms.map((room) => fetch(`/api/studio/happy-hours/schedule?roomId=${room.id}`)),
+        );
+        if (!active) return;
+        const next: Record<string, boolean> = {};
+        for (const [idx, res] of responses.entries()) {
+          if (!res.ok) continue;
+          const json = await res.json().catch(() => ({}));
+          const days = Array.isArray(json.days) ? json.days : [];
+          if (days.some((day: { enabled?: boolean }) => day.enabled)) {
+            next[orderedRooms[idx].id] = true;
+          }
+        }
+        if (!active) return;
+        setHappyHourRoomSelection(next);
+        setHappyHourSelectionLoaded(true);
+      } catch (err) {
+        console.error(err);
+        if (active) {
+          setHappyHourSelectionLoaded(true);
+        }
+      }
+    };
+    void loadSelection();
+    return () => {
+      active = false;
+    };
+  }, [orderedRooms, happyHourSelectionLoaded, happyHourSelectionTouched]);
+
+  useEffect(() => {
     if (!studio) return;
     let active = true;
     const loadSettings = async () => {
@@ -1047,6 +1372,9 @@ export function DashboardClient({
             dayCutoffHour: 4,
             timezone: "Europe/Istanbul",
             happyHourEnabled: false,
+            bookingApprovalMode: "manual",
+            bookingCutoffUnit: "hours",
+            bookingCutoffValue: 24,
             weeklyHours: normalizeOpeningHours(studio.openingHours ?? hoursDraft),
           };
           setCalendarSettings(fallback);
@@ -1064,16 +1392,28 @@ export function DashboardClient({
   }, [studio?.id]);
 
   useEffect(() => {
-    if (!happyHourRoomId) return;
+    const scheduleRoomId = happyHourScheduleRoomId;
+    const fallback = normalizeOpeningHours(
+      calendarSettings?.weeklyHours ?? studio?.openingHours ?? null,
+    );
+    if (!scheduleRoomId) {
+      setHappyHourDays(
+        longDays.map((_, idx) => ({
+          enabled: false,
+          endTime: fallback[idx]?.closeTime ?? "22:00",
+        })),
+      );
+      setHappyHourTouched(false);
+      setHappyHourScheduleLoading(false);
+      return;
+    }
     let active = true;
+    setHappyHourScheduleLoading(true);
     const loadSchedule = async () => {
       try {
-        const res = await fetch(`/api/studio/happy-hours/schedule?roomId=${happyHourRoomId}`);
+        const res = await fetch(`/api/studio/happy-hours/schedule?roomId=${scheduleRoomId}`);
         const json = await res.json().catch(() => ({}));
         if (!active) return;
-        const fallback = normalizeOpeningHours(
-          calendarSettings?.weeklyHours ?? studio?.openingHours ?? null,
-        );
         if (res.ok && Array.isArray(json.days)) {
           const map = new Map<number, { endTime?: string; enabled?: boolean }>();
           json.days.forEach((item: { weekday?: number; endTime?: string; enabled?: boolean }) => {
@@ -1103,13 +1443,17 @@ export function DashboardClient({
       } catch (err) {
         if (!active) return;
         console.error(err);
+      } finally {
+        if (active) {
+          setHappyHourScheduleLoading(false);
+        }
       }
     };
     loadSchedule();
     return () => {
       active = false;
     };
-  }, [happyHourRoomId, calendarSettings?.weeklyHours, studio?.openingHours]);
+  }, [happyHourScheduleRoomId, calendarSettings?.weeklyHours, studio?.openingHours]);
 
   useEffect(() => {
     if (!studio || basicTouched) return;
@@ -1161,12 +1505,22 @@ export function DashboardClient({
         const blocksPromise = fetch(
           `/api/studio/calendar-blocks?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
         );
-        const happyPromise = happyHourRoomId
-          ? fetch(
-              `/api/studio/happy-hours?roomId=${happyHourRoomId}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
-            )
-          : null;
-        const [blocksRes, happyRes] = await Promise.all([blocksPromise, happyPromise]);
+        const happyRoomIds = happyHourActive
+          ? calendarRoomScope === "all"
+            ? calendarRoomIds.filter((roomId) => happyHourSelectedSet.has(roomId))
+            : happyHourRoomId && happyHourSelectedSet.has(happyHourRoomId)
+              ? [happyHourRoomId]
+              : []
+          : [];
+        const happyPromises = happyRoomIds.map((roomId) =>
+          fetch(
+            `/api/studio/happy-hours?roomId=${roomId}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
+          ),
+        );
+        const [blocksRes, happyResults] = await Promise.all([
+          blocksPromise,
+          Promise.all(happyPromises),
+        ]);
         const blocksJson = await blocksRes.json().catch(() => ({}));
         if (!blocksRes.ok) {
           setCalendarError(blocksJson.error || "Takvim blokları alınamadı.");
@@ -1175,11 +1529,13 @@ export function DashboardClient({
           return;
         }
         setCalendarBlocks((blocksJson.blocks as CalendarBlock[]) ?? []);
-        if (happyRes) {
-          const happyJson = await happyRes.json().catch(() => ({}));
-          if (happyRes.ok) {
-            const nextSlots: Record<string, boolean> = {};
-            (happyJson.slots as { startAt: string; endAt: string }[] | undefined)?.forEach(
+        if (happyResults.length) {
+          const nextSlots: Record<string, boolean> = {};
+          for (const [index, happyRes] of happyResults.entries()) {
+            const happyJson = await happyRes.json().catch(() => ({}));
+            if (!happyRes.ok) continue;
+            const fallbackRoomId = happyRoomIds[index];
+            (happyJson.slots as { startAt: string; endAt: string; roomId?: string }[] | undefined)?.forEach(
               (slot) => {
                 const start = new Date(slot.startAt);
                 const end = new Date(slot.endAt);
@@ -1191,16 +1547,19 @@ export function DashboardClient({
                   (end.getTime() - businessStart.getTime()) / 60000,
                 );
                 if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
+                const roomId = typeof slot.roomId === "string" ? slot.roomId : fallbackRoomId;
+                if (!roomId) return;
                 const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
                 for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
-                  nextSlots[buildHappyHourKey(businessStart, m)] = true;
+                  const key = buildHappyHourKey(roomId, businessStart, m);
+                  if (key) {
+                    nextSlots[key] = true;
+                  }
                 }
               },
             );
-            setHappyHourSlots(nextSlots);
-          } else {
-            setHappyHourSlots({});
           }
+          setHappyHourSlots(nextSlots);
         } else {
           setHappyHourSlots({});
         }
@@ -1220,6 +1579,8 @@ export function DashboardClient({
     calendarRoomScope,
     calendarRoomIds,
     happyHourRoomId,
+    happyHourActive,
+    happyHourSelectedSet,
     buildHappyHourKey,
     happyHourScheduleVersion,
     selectedDate,
@@ -1529,11 +1890,16 @@ export function DashboardClient({
 
   const toggleHappyHourSlot = async (day: Date, minutes: number, active: boolean) => {
     if (!happyHourRoomId) return;
+    if (!happyHourSelectedSet.has(happyHourRoomId)) return;
     setCalendarError(null);
     const base = new Date(day.getFullYear(), day.getMonth(), day.getDate());
     const startAt = addMinutes(base, minutes);
     const endAt = addMinutes(base, minutes + slotStepMinutes);
-    const key = buildHappyHourKey(day, minutes);
+    const businessStart = getBusinessDayStartForTime(startAt, dayCutoffHour);
+    const minutesFromStart = Math.round(
+      (startAt.getTime() - businessStart.getTime()) / 60000,
+    );
+    const key = buildHappyHourKey(happyHourRoomId, businessStart, minutesFromStart);
     const prevValue = !!happyHourSlots[key];
     setHappyHourSlots((prev) => ({ ...prev, [key]: active }));
     try {
@@ -1590,7 +1956,7 @@ export function DashboardClient({
   };
 
   const saveHappyHourSchedule = useCallback(async () => {
-    if (!happyHourRoomId) {
+    if (!orderedRooms.length) {
       setHappyHourStatus("Oda seçilmedi.");
       return;
     }
@@ -1601,28 +1967,46 @@ export function DashboardClient({
       setHappyHourStatus("Saat formatı geçersiz.");
       return;
     }
-    const payload = {
-      roomId: happyHourRoomId,
-      days: happyHourDays.map((day, idx) => ({
-        weekday: idx,
-        enabled: day.enabled,
-        endTime: day.endTime,
-      })),
-    };
+    const dayPayload = happyHourDays.map((day, idx) => ({
+      weekday: idx,
+      enabled: day.enabled,
+      endTime: day.endTime,
+    }));
+    const disabledDays = happyHourDays.map((day, idx) => ({
+      weekday: idx,
+      enabled: false,
+      endTime: day.endTime,
+    }));
+    const hasSelection = orderedRooms.length === 1 || happyHourSelectedRoomIds.length > 0;
     setHappyHourSaving(true);
     setHappyHourStatus(null);
     try {
-      const res = await fetch("/api/studio/happy-hours/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setHappyHourStatus(json.error || "Happy Hour kaydedilemedi.");
+      const responses = await Promise.all(
+        orderedRooms.map((room) => {
+          const selected = orderedRooms.length === 1 || happyHourSelectedSet.has(room.id);
+          return fetch("/api/studio/happy-hours/schedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              roomId: room.id,
+              days: selected ? dayPayload : disabledDays,
+            }),
+          });
+        }),
+      );
+      const failures = [];
+      for (const res of responses) {
+        if (res.ok) continue;
+        const json = await res.json().catch(() => ({}));
+        failures.push(json.error || "Happy Hour kaydedilemedi.");
+      }
+      if (failures.length) {
+        setHappyHourStatus(failures[0]);
       } else {
-        setHappyHourStatus("Happy Hour kaydedildi.");
+        setHappyHourStatus(hasSelection ? "Happy Hour kaydedildi." : "Happy Hour kaldırıldı.");
         setHappyHourScheduleVersion((prev) => prev + 1);
+        setHappyHourTouched(false);
+        setHappyHourSelectionTouched(false);
       }
     } catch (err) {
       console.error(err);
@@ -1630,15 +2014,24 @@ export function DashboardClient({
     } finally {
       setHappyHourSaving(false);
     }
-  }, [happyHourDays, happyHourRoomId]);
+  }, [happyHourDays, happyHourSelectedRoomIds.length, happyHourSelectedSet, orderedRooms]);
 
   useEffect(() => {
-    if (!happyHourTouched || !happyHourRoomId || happyHourSaving) return;
+    if ((!happyHourTouched && !happyHourSelectionTouched) || happyHourSaving || happyHourScheduleLoading) {
+      return;
+    }
     const timer = setTimeout(() => {
       void saveHappyHourSchedule();
     }, 600);
     return () => clearTimeout(timer);
-  }, [happyHourDays, happyHourTouched, happyHourRoomId, happyHourSaving, saveHappyHourSchedule]);
+  }, [
+    happyHourDays,
+    happyHourTouched,
+    happyHourSelectionTouched,
+    happyHourSaving,
+    happyHourScheduleLoading,
+    saveHappyHourSchedule,
+  ]);
 
   const saveCalendarBlock = async () => {
     if (!drawerData || !currentRoom) return;
@@ -1840,6 +2233,9 @@ export function DashboardClient({
           dayCutoffHour: calendarDraft.dayCutoffHour,
           timezone: calendarDraft.timezone,
           happyHourEnabled: calendarDraft.happyHourEnabled,
+          bookingApprovalMode: calendarDraft.bookingApprovalMode,
+          bookingCutoffUnit: calendarDraft.bookingCutoffUnit,
+          bookingCutoffValue: calendarDraft.bookingCutoffValue,
           weeklyHours: hoursDraft,
         }),
       });
@@ -1933,8 +2329,17 @@ export function DashboardClient({
           : model === "flat"
             ? parsePriceValue(mergedPricing?.flatRate ?? existingRoom?.pricing?.flatRate)
             : parsePriceValue(mergedPricing?.minRate ?? existingRoom?.pricing?.minRate);
-    const happyRate = parsePriceValue(mergedPricing?.happyHourRate ?? existingRoom?.pricing?.happyHourRate);
-    if (happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9) {
+    const happyRate = parsePriceValue(
+      mergedPricing?.happyHourRate ?? existingRoom?.pricing?.happyHourRate,
+    );
+    const shouldValidateHappyHourRate =
+      happyHourActive && happyHourSelectedSet.has(roomId);
+    if (
+      shouldValidateHappyHourRate &&
+      happyRate !== null &&
+      baseRate !== null &&
+      happyRate >= baseRate * 0.9
+    ) {
       setStatus("Happy Hour minimum %10 olmalıdır.");
       return;
     }
@@ -2154,6 +2559,14 @@ export function DashboardClient({
     );
   }
 
+  const reservationCount = reservationList.length;
+  const reservationActive = reservationCount ? reservationList[reservationIndex] : null;
+  const hasReservationCarousel = reservationCount > 1;
+  const reservationActiveStatus = reservationActive ? formatReservationStatus(reservationActive.status) : "";
+  const reservationActiveIsPending = reservationActiveStatus === "Beklemede";
+  const reservationActiveIsActioning = reservationActive ? reservationAction?.id === reservationActive.id : false;
+  const reservationLabel = approvalMode === "auto" ? "Rezervasyonlar" : "Rezervasyon istekleri";
+
   return (
     <>
       <div className="bg-gradient-to-b from-white via-blue-50/40 to-white">
@@ -2254,7 +2667,7 @@ export function DashboardClient({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
+            <div ref={approvalCardRef} className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-blue-900">Onay yöntemi</p>
                 <div className="group relative inline-flex items-center">
@@ -2266,14 +2679,18 @@ export function DashboardClient({
                   </div>
                 </div>
               </div>
-              <div className="mt-3 space-y-2 text-sm text-blue-900">
+              <div className="mt-3 space-y-3 text-sm text-blue-900">
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="booking-approval"
                     className="h-3.5 w-3.5"
-                    defaultChecked
-                    disabled
+                    checked={(calendarDraft?.bookingApprovalMode ?? "manual") === "manual"}
+                    onChange={() =>
+                      setCalendarDraft((prev) =>
+                        prev ? { ...prev, bookingApprovalMode: "manual" } : prev,
+                      )
+                    }
                   />
                   <span>Talebi ben onaylarım</span>
                 </label>
@@ -2282,31 +2699,197 @@ export function DashboardClient({
                     type="radio"
                     name="booking-approval"
                     className="h-3.5 w-3.5"
-                    disabled
+                    checked={(calendarDraft?.bookingApprovalMode ?? "manual") === "auto"}
+                    onChange={() =>
+                      setCalendarDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              bookingApprovalMode: "auto",
+                              bookingCutoffValue: prev.bookingCutoffValue || 24,
+                              bookingCutoffUnit: prev.bookingCutoffUnit || "hours",
+                            }
+                          : prev,
+                      )
+                    }
                   />
                   <span>Talep otomatik onaylanır</span>
                 </label>
+                {(calendarDraft?.bookingApprovalMode ?? "manual") === "auto" ? (
+                  <div className="rounded-xl border border-blue-100 bg-white/70 px-3 py-2 text-xs text-blue-900">
+                    <p className="text-[11px] font-semibold text-blue-900">Rezervasyon kapatma süresi</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={720}
+                        value={calendarDraft?.bookingCutoffValue ?? 24}
+                        onChange={(e) => {
+                          const value = Number.parseInt(e.target.value, 10);
+                          setCalendarDraft((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  bookingCutoffValue: Number.isFinite(value) ? Math.max(1, value) : 1,
+                                }
+                              : prev,
+                          );
+                        }}
+                        className="h-8 w-20 rounded-lg border border-blue-100 bg-white px-2 text-xs font-semibold text-blue-900 focus:border-blue-300 focus:outline-none"
+                      />
+                      <select
+                        value={calendarDraft?.bookingCutoffUnit ?? "hours"}
+                        onChange={(e) =>
+                          setCalendarDraft((prev) =>
+                            prev ? { ...prev, bookingCutoffUnit: e.target.value as "hours" | "days" } : prev,
+                          )
+                        }
+                        className="h-8 rounded-lg border border-blue-100 bg-white px-2 text-xs font-semibold text-blue-900 focus:border-blue-300 focus:outline-none"
+                      >
+                        <option value="hours">saat</option>
+                        <option value="days">gün</option>
+                      </select>
+                    </div>
+                    <p className="mt-2 text-[11px] text-blue-700">
+                      Bu süre içerisinde otomatik rezervasyon oluşturulamaz.
+                    </p>
+                  </div>
+                ) : null}
               </div>
-              <p className="mt-3 text-xs text-blue-700">Rezervasyon ayarları yakında aktif olacaktır.</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={saveCalendarSettings}
+                  disabled={saving}
+                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {saving ? "Kaydediliyor..." : "Kaydet"}
+                </button>
+                <span className="text-[11px] text-blue-700">Takvim ayarlarıyla birlikte kaydedilir.</span>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
-              <p className="text-sm font-semibold text-blue-900">Rezervasyon istekleri</p>
-              {studio.notifications.filter((n) => /rezervasyon|talep/i.test(n)).length ? (
-                <ul className="mt-2 space-y-1 text-sm text-blue-800">
-                  {studio.notifications
-                    .filter((n) => /rezervasyon|talep/i.test(n))
-                    .slice(0, 3)
-                    .map((n, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="mt-1 h-1.5 w-1.5 rounded-full bg-blue-500" />
-                        <span>{n}</span>
-                      </li>
-                    ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-xs text-blue-700">Henüz rezervasyon isteği yok.</p>
-              )}
+            <div
+              className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 flex flex-col"
+              style={reservationCardHeight ? { height: reservationCardHeight } : undefined}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-blue-900">{reservationLabel}</p>
+                  <Link
+                    href="/dashboard/reservation-requests/history?as=studio"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-orange-200 text-orange-600 transition hover:border-orange-300"
+                    aria-label="Geçmiş istekleri görüntüle"
+                    title="Geçmiş istekler"
+                  >
+                    <History className="h-4 w-4 text-orange-600" />
+                  </Link>
+                </div>
+                {hasReservationCarousel ? (
+                  <div className="flex items-center gap-1 text-[10px] text-blue-700">
+                    <button
+                      type="button"
+                      onClick={() => setReservationIndex((prev) => Math.max(0, prev - 1))}
+                      disabled={reservationIndex === 0}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-200 text-blue-700 transition hover:border-blue-300 hover:text-blue-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Önceki istek"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="min-w-[36px] text-center">
+                      {reservationIndex + 1}/{reservationCount}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setReservationIndex((prev) => Math.min(reservationCount - 1, prev + 1))}
+                      disabled={reservationIndex === reservationCount - 1}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-200 text-blue-700 transition hover:border-blue-300 hover:text-blue-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="Sonraki istek"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-2 flex-1">
+                {reservationActive ? (
+                  <div className="flex h-full flex-col rounded-xl border border-blue-100 bg-white/80 p-3 overflow-hidden">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <ReservationAvatar
+                          name={reservationActive.requesterName}
+                          image={reservationActive.requesterImage}
+                          isAnon={reservationActive.requesterIsAnon}
+                        />
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-blue-900">
+                            {reservationActive.requesterName} · {reservationActive.roomName}
+                          </p>
+                          <p className="text-xs text-blue-700">
+                            {formatReservationTime(reservationActive.startAt)} · {reservationActive.hours} saat
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          reservationActiveStatus === "Onaylandı"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : reservationActiveStatus === "Reddedildi"
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                    {reservationActiveStatus}
+                  </span>
+                    </div>
+                    <div className="mt-2 flex-1 space-y-1 overflow-auto pr-1 text-xs text-blue-700">
+                      <p>Telefon: {reservationActive.requesterPhone}</p>
+                      {reservationActive.requesterEmail && <p>E-posta: {reservationActive.requesterEmail}</p>}
+                      {reservationActive.note && <p>Not: {reservationActive.note}</p>}
+                      <p>Ücret: {formatReservationPrice(reservationActive.totalPrice)}</p>
+                    </div>
+                    {approvalMode === "auto" ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={reservationActiveIsActioning}
+                          onClick={() => handleReservationRead(reservationActive)}
+                          className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {reservationActiveIsActioning ? "Kaydediliyor..." : "Okundu"}
+                        </button>
+                      </div>
+                    ) : reservationActiveIsPending ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={reservationActiveIsActioning}
+                          onClick={() => handleReservationDecision(reservationActive, "reject")}
+                          className="rounded-lg border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                        >
+                          {reservationActiveIsActioning && reservationAction?.action === "reject"
+                            ? "Reddediliyor..."
+                            : "Reddet"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reservationActiveIsActioning}
+                          onClick={() => handleReservationDecision(reservationActive, "approve")}
+                          className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          {reservationActiveIsActioning && reservationAction?.action === "approve"
+                            ? "Onaylanıyor..."
+                            : "Onayla"}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-xs text-blue-700">
+                    {approvalMode === "auto" ? "Yeni rezervasyon yok." : "Yeni rezervasyon isteği yok."}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="rounded-2xl border border-gray-100 bg-white/90 p-4 lg:col-span-2">
@@ -2556,9 +3139,50 @@ export function DashboardClient({
                   <p className="text-xs text-amber-800">
                     Happy Hour fiyatlandırması oda fiyatlandırmasındadır.
                   </p>
+                  {orderedRooms.length > 1 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-amber-900">Happy Hour hangi odalarda aktif?</p>
+                      <div className="flex flex-wrap gap-2">
+                        {orderedRooms.map((room) => {
+                          const checked = !!happyHourRoomSelection[room.id];
+                          return (
+                            <label
+                              key={room.id}
+                              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+                                checked
+                                  ? "border-amber-500 bg-amber-200/70 text-amber-900"
+                                  : "border-amber-200/70 bg-white/70 text-amber-900"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked;
+                                  setHappyHourRoomSelection((prev) => ({
+                                    ...prev,
+                                    [room.id]: next,
+                                  }));
+                                  setHappyHourSelectionTouched(true);
+                                }}
+                                className="h-3.5 w-3.5 rounded border border-amber-400/60 bg-white text-amber-700 focus:ring-2 focus:ring-amber-500"
+                              />
+                              {room.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[11px] text-amber-800">
+                        Seçilen odalarda aynı Happy Hour saatleri uygulanır.
+                      </p>
+                      {!canEditHappyHourSchedule ? (
+                        <p className="text-[11px] text-amber-700">Takvimi değiştirmek için en az bir oda seçin.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-amber-900">Happy Hour günleri ve saatleri</p>
-                    <div className="space-y-2">
+                    <div className={`space-y-2 ${canEditHappyHourSchedule ? "" : "opacity-60"}`}>
                       {longDays.map((day, idx) => {
                         const row = happyHourDays[idx];
                         return (
@@ -2570,6 +3194,7 @@ export function DashboardClient({
                               <input
                                 type="checkbox"
                                 checked={row?.enabled ?? false}
+                                disabled={!canEditHappyHourSchedule}
                                 onChange={(e) =>
                                   setHappyHourDays((prev) => {
                                     setHappyHourTouched(true);
@@ -2587,6 +3212,7 @@ export function DashboardClient({
                                 <span>Saat kaça kadar?</span>
                                 <select
                                   value={row.endTime}
+                                  disabled={!canEditHappyHourSchedule}
                                   onChange={(e) =>
                                     setHappyHourDays((prev) => {
                                       setHappyHourTouched(true);
@@ -3990,9 +4616,12 @@ export function DashboardClient({
                         ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate
                         : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate,
                     );
+                    const isHappyHourRoomSelected = happyHourSelectedSet.has(currentRoom.id);
+                    const showHappyHourPricing = happyHourActive && isHappyHourRoomSelected;
                     const happyRate = parsePriceValue(currentRoom.pricing.happyHourRate);
                     const happyRateInvalid =
-                      happyHourActive && happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9;
+                      showHappyHourPricing && happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9;
+                    const disableSave = saving || happyRateInvalid;
                     return (
                       <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
@@ -4072,7 +4701,7 @@ export function DashboardClient({
                             }}
                           />
                         </div>
-                        {happyHourActive && (
+                        {showHappyHourPricing && (
                           <div className="flex flex-wrap items-center gap-2 text-sm text-gray-900">
                             <label className="flex items-center gap-2">
                               <HappyHourIcon className="h-5 w-5 text-amber-600" />
@@ -4111,36 +4740,24 @@ export function DashboardClient({
                             )}
                           </div>
                         )}
+                        <button
+                          disabled={disableSave}
+                          onClick={() =>
+                            saveRoomBasics(currentRoom.id, {
+                              name: currentRoom.name,
+                              type: currentRoom.type,
+                              color: currentRoom.color,
+                              pricing: currentRoom.pricing,
+                              extras: currentRoom.extras,
+                            })
+                          }
+                          className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm"
+                        >
+                          {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
+                        </button>
                       </div>
                     );
                   })()}
-                  <button
-                    disabled={saving || (happyHourActive && (() => {
-                      const activePricingModel =
-                        currentRoom.pricing.model === "daily" || currentRoom.pricing.model === "hourly"
-                          ? currentRoom.pricing.model
-                          : "hourly";
-                      const baseRate = parsePriceValue(
-                        activePricingModel === "daily"
-                          ? currentRoom.pricing.dailyRate ?? currentRoom.pricing.hourlyRate
-                          : currentRoom.pricing.hourlyRate ?? currentRoom.pricing.dailyRate,
-                      );
-                      const happyRate = parsePriceValue(currentRoom.pricing.happyHourRate);
-                      return happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9;
-                    })())}
-                    onClick={() =>
-                      saveRoomBasics(currentRoom.id, {
-                        name: currentRoom.name,
-                        type: currentRoom.type,
-                        color: currentRoom.color,
-                        pricing: currentRoom.pricing,
-                        extras: currentRoom.extras,
-                      })
-                    }
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60 shadow-sm"
-                  >
-                    {saving ? "Kaydediliyor..." : "Oda bilgisi kaydet"}
-                  </button>
                 </RoomSection>
                 {isRehearsalLike && (
                   <RoomSection
@@ -5489,10 +6106,6 @@ export function DashboardClient({
                   disabled={saving || orderedRooms.length <= 1}
                   onClick={() => {
                     if (!currentRoom) return;
-                    if (!emailVerified) {
-                      setStatus("Odayı silmek için e-posta doğrulaması gerekiyor.");
-                      return;
-                    }
                     if (!window.confirm("Bu odayı silmek istediğine emin misin?")) return;
                     setSaving(true);
                     fetch("/api/studio", {

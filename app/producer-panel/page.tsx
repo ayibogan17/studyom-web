@@ -15,7 +15,7 @@ import { ProducerWhatsAppSettings } from "./producer-whatsapp-settings";
 import { ProducerStudioLinksClient } from "./producer-studio-links-client";
 
 export const metadata: Metadata = {
-  title: "Üretici Paneli | Stüdyom",
+  title: "Üretici Paneli | Studyom",
   description: "Onaylanan üretici başvurunun özetini görüntüleyin.",
 };
 

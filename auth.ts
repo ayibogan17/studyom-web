@@ -82,9 +82,9 @@ const mapProducerStatus = (status?: string | null) => {
   if (status === "pending") return "pending" as const;
   return "none" as const;
 };
-const teacherStatusTtlMs = 60 * 1000;
-const producerStatusTtlMs = 60 * 1000;
-const studioStatusTtlMs = 60 * 1000;
+const teacherStatusTtlMs = 10 * 60 * 1000;
+const producerStatusTtlMs = 10 * 60 * 1000;
+const studioStatusTtlMs = 10 * 60 * 1000;
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const leadFrom = process.env.LEAD_FROM || "Studyom <noreply@studyom.net>";
@@ -118,11 +118,14 @@ export const authOptions: NextAuthOptions = {
 
         // 1) DB kullanıcı kontrolü
         try {
-          const dbUser = await prisma.user.findUnique({ where: { email } });
+          const dbUser = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, email: true, fullName: true, name: true, phone: true, role: true, city: true, intent: true, emailVerified: true, image: true, isDisabled: true, isSuspended: true, isBanned: true, passwordHash: true },
+          });
           if (dbUser?.passwordHash) {
             const ok = await bcrypt.compare(password, dbUser.passwordHash);
             if (ok) {
-              if (dbUser.isDisabled) {
+              if (dbUser.isDisabled || dbUser.isSuspended || dbUser.isBanned) {
                 throw new Error("ACCOUNT_DISABLED");
               }
               if (!dbUser.emailVerified) {
@@ -138,6 +141,7 @@ export const authOptions: NextAuthOptions = {
                 city: dbUser.city,
                 intent: dbUser.intent ?? [],
                 emailVerified: dbUser.emailVerified,
+                image: dbUser.image ?? null,
               };
               return user;
             }
@@ -171,9 +175,9 @@ export const authOptions: NextAuthOptions = {
       try {
         const dbUser = await prisma.user.findUnique({
           where: { email: user.email.toLowerCase() },
-          select: { isDisabled: true },
+          select: { isDisabled: true, isSuspended: true, isBanned: true },
         });
-        if (dbUser?.isDisabled) {
+        if (dbUser?.isDisabled || dbUser?.isSuspended || dbUser?.isBanned) {
           return "/login?error=disabled";
         }
       } catch (err) {
@@ -278,13 +282,14 @@ export const authOptions: NextAuthOptions = {
       if (shouldRefreshStudioStatus && profileToken.email) {
         try {
           const ownerEmail = profileToken.email.toString().toLowerCase();
+          const ownerFilter = { ownerEmail: { equals: ownerEmail, mode: "insensitive" as const } };
           const activeCount = await prisma.studio.count({
-            where: { ownerEmail, isActive: true },
+            where: { ...ownerFilter, isActive: true },
           });
           if (activeCount > 0) {
             profileToken.studioStatus = "approved";
           } else {
-            const anyCount = await prisma.studio.count({ where: { ownerEmail } });
+            const anyCount = await prisma.studio.count({ where: ownerFilter });
             profileToken.studioStatus = anyCount > 0 ? "pending" : "none";
           }
           profileToken.studioStatusUpdatedAt = now;
@@ -330,7 +335,7 @@ export const authOptions: NextAuthOptions = {
           subject: "Studyom'a hoşgeldin!",
           html: `<p>Merhaba ${user.name || user.email},</p>
 <p>Studyom'a hoşgeldin! Şimdi profilini düzenleyebilirsin: <a href="${verifyLink}">${verifyLink}</a></p>
-<p>İyi müzikler,<br/>Studyom Ekibi</p>`,
+<p>Herhangi bir sorunuzda studyom.net/iletisim üzerinden iletişime geçmeye lütfen çekinmeyin. Müzikle kalın.<br/>Studyom Ekibi</p>`,
         });
       } catch (err) {
         console.error("welcome email error", err);

@@ -12,7 +12,7 @@ import { Button } from "@/components/design-system/components/ui/button";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Stüdyo Paneli | Stüdyom",
+  title: "Stüdyo Paneli | Studyom",
   description: "Onaylanan stüdyo başvurunuzun özetini görüntüleyin.",
 };
 
@@ -257,7 +257,7 @@ export default async function StudioPanelPage() {
             <p className="text-xs text-[var(--color-muted)]">Oda ve fiyat düzenlemeleri için yönetim paneli.</p>
           </div>
           <Button asChild variant="secondary">
-            <Link href="/dashboard?as=studio">Yönetim paneline git</Link>
+            <Link href="/dashboard?as=studio&tab=calendar">Yönetim paneline git</Link>
           </Button>
         </Card>
       </Section>

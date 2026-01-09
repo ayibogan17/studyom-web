@@ -21,20 +21,20 @@ const interTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  title: "Stüdyom | Stüdyo keşif ve rezervasyon",
-  description: "Stüdyom, Türkiye'de stüdyo arayan müzisyenler için hızlı keşif ve rezervasyon platformu.",
+  title: "Studyom | Stüdyo keşif ve rezervasyon",
+  description: "Studyom, Türkiye'de stüdyo arayan müzisyenler için hızlı keşif ve rezervasyon platformu.",
   metadataBase: new URL("https://studyom.net"),
   openGraph: {
-    title: "Stüdyom",
+    title: "Studyom",
     description: "Şehrindeki prova ve kayıt stüdyoları tek platformda.",
     url: "https://studyom.net",
-    siteName: "Stüdyom",
+    siteName: "Studyom",
     locale: "tr_TR",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stüdyom",
+    title: "Studyom",
     description: "Şehrindeki prova ve kayıt stüdyoları tek platformda.",
   },
   icons: {

@@ -136,7 +136,7 @@ export function LoginForm() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-muted)]">
               Kullanıcı Girişi
             </p>
-            <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Stüdyom hesabınla giriş yap</h1>
+            <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Studyom hesabınla giriş yap</h1>
             <p className="text-sm text-[var(--color-muted)]">
               Müzisyenler, hocalar, teknisyenler ve stüdyo sahipleri burada.
             </p>

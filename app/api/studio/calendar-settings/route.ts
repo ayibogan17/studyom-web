@@ -15,6 +15,9 @@ const schema = z.object({
   dayCutoffHour: z.number().int().min(0).max(6).optional(),
   timezone: z.string().min(2).max(64).optional(),
   happyHourEnabled: z.boolean().optional(),
+  bookingApprovalMode: z.enum(["manual", "auto"]).optional(),
+  bookingCutoffUnit: z.enum(["hours", "days"]).optional(),
+  bookingCutoffValue: z.number().int().min(1).max(720).optional(),
   weeklyHours: z.array(openingHourSchema).length(7).optional(),
 });
 
@@ -52,6 +55,9 @@ export async function GET() {
       dayCutoffHour: settings?.dayCutoffHour ?? 4,
       timezone: settings?.timezone ?? "Europe/Istanbul",
       happyHourEnabled: settings?.happyHourEnabled ?? false,
+      bookingApprovalMode: settings?.bookingApprovalMode ?? "manual",
+      bookingCutoffUnit: settings?.bookingCutoffUnit ?? "hours",
+      bookingCutoffValue: settings?.bookingCutoffValue ?? 24,
       weeklyHours: normalizeHours(
         (settings?.weeklyHours as typeof defaultHours | null | undefined) ??
           (studio.openingHours as typeof defaultHours | null | undefined) ??
@@ -97,6 +103,9 @@ export async function POST(req: Request) {
       dayCutoffHour: parsed.data.dayCutoffHour,
       timezone: parsed.data.timezone,
       happyHourEnabled: parsed.data.happyHourEnabled,
+      bookingApprovalMode: parsed.data.bookingApprovalMode,
+      bookingCutoffUnit: parsed.data.bookingCutoffUnit,
+      bookingCutoffValue: parsed.data.bookingCutoffValue,
       weeklyHours: weeklyHours ?? undefined,
     },
     create: {
@@ -105,6 +114,9 @@ export async function POST(req: Request) {
       dayCutoffHour: parsed.data.dayCutoffHour ?? 4,
       timezone: parsed.data.timezone ?? "Europe/Istanbul",
       happyHourEnabled: parsed.data.happyHourEnabled ?? false,
+      bookingApprovalMode: parsed.data.bookingApprovalMode ?? "manual",
+      bookingCutoffUnit: parsed.data.bookingCutoffUnit ?? "hours",
+      bookingCutoffValue: parsed.data.bookingCutoffValue ?? 24,
       weeklyHours: weeklyHours ?? (studio.openingHours as typeof defaultHours | null) ?? defaultHours,
     },
   });
@@ -115,6 +127,9 @@ export async function POST(req: Request) {
       dayCutoffHour: updated.dayCutoffHour,
       timezone: updated.timezone,
       happyHourEnabled: updated.happyHourEnabled ?? false,
+      bookingApprovalMode: updated.bookingApprovalMode ?? "manual",
+      bookingCutoffUnit: updated.bookingCutoffUnit ?? "hours",
+      bookingCutoffValue: updated.bookingCutoffValue ?? 24,
       weeklyHours: normalizeHours(
         (updated.weeklyHours as typeof defaultHours | null | undefined) ??
           (studio.openingHours as typeof defaultHours | null | undefined) ??

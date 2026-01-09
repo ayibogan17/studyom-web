@@ -5,6 +5,7 @@ import crypto from "crypto";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 import { Prisma, UserRole } from "@prisma/client";
+import { mergeRoles, normalizeRoles } from "@/lib/roles";
 
 const phoneDigits = (value: string) => value.replace(/\D/g, "");
 
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
     }
     const existing = await prisma.user.findUnique({ where: { email: emailNormalized } });
     if (existing) {
+      const nextRoles = mergeRoles(normalizeRoles(existing), ["musician"]);
       const passwordHash = await bcrypt.hash(password, 10);
       const updated = await prisma.user.update({
         where: { email: emailNormalized },
@@ -51,6 +53,7 @@ export async function POST(req: Request) {
           phone: phoneNormalized,
           city,
           intent,
+          roles: { set: nextRoles },
         },
       });
       return NextResponse.json({ ok: true, userId: updated.id, updated: true });
@@ -67,13 +70,14 @@ export async function POST(req: Request) {
           intent,
           passwordHash,
           role: UserRole.USER,
+          roles: ["musician"],
           emailVerified: null,
         },
       })
       .catch(async (e) => {
         const msg = `${(e as Error).message}`;
         // Eğer şema henüz deploy edilmediyse, minimum alanlarla tekrar dene
-        if (msg.includes("Unknown argument `fullName`")) {
+        if (msg.includes("Unknown argument `fullName`") || msg.includes("Unknown argument `roles`")) {
           return prisma.user.create({
             data: {
               email: email.toLowerCase(),
@@ -98,7 +102,8 @@ export async function POST(req: Request) {
           subject: "Studyom'a hoşgeldin!",
           html: `<p>Merhaba ${fullName},</p>
 <p>Studyom'a hoşgeldin! Şimdi profilini düzenleyebilirsin: <a href="${profileLink}">${profileLink}</a></p>
-<p>İyi müzikler,<br/>Studyom Ekibi</p>`,
+<p>Not: E-posta ile üye olduysan, mailini doğrulamak için gönderdiğimiz bağlantıya tıklamayı unutma.</p>
+<p>Herhangi bir sorunuzda studyom.net/iletisim üzerinden iletişime geçmeye lütfen çekinmeyin. Müzikle kalın.<br/>Studyom Ekibi</p>`,
         });
       } catch (mailErr) {
         console.error("welcome email error:", mailErr);

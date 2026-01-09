@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Button } from "@/components/design-system/components/ui/button";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { ThreadComplaint } from "@/components/design-system/components/shared/thread-complaint";
 
 type MessageItem = {
   id: string;
@@ -30,6 +31,7 @@ export function ProducerMessageThread({
   const [threadId, setThreadId] = useState<string | null>(null);
   const [channelName, setChannelName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [sending, setSending] = useState(false);
   const [requestSending, setRequestSending] = useState(false);
   const [body, setBody] = useState("");
@@ -58,6 +60,7 @@ export function ProducerMessageThread({
         setRequest(json.request || null);
         setWhatsapp(json.whatsapp || null);
         setProducerUserId(json.producer?.userId || null);
+        setLocked(Boolean(json.locked));
         const incoming = (json.messages || []) as MessageItem[];
         const unique = new Map<string, MessageItem>();
         for (const msg of incoming) {
@@ -96,7 +99,10 @@ export function ProducerMessageThread({
     };
   }, [channelName, threadId]);
 
-  const canSend = useMemo(() => body.trim().length > 0 && body.trim().length <= 1200, [body]);
+  const canSend = useMemo(
+    () => body.trim().length > 0 && body.trim().length <= 1200 && !locked,
+    [body, locked],
+  );
   const requestCount = requestBody.trim().length;
   const canRequest = requestCount > 0 && requestCount <= 400 && !urlLike.test(requestBody);
   const hasProducerReply = messages.some((msg) => msg.senderRole === "producer");
@@ -192,11 +198,14 @@ export function ProducerMessageThread({
 
   return (
     <Card id="messages" className="space-y-4 p-5">
-      <div className="space-y-1">
-        <p className="text-base font-semibold text-[var(--color-primary)]">Mesaj gönder</p>
-        <p className="text-xs text-[var(--color-muted)]">
-          Bu sohbet yalnızca {producerName} ile aranızdadır.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-base font-semibold text-[var(--color-primary)]">Mesaj gönder</p>
+          <p className="text-xs text-[var(--color-muted)]">
+            Bu sohbet yalnızca {producerName} ile aranızdadır.
+          </p>
+        </div>
+        {threadId ? <ThreadComplaint threadType="producer" threadId={threadId} /> : null}
       </div>
       {info && !threadId ? <p className="text-xs text-[var(--color-muted)]">{info}</p> : null}
 
@@ -283,10 +292,14 @@ export function ProducerMessageThread({
                 <label htmlFor="producer-message-thread" className="text-xs font-semibold text-[var(--color-muted)]">
                   Mesajın (max 1200 karakter)
                 </label>
+                {locked ? (
+                  <p className="text-xs text-[var(--color-danger)]">Sohbet kilitli. Mesaj gönderemezsin.</p>
+                ) : null}
                 <textarea
                   id="producer-message-thread"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
+                  disabled={locked}
                   rows={4}
                   className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
                   placeholder="Talebinizi yazın"

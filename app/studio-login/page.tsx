@@ -1,7 +1,7 @@
 import { StudioLoginForm } from "./_components/StudioLoginForm";
 
 export const metadata = {
-  title: "Stüdyo Sahibi Girişi | Stüdyom",
+  title: "Stüdyo Sahibi Girişi | Studyom",
 };
 
 export default function StudioLoginPage({ searchParams }: { searchParams?: { redirect?: string } }) {

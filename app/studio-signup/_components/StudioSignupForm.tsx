@@ -10,6 +10,12 @@ import { OAuthButtons } from "@/components/shared/OAuthButtons";
 import { loadGeo, type TRGeo } from "@/lib/geo";
 
 const phoneDigits = (value: string) => value.replace(/\D/g, "");
+const normalizeHttpUrl = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
 
 const schema = z
   .object({
@@ -29,7 +35,10 @@ const schema = z
     neighborhood: z.string().optional(),
     mapsUrl: z.string().min(1, "Google Maps linki gerekli").url("Geçerli bir link girin"),
     address: z.string().min(10, "Adres en az 10 karakter olmalı"),
-    website: z.string().url("Geçerli bir URL girin").optional().or(z.literal("")),
+    website: z.preprocess(
+      (value) => (typeof value === "string" ? normalizeHttpUrl(value) : value),
+      z.string().url("Geçerli bir URL girin").optional().or(z.literal("")),
+    ),
     extraInfo: z.string().max(1000, "En fazla 1000 karakter").optional().or(z.literal("")),
   })
   .superRefine((val, ctx) => {
@@ -450,7 +459,7 @@ export function StudioSignupForm() {
                 <label className="space-y-1 text-sm font-medium text-[var(--color-primary)]">
                   Stüdyonuzun web sitesi (opsiyonel)
                   <input
-                    type="url"
+                    type="text"
                     className="mt-1 h-11 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none"
                     placeholder="https://example.com"
                     {...register("website")}

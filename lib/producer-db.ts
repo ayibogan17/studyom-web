@@ -74,6 +74,9 @@ export async function getProducerIdentityBySlug(slug: string): Promise<{
       where: { id: appId },
     });
     if (!application) return null;
+    if (application.visibilityStatus === "hidden" || application.visibilityStatus === "draft") {
+      return null;
+    }
     user = await prisma.user.findUnique({
       where: { id: application.userId },
       select: { id: true, email: true, fullName: true, name: true, city: true, image: true },
@@ -81,7 +84,7 @@ export async function getProducerIdentityBySlug(slug: string): Promise<{
   } else {
     const baseSlug = slug.replace(/-\d+$/, "");
     const apps = await prisma.producerApplication.findMany({
-      where: { status: { in: ["approved", "pending"] } },
+      where: { status: { in: ["approved", "pending"] }, visibilityStatus: "published" },
       orderBy: { createdAt: "desc" },
       take: 100,
     });
@@ -297,7 +300,7 @@ function buildMockProducers(): ProducerProfile[] {
 
 export async function getProducerListings(): Promise<ProducerProfile[]> {
   const applications = await prisma.producerApplication.findMany({
-    where: { status: { in: ["approved", "pending"] } },
+    where: { status: "approved", visibilityStatus: "published" },
     orderBy: { createdAt: "desc" },
   });
 
@@ -329,12 +332,7 @@ export async function getProducerListings(): Promise<ProducerProfile[]> {
     studiosMap.set(link.producerUserId, [...existing, link.studio.name]);
   }
 
-  const ordered = [
-    ...latest.filter((app) => app.status === "approved"),
-    ...latest.filter((app) => app.status !== "approved"),
-  ];
-
-  const fromDb = ordered.map((app) =>
+  const fromDb = latest.map((app) =>
     mapApplicationToProfile(app, userMap.get(app.userId), studiosMap.get(app.userId) ?? []),
   );
   if (fromDb.length === 0) {

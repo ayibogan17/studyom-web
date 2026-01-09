@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
+import { notifyUser } from "@/lib/user-notify";
 
 const schema = z.object({
   producerUserId: z.string().min(1),
@@ -97,6 +98,27 @@ export async function POST(req: Request) {
         status: "pending",
       },
     });
+    const [producerUser, studentUser] = await prisma.user.findMany({
+      where: { id: { in: [producerUserId, userId] } },
+      select: { id: true, email: true, fullName: true, name: true },
+    });
+    const producerEmail = producerUser?.id === producerUserId ? producerUser?.email : studentUser?.email;
+    const studentRecord = studentUser?.id === userId ? studentUser : producerUser;
+    const studentName = studentRecord?.fullName || studentRecord?.name || studentRecord?.email || "Öğrenci";
+    const baseUrl =
+      process.env.NEXTAUTH_URL ||
+      process.env.AUTH_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "http://localhost:3000";
+    const producerPanelLink = `${baseUrl.replace(/\/$/, "")}/producer-panel/messages`;
+    const emailText = `Studyom'da yeni mesaj isteğin var.
+
+Gönderen: ${studentName}${studentRecord?.email ? ` (${studentRecord.email})` : ""}
+Mesaj: ${message}
+
+İsteği görüntülemek için: ${producerPanelLink}
+`;
+    await notifyUser(producerEmail, "Studyom'da yeni mesaj isteği", emailText);
     return NextResponse.json({
       ok: true,
       request: { id: created.id, status: created.status },

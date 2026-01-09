@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     threadId: thread?.id ?? null,
+    locked: thread?.locked ?? false,
     channel: thread?.id ? getProducerThreadChannel(thread.id) : null,
     producer: {
       slug: producerSlug,

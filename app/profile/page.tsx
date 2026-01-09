@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ProfileClient } from "./profile-client";
 
 export const metadata: Metadata = {
-  title: "Profilim | Stüdyom",
+  title: "Profilim | Studyom",
   description: "Hesap kimliği, tercihlerin ve rollerinin özetini görüntüleyin.",
 };
 
@@ -29,8 +29,8 @@ export default async function ProfilePage() {
         : null;
 
   const userId = dbUser?.id;
-  const userEmail = dbUser?.email;
-  const [teacherApp, producerApp, studioCount, studioActiveCount, googleAccount] = userId
+  const userEmail = (dbUser?.email ?? sessionUser.email)?.toLowerCase() ?? null;
+  const [teacherApp, producerApp, googleAccount] = userId
     ? await Promise.all([
         prisma.teacherApplication.findFirst({
           where: { userId },
@@ -38,18 +38,23 @@ export default async function ProfilePage() {
           select: { status: true },
         }),
         getProducerApplicationStatus(userId),
-        userEmail
-          ? prisma.studio.count({ where: { ownerEmail: userEmail } })
-          : Promise.resolve(0),
-        userEmail
-          ? prisma.studio.count({ where: { ownerEmail: userEmail, isActive: true } })
-          : Promise.resolve(0),
         prisma.account.findFirst({
           where: { userId, provider: "google" },
           select: { id: true },
         }),
       ])
-    : [null, null, 0, 0, null];
+    : [null, null, null];
+
+  const [studioCount, studioActiveCount] = userEmail
+    ? await Promise.all([
+        prisma.studio.count({
+          where: { ownerEmail: { equals: userEmail, mode: "insensitive" } },
+        }),
+        prisma.studio.count({
+          where: { ownerEmail: { equals: userEmail, mode: "insensitive" }, isActive: true },
+        }),
+      ])
+    : [0, 0];
 
   const mapStatus = (status?: string | null) => {
     if (status === "approved") return "approved" as const;

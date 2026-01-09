@@ -1,21 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Bell } from "lucide-react";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Badge } from "@/components/design-system/components/ui/badge";
 import { Button } from "@/components/design-system/components/ui/button";
 import { cn } from "@/components/design-system/lib/cn";
-
-export type NotificationItem = {
-  id: string;
-  kind: "reservation" | "lead" | "teacher-lead";
-  title: string;
-  subtitle: string;
-  message: string;
-  createdAt: string;
-  status: "unread" | "read";
-};
 
 export type StudioRequestItem = {
   id: string;
@@ -36,42 +26,17 @@ export type ProducerStudioRequestItem = {
 };
 
 type Props = {
-  items: NotificationItem[];
   studioRequests: StudioRequestItem[];
   producerRequests: ProducerStudioRequestItem[];
 };
 
-type FilterKey = "all" | "unread" | "read";
-
-const filters: Array<{ key: FilterKey; label: string }> = [
-  { key: "all", label: "Tümü" },
-  { key: "unread", label: "Okunmadı" },
-  { key: "read", label: "Okundu" },
-];
-
-export default function NotificationsClient({ items, studioRequests, producerRequests }: Props) {
-  const [filter, setFilter] = useState<FilterKey>("all");
-  const [rows, setRows] = useState(items);
+export default function NotificationsClient({ studioRequests, producerRequests }: Props) {
   const [requests, setRequests] = useState(studioRequests);
   const [producerRequestsState, setProducerRequestsState] = useState(producerRequests);
-  const [savingId, setSavingId] = useState<string | null>(null);
   const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
   const [savingProducerId, setSavingProducerId] = useState<string | null>(null);
-  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [openRequests, setOpenRequests] = useState<Record<string, boolean>>({});
   const [openProducerRequests, setOpenProducerRequests] = useState<Record<string, boolean>>({});
-
-  const filteredItems = useMemo(() => {
-    if (filter === "all") return rows;
-    if (filter === "unread") return rows.filter((item) => item.status === "unread");
-    return rows.filter((item) => item.status === "read");
-  }, [rows, filter]);
-
-  const leadItems = filteredItems.filter((item) => item.kind !== "reservation");
-
-  const toggleItem = (id: string) => {
-    setOpenItems((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const toggleRequest = (id: string) => {
     setOpenRequests((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -79,27 +44,6 @@ export default function NotificationsClient({ items, studioRequests, producerReq
 
   const toggleProducerRequest = (id: string) => {
     setOpenProducerRequests((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const markRead = async (item: NotificationItem) => {
-    if (item.status === "read") return;
-    setSavingId(item.id);
-    try {
-      const res = await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: item.id, kind: item.kind }),
-      });
-      if (!res.ok) throw new Error("Kaydedilemedi");
-      setRows((prev) =>
-        prev.map((row) => (row.id === item.id ? { ...row, status: "read" } : row)),
-      );
-    } catch (err) {
-      console.error(err);
-      alert("Kaydedilemedi");
-    } finally {
-      setSavingId(null);
-    }
   };
 
   const updateRequest = async (id: string, status: StudioRequestItem["status"]) => {
@@ -145,29 +89,13 @@ export default function NotificationsClient({ items, studioRequests, producerReq
       <div className="mb-6 flex items-start justify-between gap-4">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Bildirimler</h1>
-          <p className="text-sm text-[var(--color-muted)]">
-            Lead ve başvuruları burada görürsün.
-          </p>
+          <p className="text-sm text-[var(--color-muted)]">Stüdyo taleplerini burada görürsün.</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)]">
             <Bell className="h-5 w-5 text-[var(--color-primary)]" aria-hidden />
           </span>
         </div>
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-2">
-        {filters.map((item) => (
-          <Button
-            key={item.key}
-            type="button"
-            size="sm"
-            variant={filter === item.key ? "primary" : "secondary"}
-            onClick={() => setFilter(item.key)}
-          >
-            {item.label}
-          </Button>
-        ))}
       </div>
 
       <div className="grid gap-6">
@@ -327,69 +255,6 @@ export default function NotificationsClient({ items, studioRequests, producerReq
                               Reddet
                             </Button>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-[var(--color-primary)]">Lead&apos;ler</h2>
-            <Badge variant="muted">{leadItems.length}</Badge>
-          </div>
-          {leadItems.length === 0 ? (
-            <p className="text-sm text-[var(--color-muted)]">Henüz lead yok.</p>
-          ) : (
-            <div className="space-y-3">
-              {leadItems.map((item) => {
-                const isOpen = openItems[item.id];
-                return (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3"
-                    onClick={() => toggleItem(item.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") toggleItem(item.id);
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
-                        {item.title} — {item.subtitle}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
-                        <Badge
-                          variant={item.status === "read" ? "outline" : "default"}
-                          className={cn(item.status === "read" ? "" : "bg-[var(--color-warning)] text-white")}
-                        >
-                          {item.status === "read" ? "Okundu" : "Okunmadı"}
-                        </Badge>
-                        <span>{new Date(item.createdAt).toLocaleDateString("tr-TR")}</span>
-                      </div>
-                    </div>
-                    {isOpen && (
-                      <div className="mt-2 space-y-2">
-                        <p className="text-sm text-[var(--color-primary)]">{item.message}</p>
-                        {item.status === "unread" && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="h-8 px-3 text-xs"
-                            disabled={savingId === item.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              markRead(item);
-                            }}
-                          >
-                            Okundu işaretle
-                          </Button>
                         )}
                       </div>
                     )}

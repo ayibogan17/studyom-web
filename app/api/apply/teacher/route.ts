@@ -158,6 +158,7 @@ export async function POST(req: Request) {
         userId,
         data: appData,
         status: "pending",
+        visibilityStatus: "draft",
       },
     });
 

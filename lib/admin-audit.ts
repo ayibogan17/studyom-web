@@ -8,6 +8,7 @@ export async function logAdminAction(params: {
   action: string;
   before?: unknown;
   after?: unknown;
+  metadata?: unknown;
 }) {
   try {
     await prisma.adminAuditLog.create({
@@ -18,6 +19,7 @@ export async function logAdminAction(params: {
         action: params.action,
         before: params.before ? (params.before as Prisma.InputJsonValue) : undefined,
         after: params.after ? (params.after as Prisma.InputJsonValue) : undefined,
+        metadata: params.metadata ? (params.metadata as Prisma.InputJsonValue) : undefined,
       },
     });
   } catch (err) {

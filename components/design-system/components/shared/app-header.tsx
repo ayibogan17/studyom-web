@@ -37,6 +37,7 @@ export function AppHeader() {
     messages: false,
     teacherPanel: false,
     producerPanel: false,
+    studioPanel: false,
   });
   const profileRef = useRef<HTMLDivElement | null>(null);
   const { data: session } = useSession();
@@ -57,10 +58,7 @@ export function AppHeader() {
   const profile = session?.user as HeaderUser | undefined;
   const showTeacherPanel = profile?.teacherStatus === "approved";
   const showProducerPanel = profile?.producerStatus === "approved";
-  const showStudioPanel = profile?.studioStatus === "approved";
-  const hasRole = [profile?.teacherStatus, profile?.producerStatus, profile?.studioStatus].some(
-    (status) => status && status !== "none",
-  );
+  const showStudioPanel = profile?.studioStatus !== "none";
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -76,7 +74,13 @@ export function AppHeader() {
 
   useEffect(() => {
     if (!session) {
-      setIndicators({ notifications: false, messages: false, teacherPanel: false, producerPanel: false });
+      setIndicators({
+        notifications: false,
+        messages: false,
+        teacherPanel: false,
+        producerPanel: false,
+        studioPanel: false,
+      });
       return;
     }
     let active = true;
@@ -89,11 +93,18 @@ export function AppHeader() {
           messages: Boolean(json?.messagesUnread),
           teacherPanel: Boolean(json?.teacherPanelUnread),
           producerPanel: Boolean(json?.producerPanelUnread),
+          studioPanel: Boolean(json?.studioPanelUnread),
         });
       })
       .catch(() => {
         if (!active) return;
-        setIndicators({ notifications: false, messages: false, teacherPanel: false, producerPanel: false });
+        setIndicators({
+          notifications: false,
+          messages: false,
+          teacherPanel: false,
+          producerPanel: false,
+          studioPanel: false,
+        });
       });
     return () => {
       active = false;
@@ -181,10 +192,13 @@ export function AppHeader() {
           )}
           {session && showStudioPanel && (
             <Link
-              href="/dashboard?as=studio"
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
+              href="/dashboard?as=studio&tab=calendar"
+              className="relative flex shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:border-[var(--color-accent)]"
             >
               Stüdyo Paneli
+              {indicators.studioPanel && (
+                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
+              )}
             </Link>
           )}
           {session && (
@@ -219,18 +233,16 @@ export function AppHeader() {
                   <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
                 )}
               </Link>
-              {hasRole && (
-                <Link
-                  href="/notifications"
-                  aria-label="Bildirimler"
-                  className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
-                >
-                  <Bell className="h-4 w-4" aria-hidden />
-                  {indicators.notifications && (
-                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
-                  )}
-                </Link>
-              )}
+              <Link
+                href="/notifications"
+                aria-label="Bildirimler"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
+              >
+                <Bell className="h-4 w-4" aria-hidden />
+                {indicators.notifications && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
+                )}
+              </Link>
               <button
                 type="button"
                 onClick={() => signOut({ callbackUrl: "/" })}
@@ -340,8 +352,15 @@ export function AppHeader() {
           )}
           {session && showStudioPanel && (
             <Button asChild full size="sm" variant="secondary">
-              <Link href="/dashboard?as=studio" onClick={() => setOpen(false)}>
+              <Link
+                href="/dashboard?as=studio&tab=calendar"
+                onClick={() => setOpen(false)}
+                className="relative"
+              >
                 Stüdyo Paneli
+                {indicators.studioPanel && (
+                  <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
+                )}
               </Link>
             </Button>
           )}
@@ -358,19 +377,17 @@ export function AppHeader() {
                   <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
                 )}
               </Link>
-              {hasRole && (
-                <Link
-                  href="/notifications"
-                  onClick={() => setOpen(false)}
-                  aria-label="Bildirimler"
-                  className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
-                >
-                  <Bell className="h-4 w-4" aria-hidden />
-                  {indicators.notifications && (
-                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
-                  )}
-                </Link>
-              )}
+              <Link
+                href="/notifications"
+                onClick={() => setOpen(false)}
+                aria-label="Bildirimler"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
+              >
+                <Bell className="h-4 w-4" aria-hidden />
+                {indicators.notifications && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-yellow-400" />
+                )}
+              </Link>
               <button
                 type="button"
                 onClick={() => signOut({ callbackUrl: "/" })}

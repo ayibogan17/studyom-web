@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizeRoles } from "@/lib/roles";
 
 export const metadata = {
   title: "Yönlendiriliyor | Studyom",
@@ -18,15 +19,16 @@ export default async function AuthRedirectPage() {
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
-    redirect("/studyo");
+    redirect("/");
   }
 
-  const hasStudioRole = user.isStudioOwner || user.role === "STUDIO";
-  const hasTeacherRole = user.isTeacher;
-  const hasProducerRole = user.isProducer;
+  const roles = normalizeRoles(user);
+  const hasStudioRole = roles.includes("studio_owner");
+  const hasTeacherRole = roles.includes("teacher");
+  const hasProducerRole = roles.includes("producer");
 
   if (hasStudioRole) {
-    redirect("/dashboard?as=studio");
+    redirect("/dashboard?as=studio&tab=calendar");
   }
   if (hasTeacherRole) {
     redirect("/teacher-panel");
@@ -35,5 +37,5 @@ export default async function AuthRedirectPage() {
     redirect("/producer-panel");
   }
 
-  redirect("/studyo");
+  redirect("/");
 }

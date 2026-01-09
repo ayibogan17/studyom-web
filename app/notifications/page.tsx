@@ -4,14 +4,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import NotificationsClient, {
-  NotificationItem,
   StudioRequestItem,
   ProducerStudioRequestItem,
 } from "./notifications-client";
 
 export const metadata: Metadata = {
-  title: "Bildirimler | Stüdyom",
-  description: "Lead ve rezervasyon isteklerini görüntüleyin.",
+  title: "Bildirimler | Studyom",
+  description: "Stüdyo taleplerini görüntüleyin.",
 };
 
 export default async function NotificationsPage() {
@@ -35,35 +34,7 @@ export default async function NotificationsPage() {
         : null;
 
   const userEmail = dbUser?.email?.toLowerCase() ?? sessionUser.email?.toLowerCase() ?? null;
-
-  const [studios, leads, teacherLeads, studioRequests, producerStudioRequests] = await Promise.all([
-    userEmail
-      ? prisma.studio.findMany({
-          where: { ownerEmail: userEmail },
-          select: {
-            id: true,
-            name: true,
-            notifications: {
-              orderBy: { createdAt: "desc" },
-              select: { id: true, message: true, createdAt: true, isRead: true },
-            },
-          },
-        })
-      : Promise.resolve([]),
-    userEmail
-      ? prisma.lead.findMany({
-          where: { email: userEmail },
-          orderBy: { createdAt: "desc" },
-          take: 50,
-        })
-      : Promise.resolve([]),
-    userEmail
-      ? prisma.teacherLead.findMany({
-          where: { studentEmail: userEmail },
-          orderBy: { createdAt: "desc" },
-          take: 50,
-        })
-      : Promise.resolve([]),
+  const [studioRequests, producerStudioRequests] = await Promise.all([
     userEmail
       ? prisma.teacherStudioLink.findMany({
           where: { studio: { ownerEmail: userEmail } },
@@ -88,39 +59,18 @@ export default async function NotificationsPage() {
       : Promise.resolve([]),
   ]);
 
-  const reservationItems: NotificationItem[] = studios.flatMap((studio) =>
-    studio.notifications
-      .filter((note) => /rezervasyon|talep/i.test(note.message))
-      .map((note) => ({
-        id: note.id,
-        kind: "reservation",
-        title: studio.name || "Stüdyo",
-        subtitle: "Rezervasyon isteği",
-        message: note.message,
-        createdAt: note.createdAt.toISOString(),
-        status: note.isRead ? "read" : "unread",
-      })),
-  );
-
-  const leadItems: NotificationItem[] = leads.map((lead) => ({
-    id: lead.id,
-    kind: "lead",
-    title: "Lead",
-    subtitle: lead.name || lead.email,
-    message: lead.note || "Not girilmedi.",
-    createdAt: lead.createdAt.toISOString(),
-    status: lead.isRead || lead.status !== "new" ? "read" : "unread",
-  }));
-
-  const teacherLeadItems: NotificationItem[] = teacherLeads.map((lead) => ({
-    id: lead.id,
-    kind: "teacher-lead",
-    title: "Öğretmen talebi",
-    subtitle: lead.teacherName || lead.teacherSlug,
-    message: lead.message,
-    createdAt: lead.createdAt.toISOString(),
-    status: lead.isRead || lead.status !== "new" ? "read" : "unread",
-  }));
+  if (userEmail) {
+    await Promise.all([
+      prisma.teacherStudioLink.updateMany({
+        where: { studio: { ownerEmail: userEmail }, isRead: false },
+        data: { isRead: true },
+      }),
+      prisma.producerStudioLink.updateMany({
+        where: { studio: { ownerEmail: userEmail }, isRead: false },
+        data: { isRead: true },
+      }),
+    ]);
+  }
 
   const studioRequestItems: StudioRequestItem[] = studioRequests.map((link) => ({
     id: link.id,
@@ -140,11 +90,7 @@ export default async function NotificationsPage() {
     producerEmail: link.producerUser.email,
   }));
 
-  const items = [...reservationItems, ...leadItems, ...teacherLeadItems].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-
   return (
-    <NotificationsClient items={items} studioRequests={studioRequestItems} producerRequests={producerRequestItems} />
+    <NotificationsClient studioRequests={studioRequestItems} producerRequests={producerRequestItems} />
   );
 }

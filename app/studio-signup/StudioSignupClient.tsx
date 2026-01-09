@@ -531,7 +531,7 @@ export default function StudioSignupClient() {
             <label className="block text-sm font-semibold text-white">
               Stüdyonuzun web sitesi (opsiyonel)
               <input
-                type="url"
+                type="text"
                 className="mt-1 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:border-[#2D9CDB] focus:outline-none"
                 placeholder="https://example.com"
                 value={form.website}

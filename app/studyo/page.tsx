@@ -112,17 +112,20 @@ export default async function StudioListPage() {
         .map((room) => extractCoverImage(room.imagesJson))
         .find((img) => typeof img === "string" && img.length > 0) ??
       undefined;
-    const numericRates = studio.rooms
-      .map((room) => [room.hourlyRate, room.flatRate])
-      .flat()
-      .map((value) => {
-        if (!value) return null;
-        const cleaned = value.toString().replace(/[^\d.,]/g, "").replace(",", ".");
-        const parsed = Number.parseFloat(cleaned);
-        return Number.isFinite(parsed) ? parsed : null;
-      })
-      .filter((value): value is number => value !== null);
-    const pricePerHour = numericRates.length ? Math.min(...numericRates) : undefined;
+    const primaryRoom = studio.rooms[0];
+    const primaryRateRaw =
+      primaryRoom?.hourlyRate ??
+      primaryRoom?.minRate ??
+      primaryRoom?.flatRate ??
+      primaryRoom?.dailyRate ??
+      null;
+    const pricePerHour = primaryRateRaw
+      ? (() => {
+          const cleaned = primaryRateRaw.toString().replace(/[^\d.,]/g, "").replace(",", ".");
+          const parsed = Number.parseFloat(cleaned);
+          return Number.isFinite(parsed) ? parsed : undefined;
+        })()
+      : undefined;
 
     return {
       id: studio.id,

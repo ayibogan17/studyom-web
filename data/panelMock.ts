@@ -24,7 +24,7 @@ const todayKey = dateKey(today);
 const tomorrowKey = dateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1));
 
 export const mockStudio: Studio = {
-  name: "Stüdyom Demo",
+  name: "Studyom Demo",
   city: "İstanbul",
   district: "Kadıköy",
   address: "Bahariye Caddesi 12/3",

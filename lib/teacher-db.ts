@@ -101,6 +101,9 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
       where: { id: appId },
     });
     if (!application) return null;
+    if (application.visibilityStatus === "hidden" || application.visibilityStatus === "draft") {
+      return null;
+    }
     const data = (application.data || {}) as AppData;
     const user = await prisma.user.findUnique({
       where: { id: application.userId },
@@ -125,7 +128,7 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
 export async function getApprovedTeachers(): Promise<Teacher[]> {
   try {
     const apps = await prisma.teacherApplication.findMany({
-      where: { status: "approved" },
+      where: { status: "approved", visibilityStatus: "published" },
       orderBy: { createdAt: "desc" },
     });
     const userIds = apps.map((a) => a.userId).filter(Boolean);
@@ -166,7 +169,7 @@ export async function getApprovedTeacherBySlug(slug?: string | null): Promise<Te
       const app = await prisma.teacherApplication.findUnique({
         where: { id: appId },
       });
-      if (app && app.status === "approved") {
+      if (app && app.status === "approved" && app.visibilityStatus === "published") {
         const studioLinks = await prisma.teacherStudioLink.findMany({
           where: { teacherUserId: app.userId, status: "approved" },
           include: { studio: { select: { name: true } } },

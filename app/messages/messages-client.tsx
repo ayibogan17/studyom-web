@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { Card } from "@/components/design-system/components/ui/card";
@@ -8,6 +8,7 @@ import { Button } from "@/components/design-system/components/ui/button";
 import { Badge } from "@/components/design-system/components/ui/badge";
 import { TeacherMessageThread } from "@/components/design-system/components/teachers/teacher-message-thread";
 import { ProducerMessageThread } from "@/components/design-system/components/producers/producer-message-thread";
+import { StudioMessageThread } from "@/components/design-system/components/studios/studio-message-thread";
 import { cn } from "@/components/design-system/lib/cn";
 
 type TeacherThreadSummary = {
@@ -17,6 +18,7 @@ type TeacherThreadSummary = {
   teacherImage?: string | null;
   lastMessage: string;
   lastDate: string;
+  sortKey: number;
 };
 
 type TeacherRequestSummary = {
@@ -27,6 +29,7 @@ type TeacherRequestSummary = {
   status: string;
   createdAt: string;
   messageText: string;
+  sortKey: number;
 };
 
 type ProducerThreadSummary = {
@@ -36,6 +39,21 @@ type ProducerThreadSummary = {
   producerImage?: string | null;
   lastMessage: string;
   lastDate: string;
+  sortKey: number;
+};
+
+type StudioThreadSummary = {
+  id: string;
+  studioId: string;
+  studioName: string;
+  studioSlug?: string | null;
+  studioImage?: string | null;
+  displayName?: string | null;
+  context?: string | null;
+  ownerLink?: string | null;
+  lastMessage: string;
+  lastDate: string;
+  sortKey: number;
 };
 
 type ProducerRequestSummary = {
@@ -45,6 +63,7 @@ type ProducerRequestSummary = {
   status: string;
   createdAt: string;
   messageText: string;
+  sortKey: number;
 };
 
 type StudioLeadSummary = {
@@ -53,6 +72,7 @@ type StudioLeadSummary = {
   subtitle: string;
   createdAt: string;
   messageText: string;
+  sortKey: number;
 };
 
 type MessagesClientProps = {
@@ -60,12 +80,14 @@ type MessagesClientProps = {
   teacherRequests: TeacherRequestSummary[];
   producerThreads: ProducerThreadSummary[];
   producerRequests: ProducerRequestSummary[];
+  studioThreads: StudioThreadSummary[];
   studioLeads: StudioLeadSummary[];
   routes: {
     teachers: string;
     production: string;
     studios: string;
   };
+  initialOpenKey?: string | null;
 };
 
 type ViewFilter = "all" | "chats" | "requests";
@@ -237,18 +259,34 @@ export function MessagesClient({
   teacherRequests,
   producerThreads,
   producerRequests,
+  studioThreads,
   studioLeads,
   routes,
+  initialOpenKey,
 }: MessagesClientProps) {
   const [view, setView] = useState<ViewFilter>("all");
-  const [openItemKey, setOpenItemKey] = useState<string | null>(null);
+  const [openItemKey, setOpenItemKey] = useState<string | null>(initialOpenKey ?? null);
+  const didMountRef = useRef(false);
 
   useEffect(() => {
+    if (initialOpenKey) {
+      setView("chats");
+      setOpenItemKey(initialOpenKey);
+    }
+  }, [initialOpenKey]);
+
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    if (initialOpenKey && view === "chats") return;
     setOpenItemKey(null);
-  }, [view]);
+  }, [view, initialOpenKey]);
 
   const teacherChatRows = useMemo(() => teacherThreads, [teacherThreads]);
   const producerChatRows = useMemo(() => producerThreads, [producerThreads]);
+  const studioChatRows = useMemo(() => studioThreads, [studioThreads]);
   const teacherRequestRows = useMemo(
     () =>
       teacherRequests.filter(
@@ -270,18 +308,24 @@ export function MessagesClient({
     const rows: Array<{
       key: string;
       type: "chat" | "request";
-      chatKind?: "teacher" | "producer";
+      chatKind?: "teacher" | "producer" | "studio";
       roleLabel: string;
       name: string;
       context?: string;
       snippet: string;
       timestamp: string;
+      sortKey: number;
       avatarUrl?: string | null;
       status?: string;
       teacherSlug?: string;
       teacherName?: string;
       producerSlug?: string;
       producerName?: string;
+      studioId?: string;
+      studioName?: string;
+      studioThreadId?: string;
+      studioSlug?: string | null;
+      studioOwnerLink?: string | null;
       detailText?: string;
     }> = [];
 
@@ -294,6 +338,7 @@ export function MessagesClient({
         name: thread.teacherName,
         snippet: thread.lastMessage,
         timestamp: thread.lastDate,
+        sortKey: thread.sortKey,
         avatarUrl: thread.teacherImage || null,
         teacherSlug: thread.teacherSlug,
         teacherName: thread.teacherName,
@@ -309,9 +354,30 @@ export function MessagesClient({
         name: thread.producerName,
         snippet: thread.lastMessage,
         timestamp: thread.lastDate,
+        sortKey: thread.sortKey,
         avatarUrl: thread.producerImage || null,
         producerSlug: thread.producerSlug,
         producerName: thread.producerName,
+      });
+    });
+
+    studioChatRows.forEach((thread) => {
+      rows.push({
+        key: `studio-chat:${thread.id}`,
+        type: "chat",
+        chatKind: "studio",
+        roleLabel: "Stüdyo",
+        name: thread.displayName || thread.studioName,
+        context: thread.context ?? undefined,
+        snippet: thread.lastMessage,
+        timestamp: thread.lastDate,
+        sortKey: thread.sortKey,
+        avatarUrl: thread.studioImage || null,
+        studioId: thread.studioId,
+        studioName: thread.studioName,
+        studioThreadId: thread.id,
+        studioSlug: thread.studioSlug ?? null,
+        studioOwnerLink: thread.ownerLink ?? null,
       });
     });
 
@@ -323,6 +389,7 @@ export function MessagesClient({
         name: req.teacherName,
         snippet: req.messageText,
         timestamp: req.createdAt,
+        sortKey: req.sortKey,
         avatarUrl: req.teacherImage || null,
         status: req.status,
         teacherSlug: req.teacherSlug,
@@ -338,6 +405,7 @@ export function MessagesClient({
         name: req.producerName,
         snippet: req.messageText,
         timestamp: req.createdAt,
+        sortKey: req.sortKey,
         avatarUrl: req.producerImage || null,
         status: req.status,
         detailText: req.messageText,
@@ -353,12 +421,13 @@ export function MessagesClient({
         context: lead.subtitle,
         snippet: lead.messageText,
         timestamp: lead.createdAt,
+        sortKey: lead.sortKey,
         detailText: lead.messageText,
       });
     });
 
-    return rows;
-  }, [teacherChatRows, producerChatRows, teacherRequestRows, producerRequestRows, studioRequestRows]);
+    return rows.sort((a, b) => b.sortKey - a.sortKey);
+  }, [teacherChatRows, producerChatRows, studioChatRows, teacherRequestRows, producerRequestRows, studioRequestRows]);
 
   const filteredItems = useMemo(() => {
     if (view === "all") return items;
@@ -391,14 +460,20 @@ export function MessagesClient({
         <div className="space-y-3">
           {filteredItems.map((item) => {
             const isOpen = openItemKey === item.key;
-            const canToggle = Boolean(item.detailText || item.type === "chat");
+            const canToggle = Boolean(item.detailText || (item.type === "chat" && !item.studioOwnerLink));
             const isChat = item.type === "chat";
             const primaryAction = isChat
-              ? {
-                  label: isOpen ? "Sohbeti kapat" : "Sohbeti aç",
-                  onClick: () => setOpenItemKey((prev) => (prev === item.key ? null : item.key)),
-                  variant: "secondary" as const,
-                }
+              ? item.studioOwnerLink
+                ? {
+                    label: "Sohbeti aç",
+                    href: item.studioOwnerLink,
+                    variant: "secondary" as const,
+                  }
+                : {
+                    label: isOpen ? "Sohbeti kapat" : "Sohbeti aç",
+                    onClick: () => setOpenItemKey((prev) => (prev === item.key ? null : item.key)),
+                    variant: "secondary" as const,
+                  }
               : item.teacherSlug
                 ? {
                     label: "Profili gör",
@@ -429,6 +504,16 @@ export function MessagesClient({
                   <TeacherMessageThread teacherSlug={item.teacherSlug} teacherName={item.teacherName} />
                 ) : item.type === "chat" && item.chatKind === "producer" && item.producerSlug && item.producerName ? (
                   <ProducerMessageThread producerSlug={item.producerSlug} producerName={item.producerName} />
+                ) : item.type === "chat" &&
+                  item.chatKind === "studio" &&
+                  item.studioId &&
+                  item.studioName &&
+                  !item.studioOwnerLink ? (
+                  <StudioMessageThread
+                    threadId={item.studioThreadId ?? null}
+                    studioId={item.studioId}
+                    studioName={item.studioName}
+                  />
                 ) : item.detailText ? (
                   <p className="whitespace-pre-line text-sm text-[var(--color-primary)]">{item.detailText}</p>
                 ) : null}

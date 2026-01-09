@@ -120,7 +120,7 @@ const schema = z
     const phoneValue = phoneDigits(data.phone ?? "");
     if (!phoneValue) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Telefon gerekli", path: ["phone"] });
-    } else if (!/^(?:90)?5\\d{9}$/.test(phoneValue)) {
+    } else if (!/^(?:90)?5\d{9}$/.test(phoneValue)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Geçerli bir telefon girin", path: ["phone"] });
     }
     if (!data.email) {

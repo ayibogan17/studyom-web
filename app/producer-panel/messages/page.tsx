@@ -8,7 +8,7 @@ import { Section } from "@/components/design-system/components/shared/section";
 import { ProducerMessagesClient, type ProducerThreadItem, type ProducerRequestItem } from "../messages-client";
 
 export const metadata: Metadata = {
-  title: "Üretici Paneli Mesajları | Stüdyom",
+  title: "Üretici Paneli Mesajları | Studyom",
   description: "Kullanıcılardan gelen mesajları görüntüleyin ve yanıtlayın.",
 };
 
@@ -61,6 +61,7 @@ export default async function ProducerMessagesPage() {
     id: thread.id,
     producerSlug: thread.producerSlug,
     channel: getProducerThreadChannel(thread.id),
+    locked: thread.locked,
     student: {
       id: thread.studentUser.id,
       name: thread.studentUser.fullName || thread.studentUser.email || "Kullanıcı",

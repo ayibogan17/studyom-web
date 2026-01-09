@@ -6,7 +6,7 @@ export function AppFooter() {
     <footer className="border-t border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-8 text-sm text-[var(--color-primary)] md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="font-semibold">Stüdyom</p>
+          <p className="font-semibold">Studyom</p>
           <p className="text-[var(--color-muted)]">Şehrindeki prova ve kayıt stüdyoları tek platformda.</p>
         </div>
         <div className="flex flex-wrap gap-4 text-[var(--color-primary)]">
@@ -20,7 +20,7 @@ export function AppFooter() {
             Gizlilik
           </Link>
         </div>
-        <p className="text-[var(--color-muted)]">© {year} Stüdyom</p>
+        <p className="text-[var(--color-muted)]">© {year} Studyom</p>
       </div>
     </footer>
   );

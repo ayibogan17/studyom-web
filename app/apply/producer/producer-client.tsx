@@ -53,19 +53,29 @@ const portfolioCount = { min: 0, max: 5 } as const;
 const projectCountOptions = ["1-5", "6-20", "20+"] as const;
 const yearsOptions = ["0-1", "2-4", "5-9", "10+"] as const;
 
+function normalizeHttpUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 function isHttpUrl(value: string) {
   try {
-    const url = new URL(value);
+    const url = new URL(normalizeHttpUrl(value));
     return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
 }
 
-const urlOrEmpty = z
-  .string()
-  .trim()
-  .refine((value) => value.length === 0 || isHttpUrl(value), "Geçerli bir URL girin");
+const urlOrEmpty = z.preprocess(
+  (value) => (typeof value === "string" ? normalizeHttpUrl(value) : value),
+  z
+    .string()
+    .trim()
+    .refine((value) => value.length === 0 || isHttpUrl(value), "Geçerli bir URL girin"),
+);
 
 const cityOptions = [
   "İstanbul",
@@ -487,7 +497,7 @@ export function ProducerApplyClient() {
                 {(links || []).map((link, idx) => (
                   <div key={idx} className="flex items-center gap-2">
                     <input
-                      type="url"
+                      type="text"
                       value={link}
                       onChange={(e) => updateLink(idx, e.target.value)}
                       className="h-10 flex-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"

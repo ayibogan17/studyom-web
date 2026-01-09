@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, MessageCircle, Phone, Send, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 import { Badge } from "@/components/design-system/components/ui/badge";
 import { Card } from "@/components/design-system/components/ui/card";
+import { Button } from "@/components/design-system/components/ui/button";
 import { slugify } from "@/lib/geo";
 import { StudioGalleryCarousel } from "./gallery-carousel";
 
@@ -123,8 +127,16 @@ type AvailabilityInfo = {
 type Props = {
   rooms: RoomDetail[];
   availability?: AvailabilityInfo | null;
-  contactHref?: string;
+  studioId: string;
+  studioName: string;
+  studioSlug: string;
+  studioPhone?: string | null;
+  bookingApprovalMode?: "manual" | "auto";
+  bookingCutoffUnit?: "hours" | "days";
+  bookingCutoffValue?: number | null;
 };
+
+type ContactChannel = "in_app" | "whatsapp" | "phone";
 
 const formatBadge = (text: string) => (text ? text : "Fiyat yok");
 const formatPriceValue = (value?: string | null) => {
@@ -132,6 +144,31 @@ const formatPriceValue = (value?: string | null) => {
   const trimmed = value.trim();
   if (!trimmed) return "";
   return trimmed.includes("₺") ? trimmed : `₺${trimmed}`;
+};
+const formatPriceNumber = (value?: number | null) => {
+  if (value === null || value === undefined) return "Fiyat bilgisi yok";
+  return `${Math.round(value).toLocaleString("tr-TR")} ₺`;
+};
+const parsePriceValue = (value?: string | null) => {
+  if (!value) return null;
+  const raw = value.toString().trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^\d.,]/g, "");
+  if (!cleaned) return null;
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+  if (hasComma && hasDot) {
+    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+  } else if (hasComma) {
+    normalized = cleaned.replace(",", ".");
+  } else if (hasDot) {
+    const parts = cleaned.split(".");
+    const tail = parts[parts.length - 1] ?? "";
+    normalized = parts.length > 1 && tail.length === 3 ? parts.join("") : cleaned;
+  }
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 const formatText = (value?: string | null) => (value && value.trim() ? value.trim() : "—");
 const formatArray = (value?: string[] | null) => (value && value.length ? value.join(", ") : "—");
@@ -260,9 +297,11 @@ function HappyHourIcon({ className }: { className?: string }) {
 function RoomCalendarPreview({
   calendar,
   className,
+  onSlotSelect,
 }: {
   calendar?: RoomCalendarSummary | null;
   className?: string;
+  onSlotSelect?: (startAt: Date) => void;
 }) {
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -398,7 +437,25 @@ function RoomCalendarPreview({
                       ? "bg-red-400/30 text-red-900"
                       : "bg-emerald-400/25 text-emerald-900"
                     : "bg-[var(--color-surface)] text-[var(--color-muted)]";
-                  return (
+                  const canSelect = Boolean(onSlotSelect) && inOpenRange && !isBlocked;
+                  const handleSelect = () => {
+                    if (!canSelect) return;
+                    onSlotSelect?.(slotStart);
+                  };
+                  return canSelect ? (
+                    <button
+                      key={`${day.toISOString()}-${slot}`}
+                      type="button"
+                      onClick={handleSelect}
+                      className={`flex h-7 items-center justify-center rounded-md border border-[var(--color-border)] text-[10px] ${cellClass} cursor-pointer hover:border-emerald-400 hover:bg-emerald-400/35`}
+                    >
+                      {isHappyHour ? (
+                        <HappyHourIcon className="h-12 w-12 text-amber-400" />
+                      ) : (
+                        label
+                      )}
+                    </button>
+                  ) : (
                     <div
                       key={`${day.toISOString()}-${slot}`}
                       className={`flex h-7 items-center justify-center rounded-md border border-[var(--color-border)] text-[10px] ${cellClass}`}
@@ -420,11 +477,45 @@ function RoomCalendarPreview({
   );
 }
 
-export function StudioRoomDetails({ rooms, availability, contactHref = "/iletisim" }: Props) {
+export function StudioRoomDetails({
+  rooms,
+  availability,
+  studioId,
+  studioName,
+  studioSlug,
+  studioPhone,
+  bookingApprovalMode = "manual",
+  bookingCutoffUnit = "hours",
+  bookingCutoffValue = 24,
+}: Props) {
   const defaultOpenRooms =
     rooms.length === 1 && rooms[0] ? { [rooms[0].id]: true } : {};
   const [openRooms, setOpenRooms] = useState<Record<string, boolean>>(defaultOpenRooms);
   const [openDrumEquipment, setOpenDrumEquipment] = useState<Record<string, boolean>>({});
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { status, data: session } = useSession();
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactChannel, setContactChannel] = useState<ContactChannel>("in_app");
+  const [contactRoom, setContactRoom] = useState<{ id?: string; name?: string } | null>(null);
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactSending, setContactSending] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [contactAutoOpened, setContactAutoOpened] = useState(false);
+  const [reservationOpen, setReservationOpen] = useState(false);
+  const [reservationRoom, setReservationRoom] = useState<RoomDetail | null>(null);
+  const [reservationStart, setReservationStart] = useState<Date | null>(null);
+  const [reservationHours, setReservationHours] = useState(1);
+  const [reservationName, setReservationName] = useState("");
+  const [reservationPhone, setReservationPhone] = useState("");
+  const [reservationEmail, setReservationEmail] = useState("");
+  const [reservationNote, setReservationNote] = useState("");
+  const [reservationSending, setReservationSending] = useState(false);
+  const [reservationError, setReservationError] = useState<string | null>(null);
+  const [reservationAutoOpened, setReservationAutoOpened] = useState(false);
+  const [calendarPreviewOpen, setCalendarPreviewOpen] = useState(false);
+  const [calendarPreviewRoomId, setCalendarPreviewRoomId] = useState<string | null>(null);
+  const calendarRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   if (!rooms.length) {
     return (
@@ -435,6 +526,396 @@ export function StudioRoomDetails({ rooms, availability, contactHref = "/iletisi
   }
 
   const hasAvailability = Boolean(availability?.date && availability?.time);
+  const phoneDigits = studioPhone ? studioPhone.replace(/\D/g, "") : "";
+  const trimmedPhone = phoneDigits.startsWith("0") ? phoneDigits.slice(1) : phoneDigits;
+  const phoneNormalized = trimmedPhone
+    ? trimmedPhone.startsWith("90")
+      ? trimmedPhone
+      : `90${trimmedPhone}`
+    : "";
+  const canWhatsApp = Boolean(phoneNormalized);
+  const canPhone = Boolean(trimmedPhone);
+  const isAuthed = status === "authenticated";
+  const sessionUser = useMemo(
+    () =>
+      session?.user as
+        | { fullName?: string | null; name?: string | null; email?: string | null; phone?: string | null }
+        | undefined,
+    [session?.user],
+  );
+
+  const getAnonymousId = () => {
+    if (typeof window === "undefined") return "";
+    const key = "studyom:anon";
+    const existing = window.localStorage.getItem(key);
+    if (existing) return existing;
+    const next =
+      window.crypto?.randomUUID?.() ||
+      `anon-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(key, next);
+    return next;
+  };
+
+  const buildTemplate = (roomName?: string | null) => {
+    const cleanedRoom = roomName?.trim();
+    const roomLine = cleanedRoom
+      ? `${cleanedRoom} için müsaitlik ve fiyat soracaktım.`
+      : "Müsaitlik ve fiyat soracaktım.";
+    return `Merhaba, ${studioName} hakkında bilgi almak istiyorum. ${roomLine}`;
+  };
+  const buildWhatsAppTemplate = (roomName?: string | null) => {
+    const cleanedRoom = roomName?.trim();
+    const roomLine = cleanedRoom ? `${cleanedRoom} için müsaitlik soracaktım.` : "stüdyo için müsaitlik soracaktım.";
+    return `Merhaba, studyom'dan ulaşıyorum, ${roomLine}`;
+  };
+
+  const openReservation = (room: RoomDetail, startAt: Date) => {
+    setReservationRoom(room);
+    setReservationStart(startAt);
+    setReservationHours(1);
+    setReservationNote("");
+    setReservationError(null);
+    setReservationOpen(true);
+    const fallbackName =
+      sessionUser?.fullName || sessionUser?.name || sessionUser?.email?.split("@")[0] || "";
+    setReservationName(fallbackName);
+    setReservationPhone(sessionUser?.phone || "");
+    setReservationEmail(sessionUser?.email || "");
+  };
+
+  const reservationMaxHours = useMemo(() => {
+    if (!reservationRoom?.calendar || !reservationStart) return 0;
+    const calendar = reservationRoom.calendar;
+    const day = new Date(
+      reservationStart.getFullYear(),
+      reservationStart.getMonth(),
+      reservationStart.getDate(),
+    );
+    const range = getOpenRange(day, calendar.openingHours);
+    if (!range) return 0;
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const startMinutes = (reservationStart.getTime() - dayStart.getTime()) / 60000;
+    let max = 0;
+    for (let h = 1; h <= 24; h += 1) {
+      const endMinutes = startMinutes + h * 60;
+      if (endMinutes > range.end) break;
+      const slotStart = new Date(reservationStart.getTime() + (h - 1) * 60 * 60 * 1000);
+      const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+      const blocked = calendar.blocks.some((block) => {
+        if (!isBlocking(block)) return false;
+        const start = new Date(block.startAt);
+        const end = new Date(block.endAt);
+        return start < slotEnd && end > slotStart;
+      });
+      if (blocked) break;
+      max = h;
+    }
+    return max;
+  }, [reservationRoom, reservationStart]);
+
+  useEffect(() => {
+    if (!reservationOpen) return;
+    if (!reservationMaxHours) return;
+    setReservationHours((prev) => Math.min(Math.max(1, prev), reservationMaxHours));
+  }, [reservationOpen, reservationMaxHours]);
+
+  const reservationPrice = useMemo(() => {
+    if (!reservationRoom?.calendar || !reservationStart) return null;
+    const baseRate =
+      parsePriceValue(reservationRoom.pricing.hourlyRate) ??
+      parsePriceValue(reservationRoom.pricing.minRate) ??
+      parsePriceValue(reservationRoom.pricing.flatRate);
+    const happyRate = parsePriceValue(reservationRoom.pricing.happyHourRate) ?? baseRate;
+    let total = 0;
+    let happyHours = 0;
+    let normalHours = 0;
+    let missingRate = false;
+    const happySlots = reservationRoom.calendar.happyHours ?? [];
+    for (let i = 0; i < reservationHours; i += 1) {
+      const slotStart = new Date(reservationStart.getTime() + i * 60 * 60 * 1000);
+      const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+      const isHappy = happySlots.some((slot) => {
+        const start = new Date(slot.startAt);
+        const end = new Date(slot.endAt);
+        return start < slotEnd && end > slotStart;
+      });
+      const rate = isHappy ? happyRate : baseRate;
+      if (rate === null || rate === undefined) {
+        missingRate = true;
+        break;
+      }
+      total += rate;
+      if (isHappy) happyHours += 1;
+      else normalHours += 1;
+    }
+    return {
+      total: missingRate ? null : total,
+      happyHours,
+      normalHours,
+      baseRate,
+      happyRate,
+    };
+  }, [reservationRoom, reservationStart, reservationHours]);
+
+  const reservationPhoneLocked = isAuthed;
+  const reservationPhoneMissing = reservationPhoneLocked && !reservationPhone.trim();
+  const autoApproval = bookingApprovalMode === "auto";
+  const reservationEmailRequired = !isAuthed && !autoApproval;
+  const canSubmitReservation =
+    Boolean(reservationRoom) &&
+    Boolean(reservationStart) &&
+    reservationHours > 0 &&
+    Boolean(reservationName.trim()) &&
+    Boolean(reservationPhone.trim()) &&
+    (!reservationEmailRequired || Boolean(reservationEmail.trim())) &&
+    !reservationPhoneMissing &&
+    (!autoApproval || isAuthed);
+
+  const openContact = (room?: { id?: string; name?: string } | null) => {
+    setContactRoom(room ? { id: room.id, name: room.name } : null);
+    setContactChannel("in_app");
+    setContactMessage(buildTemplate(room?.name));
+    setContactError(null);
+    setContactOpen(true);
+  };
+
+  const openRoomCalendar = (roomId: string) => {
+    setOpenRooms((prev) => ({ ...prev, [roomId]: true }));
+    setCalendarPreviewRoomId(roomId);
+    setCalendarPreviewOpen(true);
+  };
+
+  const logContactEvent = (channel: ContactChannel) => {
+    const anonymousId = !isAuthed ? getAnonymousId() : "";
+    void fetch("/api/studio-contact-events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studioId,
+        channel,
+        roomId: contactRoom?.id,
+        anonymousId: anonymousId || undefined,
+      }),
+      keepalive: true,
+    });
+  };
+
+  const calendarPreviewRoom = useMemo(
+    () => rooms.find((room) => room.id === calendarPreviewRoomId) ?? null,
+    [rooms, calendarPreviewRoomId],
+  );
+
+  const handleSendMessage = async () => {
+    const trimmed = contactMessage.trim();
+    if (!trimmed) {
+      setContactError("Mesaj gerekli.");
+      return;
+    }
+    if (trimmed.length > 1200) {
+      setContactError("Mesaj çok uzun.");
+      return;
+    }
+    if (!isAuthed) {
+      const roomParam = contactRoom?.id ? `&roomId=${contactRoom.id}` : "";
+      router.push(
+        `/login?redirect=${encodeURIComponent(`/studyo/${studioSlug}?contact=1${roomParam}`)}`,
+      );
+      return;
+    }
+
+    setContactSending(true);
+    setContactError(null);
+    try {
+      const threadRes = await fetch("/api/messages/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studioId }),
+      });
+      if (threadRes.status === 401) {
+        const roomParam = contactRoom?.id ? `&roomId=${contactRoom.id}` : "";
+        router.push(
+          `/login?redirect=${encodeURIComponent(`/studyo/${studioSlug}?contact=1${roomParam}`)}`,
+        );
+        return;
+      }
+      const threadJson = await threadRes.json().catch(() => ({}));
+      if (!threadRes.ok) {
+        setContactError(threadJson.error || "Mesajlaşma başlatılamadı.");
+        return;
+      }
+      const threadId = threadJson.threadId;
+      if (!threadId) {
+        setContactError("Mesajlaşma başlatılamadı.");
+        return;
+      }
+
+      const sendRes = await fetch("/api/messages/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId,
+          body: trimmed,
+          roomId: contactRoom?.id,
+        }),
+      });
+      if (sendRes.status === 401) {
+        const roomParam = contactRoom?.id ? `&roomId=${contactRoom.id}` : "";
+        router.push(
+          `/login?redirect=${encodeURIComponent(`/studyo/${studioSlug}?contact=1${roomParam}`)}`,
+        );
+        return;
+      }
+      const sendJson = await sendRes.json().catch(() => ({}));
+      if (!sendRes.ok) {
+        setContactError(sendJson.error || "Mesaj gönderilemedi.");
+        return;
+      }
+
+      toast.success("Mesaj gönderildi");
+      setContactOpen(false);
+      router.push(`/messages?studioThread=${threadId}`);
+    } catch (err) {
+      console.error(err);
+      setContactError("Mesaj gönderilemedi.");
+    } finally {
+      setContactSending(false);
+    }
+  };
+
+  const handleWhatsApp = () => {
+    if (!phoneNormalized) return;
+    const text = buildWhatsAppTemplate(contactRoom?.name);
+    const url = `https://wa.me/${phoneNormalized}?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    logContactEvent("whatsapp");
+    setContactOpen(false);
+  };
+
+  const handlePhone = () => {
+    if (!trimmedPhone) return;
+    window.location.href = `tel:+${phoneNormalized}`;
+    logContactEvent("phone");
+    setContactOpen(false);
+  };
+
+  const handleReservationSubmit = async () => {
+    if (!reservationRoom || !reservationStart) return;
+    if (autoApproval && !isAuthed) {
+      setReservationError("Otomatik onaylı rezervasyonlar sadece giriş yapan kullanıcılar için kullanılabilir.");
+      return;
+    }
+    if (!reservationName.trim()) {
+      setReservationError("İsim gerekli.");
+      return;
+    }
+    if (!reservationPhone.trim()) {
+      setReservationError("Telefon gerekli.");
+      return;
+    }
+    if (reservationEmailRequired && !reservationEmail.trim()) {
+      setReservationError("E-posta gerekli.");
+      return;
+    }
+    if (reservationPhoneMissing) {
+      setReservationError("Profilinde telefon yok. Lütfen profilden ekle.");
+      return;
+    }
+
+    const maxHours = reservationMaxHours || 1;
+    const safeHours = Math.min(Math.max(1, reservationHours), maxHours);
+    setReservationSending(true);
+    setReservationError(null);
+    try {
+      const res = await fetch("/api/studio-reservation-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studioId,
+          roomId: reservationRoom.id,
+          startAt: reservationStart.toISOString(),
+          hours: safeHours,
+          requesterName: reservationName.trim(),
+          requesterPhone: reservationPhone.trim(),
+          requesterEmail: reservationEmail.trim() || undefined,
+          note: reservationNote.trim() || undefined,
+        }),
+      });
+      const rawText = await res.text();
+      let json: { error?: string } = {};
+      if (rawText) {
+        try {
+          json = JSON.parse(rawText) as { error?: string };
+        } catch {
+          json = {};
+        }
+      }
+      if (!res.ok) {
+        const rawFallback =
+          rawText && !rawText.trim().startsWith("<")
+            ? rawText.trim().slice(0, 200)
+            : `Rezervasyon isteği gönderilemedi. (HTTP ${res.status})`;
+        setReservationError(json.error || rawFallback);
+        return;
+      }
+      const status = (json as { status?: string }).status;
+      toast.success(status === "approved" ? "Rezervasyon oluşturuldu" : "Rezervasyon isteği gönderildi");
+      setReservationOpen(false);
+    } catch (err) {
+      console.error(err);
+      setReservationError("Rezervasyon isteği gönderilemedi.");
+    } finally {
+      setReservationSending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!contactOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setContactOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [contactOpen]);
+
+  useEffect(() => {
+    if (!reservationOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setReservationOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [reservationOpen]);
+
+  useEffect(() => {
+    if (contactAutoOpened) return;
+    if (searchParams?.get("contact") !== "1") return;
+    const roomId = searchParams?.get("roomId") || "";
+    const matchedRoom = roomId ? rooms.find((room) => room.id === roomId) : null;
+    openContact(matchedRoom);
+    setContactAutoOpened(true);
+  }, [contactAutoOpened, rooms, searchParams]);
+
+  useEffect(() => {
+    if (reservationAutoOpened) return;
+    if (searchParams?.get("reserve") !== "1") return;
+    const roomId = searchParams?.get("roomId") || "";
+    const startParam = searchParams?.get("start") || "";
+    const startDate = startParam ? new Date(startParam) : null;
+    if (!startDate || Number.isNaN(startDate.getTime())) return;
+    const matchedRoom = roomId ? rooms.find((room) => room.id === roomId) : rooms[0] ?? null;
+    if (matchedRoom) {
+      openReservation(matchedRoom, startDate);
+      setReservationAutoOpened(true);
+    }
+  }, [reservationAutoOpened, rooms, searchParams]);
+
+  const reservationStartLabel = reservationStart
+    ? reservationStart.toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    : "—";
 
   return (
     <div className="grid w-full gap-4">
@@ -991,7 +1472,9 @@ export function StudioRoomDetails({ rooms, availability, contactHref = "/iletisi
                       </p>
                     )}
                   </div>
-                  <RoomCalendarPreview calendar={room.calendar} />
+                  <div ref={(node) => (calendarRefs.current[room.id] = node)}>
+                    <RoomCalendarPreview calendar={room.calendar} onSlotSelect={(startAt) => openReservation(room, startAt)} />
+                  </div>
                 </div>
                 {showDrumCollapsible ? (
                   <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)]">
@@ -1089,9 +1572,9 @@ export function StudioRoomDetails({ rooms, availability, contactHref = "/iletisi
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-[var(--color-primary)]">Ekstralar</p>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      {visibleExtrasRows.map((row) => (
+                      {visibleExtrasRows.map((row, index) => (
                         <div
-                          key={row.label}
+                          key={`${row.label}-${row.value}-${index}`}
                           className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-xs"
                         >
                           <span className="text-[var(--color-muted)]">{row.label}</span>
@@ -1114,17 +1597,354 @@ export function StudioRoomDetails({ rooms, availability, contactHref = "/iletisi
                   </div>
                 ) : null}
 
-                <a
-                  href={contactHref}
-                  className="inline-flex w-full items-center justify-center rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-black transition hover:bg-orange-400"
-                >
-                  İletişime Geç
-                </a>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => openContact({ id: room.id, name: room.name })}
+                    className="inline-flex w-full items-center justify-center rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-black transition hover:bg-orange-400"
+                  >
+                    İletişime Geç
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openRoomCalendar(room.id)}
+                    className="inline-flex w-full items-center justify-center rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-black transition hover:bg-orange-400"
+                  >
+                    Rezervasyon Yap
+                  </button>
+                </div>
               </>
             )}
           </Card>
         );
       })}
+      {calendarPreviewOpen && calendarPreviewRoom ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-6 pt-10 sm:items-center sm:p-6"
+          onClick={() => setCalendarPreviewOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-lg rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[var(--color-primary)]">Takvim</p>
+                {calendarPreviewRoom.name ? (
+                  <p className="text-xs text-[var(--color-muted)]">Oda: {calendarPreviewRoom.name}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCalendarPreviewOpen(false)}
+                className="rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] p-2 text-[var(--color-primary)] transition hover:bg-[var(--color-surface)]"
+                aria-label="Kapat"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-4">
+              <RoomCalendarPreview
+                calendar={calendarPreviewRoom.calendar}
+                onSlotSelect={(startAt) => {
+                  setCalendarPreviewOpen(false);
+                  openReservation(calendarPreviewRoom, startAt);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {reservationOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-6 pt-10 sm:items-center sm:p-6"
+          onClick={() => setReservationOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-lg rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[var(--color-primary)]">
+                  {autoApproval ? "Rezervasyon" : "Rezervasyon isteği"}
+                </p>
+                {reservationRoom?.name ? (
+                  <p className="text-xs text-[var(--color-muted)]">Seçili oda: {reservationRoom.name}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setReservationOpen(false)}
+                className="rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] p-2 text-[var(--color-primary)] transition hover:bg-[var(--color-surface)]"
+                aria-label="Kapat"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-xs text-[var(--color-muted)]">
+                    <p className="text-[11px] font-semibold text-[var(--color-primary)]">Başlangıç</p>
+                    <p>{reservationStartLabel}</p>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-xs text-[var(--color-muted)]">
+                    <p className="text-[11px] font-semibold text-[var(--color-primary)]">Maksimum süre</p>
+                    <p>{reservationMaxHours ? `${reservationMaxHours} saat` : "—"}</p>
+                  </div>
+                </div>
+                {autoApproval ? (
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-[11px] text-[var(--color-muted)]">
+                    <p className="font-semibold text-[var(--color-primary)]">Otomatik onaylı rezervasyon</p>
+                    <p>Bu stüdyoda rezervasyonlar otomatik onaylanır.</p>
+                    {bookingCutoffValue ? (
+                      <p>
+                        {bookingCutoffValue} {bookingCutoffUnit === "days" ? "gün" : "saat"} öncesinden rezervasyon
+                        yapılabilir.
+                      </p>
+                    ) : null}
+                    {!isAuthed ? <p>Bu özellik sadece giriş yapan kullanıcılar içindir.</p> : null}
+                  </div>
+                ) : null}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--color-muted)]">Kaç saat istiyorsun?</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={reservationMaxHours || 1}
+                    value={reservationHours}
+                    onChange={(event) => {
+                      const next = Number.parseInt(event.target.value, 10);
+                      setReservationHours(Number.isFinite(next) ? next : 1);
+                    }}
+                    className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--color-muted)]">İsim</label>
+                  <input
+                    type="text"
+                    value={reservationName}
+                    onChange={(event) => setReservationName(event.target.value)}
+                    className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--color-muted)]">Telefon</label>
+                  <input
+                    type="tel"
+                    value={reservationPhone}
+                    onChange={(event) => setReservationPhone(event.target.value)}
+                    disabled={reservationPhoneLocked}
+                    readOnly={reservationPhoneLocked}
+                    className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none disabled:opacity-70"
+                  />
+                  {reservationPhoneMissing ? (
+                    <p className="text-[11px] text-[var(--color-danger)]">
+                      Profilinde telefon yok. Lütfen <a href="/profile" className="underline">profilinden</a> ekle.
+                    </p>
+                  ) : reservationPhoneLocked ? (
+                    <p className="text-[11px] text-[var(--color-muted)]">Telefon profilinden alınır.</p>
+                  ) : null}
+                </div>
+
+                {!isAuthed && !autoApproval ? (
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--color-muted)]">E-posta</label>
+                    <input
+                      type="email"
+                      value={reservationEmail}
+                      onChange={(event) => setReservationEmail(event.target.value)}
+                      className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+                    />
+                  </div>
+                ) : null}
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--color-muted)]">Not (opsiyonel)</label>
+                  <textarea
+                    value={reservationNote}
+                    onChange={(event) => setReservationNote(event.target.value)}
+                    rows={3}
+                    className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-3 text-xs text-[var(--color-muted)]">
+                  <p className="text-[11px] font-semibold text-[var(--color-primary)]">Ücret özeti</p>
+                  <p className="mt-1 text-sm text-[var(--color-primary)]">
+                    Toplam: {formatPriceNumber(reservationPrice?.total ?? null)}
+                  </p>
+                  {reservationPrice?.happyHours ? (
+                    <p className="mt-1 text-[11px]">
+                      Happy Hour: {reservationPrice.happyHours} saat · {formatPriceNumber(reservationPrice.happyRate ?? null)}/saat
+                    </p>
+                  ) : null}
+                  {reservationPrice?.normalHours ? (
+                    <p className="text-[11px]">
+                      Normal: {reservationPrice.normalHours} saat · {formatPriceNumber(reservationPrice.baseRate ?? null)}/saat
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setReservationOpen(false)}>
+                      Vazgeç
+                    </Button>
+                    <Button size="sm" onClick={handleReservationSubmit} disabled={reservationSending || !canSubmitReservation}>
+                      {reservationSending ? "Gönderiliyor…" : autoApproval ? "Rezervasyon yap" : "İstek gönder"}
+                    </Button>
+                  </div>
+                </div>
+                {reservationError ? (
+                  <p className="text-xs text-[var(--color-danger)]">{reservationError}</p>
+                ) : null}
+              </div>
+          </div>
+        </div>
+      )}
+      {contactOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-6 pt-10 sm:items-center sm:p-6"
+          onClick={() => setContactOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-lg rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[var(--color-primary)]">
+                  Stüdyo ile nasıl iletişime geçmek istersin?
+                </p>
+                {contactRoom?.name ? (
+                  <p className="text-xs text-[var(--color-muted)]">Seçili oda: {contactRoom.name}</p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactOpen(false)}
+                className="rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] p-2 text-[var(--color-primary)] transition hover:bg-[var(--color-surface)]"
+                aria-label="Kapat"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isAuthed) {
+                    const roomParam = contactRoom?.id ? `&roomId=${contactRoom.id}` : "";
+                    router.push(
+                      `/login?redirect=${encodeURIComponent(`/studyo/${studioSlug}?contact=1${roomParam}`)}`,
+                    );
+                    return;
+                  }
+                  setContactChannel("in_app");
+                }}
+                className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-left text-xs font-semibold transition ${
+                  contactChannel === "in_app"
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-primary)]"
+                    : "border-[var(--color-border)] bg-[var(--color-secondary)] text-[var(--color-primary)] hover:border-[var(--color-accent)]/60"
+                }`}
+              >
+                <MessageCircle className="h-4 w-4 text-[var(--color-accent)]" />
+                <span>Studyom üzerinden mesaj</span>
+              </button>
+
+              {canWhatsApp ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactChannel("whatsapp");
+                    handleWhatsApp();
+                  }}
+                  className="flex items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-primary)] transition hover:border-[#25D366]/60"
+                >
+                  <Send className="h-4 w-4 text-[#25D366]" />
+                  <span>WhatsApp</span>
+                </button>
+              ) : null}
+
+              {canPhone ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactChannel("phone");
+                    handlePhone();
+                  }}
+                  className="flex items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-left text-xs font-semibold text-[var(--color-primary)] transition hover:border-[var(--color-accent)]/60"
+                >
+                  <Phone className="h-4 w-4 text-[var(--color-accent)]" />
+                  <span>Telefon</span>
+                </button>
+              ) : null}
+            </div>
+
+            {contactChannel === "in_app" ? (
+              <div className="mt-4 space-y-3">
+                {!isAuthed ? (
+                  <div className="space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-3 text-xs text-[var(--color-muted)]">
+                    <p>Mesaj göndermek için giriş yapmalısın. WhatsApp/Telefon için giriş gerekmez.</p>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const roomParam = contactRoom?.id ? `&roomId=${contactRoom.id}` : "";
+                        router.push(
+                          `/login?redirect=${encodeURIComponent(`/studyo/${studioSlug}?contact=1${roomParam}`)}`,
+                        );
+                      }}
+                    >
+                      Giriş yap
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="text-xs font-semibold text-[var(--color-muted)]">
+                      Mesajın (max 1200 karakter)
+                    </label>
+                    <textarea
+                      value={contactMessage}
+                      onChange={(event) => setContactMessage(event.target.value)}
+                      rows={4}
+                      className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-xs text-[var(--color-muted)]">
+                        {contactMessage.trim().length} / 1200
+                      </span>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => setContactOpen(false)}>
+                          Vazgeç
+                        </Button>
+                        <Button size="sm" onClick={handleSendMessage} disabled={contactSending}>
+                          {contactSending ? "Gönderiliyor…" : "Gönder"}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {contactError ? (
+                  <p className="text-xs text-[var(--color-danger)]">{contactError}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

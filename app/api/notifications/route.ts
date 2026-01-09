@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
   id: z.string().min(1),
-  kind: z.enum(["reservation", "lead", "teacher-lead"]),
+  kind: z.enum(["reservation", "lead", "teacher-lead", "reservation-request"]),
 });
 
 export async function PATCH(req: Request) {
@@ -24,6 +24,8 @@ export async function PATCH(req: Request) {
   }
 
   const { id, kind } = parsed.data;
+  const dbUser = await prisma.user.findUnique({ where: { email: userEmail } });
+  const userId = dbUser?.id ?? null;
 
   try {
     if (kind === "reservation") {
@@ -50,6 +52,22 @@ export async function PATCH(req: Request) {
       const updated = await prisma.teacherLead.updateMany({
         where: { id, studentEmail: userEmail },
         data: { isRead: true },
+      });
+      if (updated.count === 0) {
+        return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
+      }
+    }
+
+    if (kind === "reservation-request") {
+      const updated = await prisma.studioReservationRequest.updateMany({
+        where: {
+          id,
+          OR: [
+            userId ? { studentUserId: userId } : undefined,
+            { requesterEmail: userEmail },
+          ].filter(Boolean) as { studentUserId?: string; requesterEmail?: string }[],
+        },
+        data: { userUnread: false },
       });
       if (updated.count === 0) {
         return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });

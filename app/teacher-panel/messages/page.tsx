@@ -8,7 +8,7 @@ import { Section } from "@/components/design-system/components/shared/section";
 import { TeacherMessagesClient, type TeacherThreadItem, type TeacherRequestItem } from "../messages-client";
 
 export const metadata: Metadata = {
-  title: "Hoca Paneli Mesajları | Stüdyom",
+  title: "Hoca Paneli Mesajları | Studyom",
   description: "Öğrencilerden gelen mesajları görüntüleyin ve yanıtlayın.",
 };
 
@@ -76,6 +76,7 @@ export default async function TeacherMessagesPage() {
     id: thread.id,
     teacherSlug: thread.teacherSlug,
     channel: getTeacherThreadChannel(thread.id),
+    locked: thread.locked,
     student: {
       id: thread.studentUser.id,
       name: thread.studentUser.fullName || thread.studentUser.email || "Öğrenci",

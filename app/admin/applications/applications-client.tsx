@@ -12,6 +12,12 @@ type StudioRow = {
   ownerEmail: string;
   phone: string | null;
   openingHours: unknown;
+  applicationStatus: string;
+  applicationAdminNote: string | null;
+  applicationAdminTags: string[];
+  applicationRejectReason: string | null;
+  visibilityStatus: string | null;
+  moderationNote: string | null;
   notifications: { message: string; createdAt: Date }[];
   createdAt: Date;
   isActive: boolean;
@@ -21,6 +27,11 @@ type AppRow = {
   id: number;
   userId: string;
   status: string;
+  adminNote: string | null;
+  adminTags: string[];
+  rejectReason: string | null;
+  visibilityStatus: string | null;
+  moderationNote: string | null;
   createdAt: Date;
   data: unknown;
   user: { id: string; email: string; fullName: string | null; city: string | null } | null;
@@ -48,19 +59,38 @@ export default function ApplicationsClient({
 
 function StudioApplications({ initial }: { initial: StudioRow[] }) {
   const [rows, setRows] = useState(initial);
-  const [saving, setSaving] = useState<{ id: string; action: "approve" | "reject" } | null>(null);
+  const [saving, setSaving] = useState<{ id: string; action: string } | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
 
-  const approve = async (id: string) => {
-    setSaving({ id, action: "approve" });
+  const updateRow = (id: string, patch: Partial<StudioRow>) => {
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const buildNotesPayload = (row: StudioRow) => ({
+    applicationAdminNote: row.applicationAdminNote ?? null,
+    applicationAdminTags: row.applicationAdminTags ?? [],
+    applicationRejectReason: row.applicationRejectReason ?? null,
+  });
+
+  const updateApplication = async (id: string, action: string, payload: Record<string, unknown>) => {
+    setSaving({ id, action });
     try {
       const res = await fetch(`/api/admin/studios/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: true, decision: "approved" }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Kaydedilemedi");
-      setRows((prev) => prev.filter((r) => r.id !== id));
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === id
+            ? {
+                ...row,
+                ...payload,
+              }
+            : row,
+        ),
+      );
     } catch (err) {
       console.error(err);
       alert("Kaydedilemedi");
@@ -69,23 +99,20 @@ function StudioApplications({ initial }: { initial: StudioRow[] }) {
     }
   };
 
-  const reject = async (id: string) => {
-    setSaving({ id, action: "reject" });
-    try {
-      const res = await fetch(`/api/admin/studios/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: false, decision: "rejected" }),
-      });
-      if (!res.ok) throw new Error("Kaydedilemedi");
-      setRows((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      console.error(err);
-      alert("Kaydedilemedi");
-    } finally {
-      setSaving(null);
-    }
-  };
+  const approve = (row: StudioRow) =>
+    updateApplication(row.id, "approve", {
+      applicationStatus: "approved",
+      ...buildNotesPayload(row),
+    });
+
+  const reject = (row: StudioRow) =>
+    updateApplication(row.id, "reject", {
+      applicationStatus: "rejected",
+      ...buildNotesPayload(row),
+    });
+
+  const saveNotes = (row: StudioRow) =>
+    updateApplication(row.id, "notes", buildNotesPayload(row));
 
   if (rows.length === 0) {
     return <p className="text-sm text-[var(--color-muted)]">Bekleyen başvuru yok.</p>;
@@ -102,6 +129,9 @@ function StudioApplications({ initial }: { initial: StudioRow[] }) {
                 {studio.city || "-"} / {studio.district || "-"} · {studio.ownerEmail} ·{" "}
                 {new Date(studio.createdAt).toLocaleString("tr-TR")}
               </p>
+              <p className="text-xs text-[var(--color-muted)]">
+                Durum: <span className="text-[var(--color-primary)]">{studio.applicationStatus}</span>
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -115,7 +145,7 @@ function StudioApplications({ initial }: { initial: StudioRow[] }) {
                 variant="secondary"
                 size="sm"
                 disabled={saving?.id === studio.id}
-                onClick={() => reject(studio.id)}
+                onClick={() => reject(studio)}
                 className="border-[var(--color-danger)]/40 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
               >
                 {saving?.id === studio.id && saving.action === "reject" ? "Reddediliyor..." : "Reddet"}
@@ -124,13 +154,20 @@ function StudioApplications({ initial }: { initial: StudioRow[] }) {
                 variant="primary"
                 size="sm"
                 disabled={saving?.id === studio.id}
-                onClick={() => approve(studio.id)}
+                onClick={() => approve(studio)}
               >
                 {saving?.id === studio.id && saving.action === "approve" ? "Onaylanıyor..." : "Onayla"}
               </Button>
             </div>
           </div>
-          {openRow === studio.id ? <StudioDetails studio={studio} /> : null}
+          {openRow === studio.id ? (
+            <StudioDetails
+              studio={studio}
+              onChange={updateRow}
+              onSaveNotes={saveNotes}
+              saving={saving?.id === studio.id}
+            />
+          ) : null}
         </div>
       ))}
     </div>
@@ -139,19 +176,31 @@ function StudioApplications({ initial }: { initial: StudioRow[] }) {
 
 function RoleApplications({ initial, apiBase }: { initial: AppRow[]; apiBase: string }) {
   const [rows, setRows] = useState(initial);
-  const [saving, setSaving] = useState<{ id: number; action: "approve" | "reject" } | null>(null);
+  const [saving, setSaving] = useState<{ id: number; action: string } | null>(null);
   const [openRow, setOpenRow] = useState<number | null>(null);
 
-  const updateStatus = async (id: number, status: "approved" | "rejected") => {
-    setSaving({ id, action: status === "approved" ? "approve" : "reject" });
+  const updateRow = (id: number, patch: Partial<AppRow>) => {
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const buildNotesPayload = (row: AppRow) => ({
+    adminNote: row.adminNote ?? null,
+    adminTags: row.adminTags ?? [],
+    rejectReason: row.rejectReason ?? null,
+  });
+
+  const updateApplication = async (id: number, action: string, payload: Record<string, unknown>) => {
+    setSaving({ id, action });
     try {
       const res = await fetch(`${apiBase}/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Kaydedilemedi");
-      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+      setRows((prev) =>
+        prev.map((row) => (row.id === id ? { ...row, ...(payload as Partial<AppRow>) } : row)),
+      );
     } catch (err) {
       console.error(err);
       alert("Kaydedilemedi");
@@ -159,6 +208,21 @@ function RoleApplications({ initial, apiBase }: { initial: AppRow[]; apiBase: st
       setSaving(null);
     }
   };
+
+  const approve = (row: AppRow) =>
+    updateApplication(row.id, "approve", {
+      status: "approved",
+      visibilityStatus: "published",
+      ...buildNotesPayload(row),
+    });
+
+  const reject = (row: AppRow) =>
+    updateApplication(row.id, "reject", {
+      status: "rejected",
+      ...buildNotesPayload(row),
+    });
+
+  const saveNotes = (row: AppRow) => updateApplication(row.id, "notes", buildNotesPayload(row));
 
   if (rows.length === 0) {
     return <p className="text-sm text-[var(--color-muted)]">Bekleyen başvuru yok.</p>;
@@ -185,27 +249,23 @@ function RoleApplications({ initial, apiBase }: { initial: AppRow[]; apiBase: st
               >
                 {openRow === row.id ? "Detay gizle" : "Detaylar"}
               </Button>
-              {row.status !== "approved" && row.status !== "rejected" && (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={saving?.id === row.id}
-                    onClick={() => updateStatus(row.id, "rejected")}
-                    className="border-[var(--color-danger)]/40 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
-                  >
-                    {saving?.id === row.id && saving.action === "reject" ? "Reddediliyor..." : "Reddet"}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={saving?.id === row.id}
-                    onClick={() => updateStatus(row.id, "approved")}
-                  >
-                    {saving?.id === row.id && saving.action === "approve" ? "Onaylanıyor..." : "Onayla"}
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={saving?.id === row.id}
+                onClick={() => reject(row)}
+                className="border-[var(--color-danger)]/40 text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+              >
+                {saving?.id === row.id && saving.action === "reject" ? "Reddediliyor..." : "Reddet"}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={saving?.id === row.id}
+                onClick={() => approve(row)}
+              >
+                {saving?.id === row.id && saving.action === "approve" ? "Onaylanıyor..." : "Onayla"}
+              </Button>
             </div>
           </div>
           <div className="mt-2 text-xs text-[var(--color-muted)]">
@@ -213,9 +273,52 @@ function RoleApplications({ initial, apiBase }: { initial: AppRow[]; apiBase: st
           </div>
           <ApplicationDetails data={row.data} userCity={row.user?.city || null} />
           {openRow === row.id ? (
-            <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-2 text-[10px] text-[var(--color-primary)]">
-              {JSON.stringify(row.data, null, 2)}
-            </pre>
+            <div className="mt-3 space-y-3">
+              <div className="grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)]/40 p-3 text-xs">
+                <div>
+                  <div className="font-semibold text-[var(--color-primary)]">Admin notu</div>
+                  <textarea
+                    value={row.adminNote ?? ""}
+                    onChange={(e) => updateRow(row.id, { adminNote: e.target.value })}
+                    className="mt-2 h-20 w-full resize-none rounded-lg border border-[var(--color-border)] bg-transparent p-2 text-[var(--color-primary)]"
+                    placeholder="Başvuru notu"
+                  />
+                </div>
+                <div>
+                  <div className="font-semibold text-[var(--color-primary)]">Admin etiketleri (virgülle)</div>
+                  <input
+                    value={formatTags(row.adminTags)}
+                    onChange={(e) => updateRow(row.id, { adminTags: parseTags(e.target.value) })}
+                    className="mt-2 h-9 w-full rounded-lg border border-[var(--color-border)] bg-transparent px-2 text-[var(--color-primary)]"
+                    placeholder="quality, follow-up"
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <div className="font-semibold text-[var(--color-primary)]">Reddetme nedeni</div>
+                    <input
+                      value={row.rejectReason ?? ""}
+                      onChange={(e) => updateRow(row.id, { rejectReason: e.target.value })}
+                      className="mt-2 h-9 w-full rounded-lg border border-[var(--color-border)] bg-transparent px-2 text-[var(--color-primary)]"
+                      placeholder="Sebep"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => saveNotes(row)}
+                    disabled={saving?.id === row.id}
+                  >
+                    {saving?.id === row.id && saving.action === "notes" ? "Kaydediliyor..." : "Notları kaydet"}
+                  </Button>
+                </div>
+              </div>
+              <pre className="whitespace-pre-wrap rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-2 text-[10px] text-[var(--color-primary)]">
+                {JSON.stringify(row.data, null, 2)}
+              </pre>
+            </div>
           ) : null}
         </div>
       ))}
@@ -337,10 +440,72 @@ function toString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
-function StudioDetails({ studio }: { studio: StudioRow }) {
+function parseTags(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function formatTags(tags: string[] | null | undefined): string {
+  return (tags || []).join(", ");
+}
+
+function StudioDetails({
+  studio,
+  onChange,
+  onSaveNotes,
+  saving,
+}: {
+  studio: StudioRow;
+  onChange: (id: string, patch: Partial<StudioRow>) => void;
+  onSaveNotes: (studio: StudioRow) => void;
+  saving: boolean;
+}) {
   const details = parseNotifications(studio.notifications || []);
   return (
     <div className="mt-3 space-y-3">
+      <div className="grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)]/40 p-3 text-xs">
+        <div>
+          <div className="font-semibold text-[var(--color-primary)]">Admin notu</div>
+          <textarea
+            value={studio.applicationAdminNote ?? ""}
+            onChange={(e) => onChange(studio.id, { applicationAdminNote: e.target.value })}
+            className="mt-2 h-20 w-full resize-none rounded-lg border border-[var(--color-border)] bg-transparent p-2 text-[var(--color-primary)]"
+            placeholder="Başvuru notu"
+          />
+        </div>
+        <div>
+          <div className="font-semibold text-[var(--color-primary)]">Admin etiketleri (virgülle)</div>
+          <input
+            value={formatTags(studio.applicationAdminTags)}
+            onChange={(e) => onChange(studio.id, { applicationAdminTags: parseTags(e.target.value) })}
+            className="mt-2 h-9 w-full rounded-lg border border-[var(--color-border)] bg-transparent px-2 text-[var(--color-primary)]"
+            placeholder="quality, follow-up"
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <div className="font-semibold text-[var(--color-primary)]">Reddetme nedeni</div>
+            <input
+              value={studio.applicationRejectReason ?? ""}
+              onChange={(e) => onChange(studio.id, { applicationRejectReason: e.target.value })}
+              className="mt-2 h-9 w-full rounded-lg border border-[var(--color-border)] bg-transparent px-2 text-[var(--color-primary)]"
+              placeholder="Sebep"
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-end">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onSaveNotes(studio)}
+            disabled={saving}
+          >
+            {saving ? "Kaydediliyor..." : "Notları kaydet"}
+          </Button>
+        </div>
+      </div>
       <div className="grid gap-2 text-xs text-[var(--color-muted)] sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <div className="font-semibold text-[var(--color-primary)]">Adres</div>

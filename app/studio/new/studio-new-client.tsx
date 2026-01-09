@@ -25,10 +25,6 @@ const provincesOrdered: TRGeo = (() => {
 })();
 
 const applicantRoles = ["Sahibiyim", "Ortağım", "Yetkili yöneticiyim"] as const;
-const contactMethods = ["Phone", "WhatsApp", "Email"] as const;
-const bookingModes = ["Onaylı talep (ben onaylarım)", "Direkt rezervasyon (sonra açılabilir)"] as const;
-const priceRanges = ["500–750", "750–1000", "1000–1500", "1500+"] as const;
-
 const urlOptional = z.string().trim().optional().or(z.literal(""));
 
 const schema = z
@@ -45,32 +41,10 @@ const schema = z
     neighborhood: z.string().trim().min(1, "Mahalle gerekli"),
     address: z.string().trim().min(10, "Açık adres gerekli"),
     mapsUrl: z.string().trim().url("Geçerli bir link girin"),
-    contactMethods: z.array(z.enum(contactMethods)).min(1, "En az bir tercih seçin"),
-    contactHours: z.string().trim().max(80, "En fazla 80 karakter").optional(),
-    roomsCount: z.preprocess(
-      (v) => (typeof v === "string" && v.trim() !== "" ? Number(v) : v),
-      z.number().int().min(1, "En az 1").max(10, "En fazla 10"),
-    ),
-    isFlexible: z.boolean(),
-    weekdayHours: z.string().trim().max(30, "En fazla 30 karakter").optional(),
-    weekendHours: z.string().trim().max(30, "En fazla 30 karakter").optional(),
-    bookingMode: z.enum(bookingModes),
-    priceRange: z.enum(priceRanges),
-    priceVaries: z.boolean(),
     linkPortfolio: urlOptional,
     linkGoogle: urlOptional,
     ackAuthority: z.boolean().refine((v) => v === true, "Onay gerekli"),
     ackPlatform: z.boolean().refine((v) => v === true, "Onay gerekli"),
-  })
-  .superRefine((data, ctx) => {
-    if (!data.isFlexible) {
-      if (!data.weekdayHours) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Hafta içi saat girin veya esnek seçin", path: ["weekdayHours"] });
-      }
-      if (!data.weekendHours) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Hafta sonu saat girin veya esnek seçin", path: ["weekendHours"] });
-      }
-    }
   });
 
 type FormValues = z.infer<typeof schema>;
@@ -102,23 +76,12 @@ export function StudioNewClient() {
       neighborhood: "",
       address: "",
       mapsUrl: "",
-      contactMethods: ["Phone"],
-      contactHours: "",
-      roomsCount: 1,
-      isFlexible: false,
-      weekdayHours: "",
-      weekendHours: "",
-      bookingMode: "Onaylı talep (ben onaylarım)",
-      priceRange: "500–750",
-      priceVaries: false,
       linkPortfolio: "",
       linkGoogle: "",
       ackAuthority: false,
       ackPlatform: false,
     },
   });
-
-  const isFlexible = watch("isFlexible");
 
   const selectedProvince = provincesOrdered.find((p) => p.id === selectedProvinceId);
   const districts = selectedProvince?.districts ?? [];
@@ -154,32 +117,12 @@ export function StudioNewClient() {
     }
   };
 
-  const nextStep = () => setStep((s) => Math.min(3, s + 1));
+  const nextStep = () => setStep((s) => Math.min(2, s + 1));
   const prevStep = () => setStep((s) => Math.max(1, s - 1));
 
-  const contactMethodsSelected = watch("contactMethods");
-
-  type ArrayField = "contactMethods";
-  const toggleArray = <T extends string>(name: ArrayField, value: T) => {
-    const current = (watch(name) as string[]) || [];
-    const exists = current.includes(value);
-    const next = exists ? current.filter((v) => v !== value) : [...current, value];
-    setValue(name, next as FormValues[ArrayField], { shouldValidate: true });
-  };
   const stepFields: Record<number, (keyof FormValues)[]> = {
-    1: [
-      "phone",
-      "applicantRole",
-      "studioName",
-      "city",
-      "district",
-      "neighborhood",
-      "address",
-      "mapsUrl",
-      "contactMethods",
-    ],
-    2: ["roomsCount", "isFlexible", "weekdayHours", "weekendHours", "bookingMode", "priceRange", "priceVaries"],
-    3: ["linkPortfolio", "linkGoogle", "ackAuthority", "ackPlatform"],
+    1: ["phone", "applicantRole", "studioName", "city", "district", "neighborhood", "address", "mapsUrl"],
+    2: ["linkPortfolio", "linkGoogle", "ackAuthority", "ackPlatform"],
   };
 
   const handleNextStep = async () => {
@@ -212,9 +155,7 @@ export function StudioNewClient() {
           <div className="flex items-center gap-2 text-sm text-[var(--color-muted)]">
             <span className={step === 1 ? "font-semibold text-[var(--color-primary)]" : ""}>1. Kimlik & İletişim</span>
             <span>•</span>
-            <span className={step === 2 ? "font-semibold text-[var(--color-primary)]" : ""}>2. Odalar & Düzen</span>
-            <span>•</span>
-            <span className={step === 3 ? "font-semibold text-[var(--color-primary)]" : ""}>3. Doğrulama & Onay</span>
+            <span className={step === 2 ? "font-semibold text-[var(--color-primary)]" : ""}>2. Doğrulama & Onay</span>
           </div>
 
           {step === 1 && (
@@ -352,152 +293,10 @@ export function StudioNewClient() {
                 ) : null}
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">Tercih edilen iletişim</Label>
-                <div className="flex flex-wrap gap-2">
-                  {contactMethods.map((method) => {
-                    const active = contactMethodsSelected.includes(method);
-                    return (
-                      <button
-                        key={method}
-                        type="button"
-                        onClick={() => toggleArray("contactMethods", method)}
-                        className={`rounded-full border px-3 py-1 text-sm ${
-                          active
-                            ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-primary)]"
-                            : "border-[var(--color-border)] text-[var(--color-primary)]"
-                        }`}
-                        aria-pressed={active}
-                      >
-                        {method}
-                      </button>
-                    );
-                  })}
-                </div>
-                {errors.contactMethods ? (
-                  <span className="text-xs text-[var(--color-danger)]">{errors.contactMethods.message}</span>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">İletişim saatleri (opsiyonel)</Label>
-                <Input placeholder="Örn: 10:00 - 22:00" {...register("contactHours")} />
-                {errors.contactHours ? (
-                  <span className="text-xs text-[var(--color-danger)]">{errors.contactHours.message}</span>
-                ) : null}
-              </div>
             </Card>
           )}
 
           {step === 2 && (
-            <Card className="space-y-4 p-6">
-              <div className="rounded-xl bg-[var(--color-secondary)] px-4 py-3 text-xs text-[var(--color-muted)]">
-                Buradaki tüm bilgiler başvuru sonrası stüdyo panelinden düzenlenebilir. Daha detaylı bilgiler panelden
-                eklenecektir.
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">Oda sayısı</Label>
-                <Input type="number" min={1} max={10} {...register("roomsCount")} />
-                {errors.roomsCount ? (
-                  <span className="text-xs text-[var(--color-danger)]">{errors.roomsCount.message as string}</span>
-                ) : null}
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">Çalışma saatleri</Label>
-                <label className="flex items-center gap-2 text-sm text-[var(--color-primary)]">
-                  <input
-                    type="checkbox"
-                    checked={isFlexible}
-                    onChange={(e) => setValue("isFlexible", e.target.checked, { shouldValidate: true })}
-                  />
-                  Esnek
-                </label>
-                {!isFlexible && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Input placeholder="Hafta içi: 10:00 - 22:00" {...register("weekdayHours")} />
-                      {errors.weekdayHours ? (
-                        <span className="text-xs text-[var(--color-danger)]">{errors.weekdayHours.message}</span>
-                      ) : null}
-                    </div>
-                    <div className="space-y-2">
-                      <Input placeholder="Hafta sonu: 12:00 - 22:00" {...register("weekendHours")} />
-                      {errors.weekendHours ? (
-                        <span className="text-xs text-[var(--color-danger)]">{errors.weekendHours.message}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">Rezervasyon modu</Label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {bookingModes.map((mode) => (
-                    <label
-                      key={mode}
-                      className={`flex items-center gap-2 rounded-2xl border p-3 text-sm ${
-                        watch("bookingMode") === mode
-                          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-primary)]"
-                          : "border-[var(--color-border)] text-[var(--color-primary)]"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        value={mode}
-                        checked={watch("bookingMode") === mode}
-                        onChange={() => setValue("bookingMode", mode, { shouldValidate: true })}
-                      />
-                      <span>{mode}</span>
-                    </label>
-                  ))}
-                </div>
-                {errors.bookingMode ? (
-                  <span className="text-xs text-[var(--color-danger)]">{errors.bookingMode.message}</span>
-                ) : null}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-[var(--color-primary)]">Saatlik fiyat aralığı</Label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {priceRanges.map((price) => (
-                    <label
-                      key={price}
-                      className={`flex items-center gap-2 rounded-2xl border p-3 text-sm ${
-                        watch("priceRange") === price
-                          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-primary)]"
-                          : "border-[var(--color-border)] text-[var(--color-primary)]"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        value={price}
-                        checked={watch("priceRange") === price}
-                        onChange={() => setValue("priceRange", price, { shouldValidate: true })}
-                      />
-                      <span>{price} TL</span>
-                    </label>
-                  ))}
-                </div>
-                {errors.priceRange ? (
-                  <span className="text-xs text-[var(--color-danger)]">{errors.priceRange.message}</span>
-                ) : null}
-                <label className="flex items-center gap-2 text-sm text-[var(--color-primary)]">
-                  <input
-                    type="checkbox"
-                    {...register("priceVaries")}
-                    checked={watch("priceVaries")}
-                    onChange={(e) => setValue("priceVaries", e.target.checked, { shouldValidate: true })}
-                  />
-                  Fiyatlar odaya göre değişir
-                </label>
-              </div>
-            </Card>
-          )}
-
-          {step === 3 && (
             <Card className="space-y-4 p-6">
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-[var(--color-primary)]">Instagram / web sitesi (opsiyonel)</Label>
@@ -571,7 +370,7 @@ export function StudioNewClient() {
             ) : (
               <span />
             )}
-            {step < 3 ? (
+            {step < 2 ? (
               <Button type="button" variant="primary" onClick={handleNextStep}>
                 Sonraki
               </Button>

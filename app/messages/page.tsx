@@ -7,7 +7,7 @@ import { Section } from "@/components/design-system/components/shared/section";
 import { MessagesClient } from "./messages-client";
 
 export const metadata: Metadata = {
-  title: "Mesajlar | Stüdyom",
+  title: "Mesajlar | Studyom",
   description: "Hocalar, üreticiler ve stüdyolar ile mesajlarını görüntüle.",
 };
 
@@ -28,7 +28,12 @@ function formatDate(value?: Date | string | null) {
   return date.toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default async function MessagesPage() {
+export default async function MessagesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const search = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     redirect("/login");
@@ -48,7 +53,7 @@ export default async function MessagesPage() {
 
   const userEmail = dbUser.email?.toLowerCase() ?? sessionUser.email?.toLowerCase() ?? null;
 
-  const [teacherThreads, teacherRequests, producerThreads, producerRequests, leads] = await Promise.all([
+  const [teacherThreads, teacherRequests, producerThreads, producerRequests, studioThreads, studioOwnerThreads, leads] = await Promise.all([
     prisma.teacherThread.findMany({
       where: { studentUserId: dbUser.id },
       orderBy: { updatedAt: "desc" },
@@ -77,6 +82,25 @@ export default async function MessagesPage() {
       take: 20,
       include: { producerUser: { select: { fullName: true, name: true, email: true, image: true } } },
     }),
+    prisma.studioThread.findMany({
+      where: { studentUserId: dbUser.id },
+      orderBy: { updatedAt: "desc" },
+      include: {
+        studio: { select: { name: true, slug: true, coverImageUrl: true } },
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    }),
+    userEmail
+      ? prisma.studioThread.findMany({
+          where: { studio: { ownerEmail: userEmail } },
+          orderBy: { updatedAt: "desc" },
+          include: {
+            studio: { select: { name: true, slug: true, coverImageUrl: true } },
+            studentUser: { select: { fullName: true, name: true, email: true, image: true } },
+            messages: { orderBy: { createdAt: "desc" }, take: 1 },
+          },
+        })
+      : Promise.resolve([]),
     userEmail
       ? prisma.lead.findMany({
           where: { email: userEmail },
@@ -93,6 +117,7 @@ export default async function MessagesPage() {
     teacherImage: thread.teacherUser.image ?? null,
     lastMessage: thread.messages[0]?.body || "—",
     lastDate: formatDate(thread.messages[0]?.createdAt || thread.updatedAt),
+    sortKey: new Date(thread.messages[0]?.createdAt || thread.updatedAt).getTime(),
   }));
 
   const teacherRequestItems = teacherRequests.map((req) => ({
@@ -103,6 +128,7 @@ export default async function MessagesPage() {
     status: req.status,
     createdAt: formatDate(req.createdAt),
     messageText: req.messageText,
+    sortKey: new Date(req.createdAt).getTime(),
   }));
 
   const producerThreadItems = producerThreads.map((thread) => ({
@@ -112,6 +138,7 @@ export default async function MessagesPage() {
     producerImage: thread.producerUser.image ?? null,
     lastMessage: thread.messages[0]?.body || "—",
     lastDate: formatDate(thread.messages[0]?.createdAt || thread.updatedAt),
+    sortKey: new Date(thread.messages[0]?.createdAt || thread.updatedAt).getTime(),
   }));
 
   const producerRequestItems = producerRequests.map((req) => ({
@@ -121,7 +148,37 @@ export default async function MessagesPage() {
     status: req.status,
     createdAt: formatDate(req.createdAt),
     messageText: req.message,
+    sortKey: new Date(req.createdAt).getTime(),
   }));
+
+  const studioThreadItems = studioThreads.map((thread) => ({
+    id: thread.id,
+    studioId: thread.studioId,
+    studioName: thread.studio.name,
+    studioSlug: thread.studio.slug ?? null,
+    studioImage: thread.studio.coverImageUrl ?? null,
+    lastMessage: thread.messages[0]?.body || "—",
+    lastDate: formatDate(thread.messages[0]?.createdAt || thread.updatedAt),
+    sortKey: new Date(thread.messages[0]?.createdAt || thread.updatedAt).getTime(),
+  }));
+  const studioOwnerThreadItems = studioOwnerThreads.map((thread) => ({
+    id: thread.id,
+    studioId: thread.studioId,
+    studioName: thread.studio.name,
+    studioSlug: thread.studio.slug ?? null,
+    studioImage: thread.studentUser?.image ?? null,
+    displayName: resolveName(thread.studentUser),
+    context: thread.studio.name,
+    ownerLink: `/dashboard/messages/${thread.id}`,
+    lastMessage: thread.messages[0]?.body || "—",
+    lastDate: formatDate(thread.messages[0]?.createdAt || thread.updatedAt),
+    sortKey: new Date(thread.messages[0]?.createdAt || thread.updatedAt).getTime(),
+  }));
+  const studioThreadMap = new Map<string, (typeof studioThreadItems)[number]>();
+  [...studioThreadItems, ...studioOwnerThreadItems].forEach((item) => {
+    studioThreadMap.set(item.id, item);
+  });
+  const combinedStudioThreads = Array.from(studioThreadMap.values());
 
   const studioLeadItems = leads.map((lead) => ({
     id: lead.id,
@@ -129,7 +186,16 @@ export default async function MessagesPage() {
     subtitle: lead.name || lead.email,
     createdAt: formatDate(lead.createdAt),
     messageText: lead.note || "Mesaj bulunamadı.",
+    sortKey: new Date(lead.createdAt).getTime(),
   }));
+
+  const studioThreadParam =
+    typeof search?.studioThread === "string"
+      ? search.studioThread
+      : Array.isArray(search?.studioThread)
+        ? search?.studioThread[0]
+        : null;
+  const initialOpenKey = studioThreadParam ? `studio-chat:${studioThreadParam}` : null;
 
   return (
     <main className="bg-[var(--color-secondary)] pb-16 pt-10">
@@ -150,8 +216,10 @@ export default async function MessagesPage() {
           teacherRequests={teacherRequestItems}
           producerThreads={producerThreadItems}
           producerRequests={producerRequestItems}
+          studioThreads={combinedStudioThreads}
           studioLeads={studioLeadItems}
           routes={{ teachers: "/hocalar", production: "/uretim", studios: "/studyo" }}
+          initialOpenKey={initialOpenKey}
         />
       </Section>
     </main>

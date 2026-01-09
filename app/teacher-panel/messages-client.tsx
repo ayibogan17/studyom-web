@@ -5,11 +5,13 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Button } from "@/components/design-system/components/ui/button";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { ThreadComplaint } from "@/components/design-system/components/shared/thread-complaint";
 
 export type TeacherThreadItem = {
   id: string;
   teacherSlug: string;
   channel?: string | null;
+  locked: boolean;
   student: { id: string; name: string; email: string | null; image?: string | null };
   messages: { id: string; body: string; senderRole: string; createdAt: string }[];
 };
@@ -385,6 +387,12 @@ export function TeacherMessagesClient({
                   WhatsApp’a geç seçeneği öğrenciye açıktır.
                 </p>
               ) : null}
+              {thread.locked ? (
+                <p className="text-xs text-[var(--color-danger)]">Sohbet kilitli. Mesaj gönderemezsin.</p>
+              ) : null}
+              <div className="flex justify-end">
+                <ThreadComplaint threadType="teacher" threadId={thread.id} />
+              </div>
               <div className="space-y-2">
                 {thread.messages.map((msg) => {
                   const isTeacher = msg.senderRole === "teacher";
@@ -423,6 +431,7 @@ export function TeacherMessagesClient({
                   value={drafts[thread.id] || ""}
                   onChange={(e) => setDrafts((prev) => ({ ...prev, [thread.id]: e.target.value }))}
                   rows={3}
+                  disabled={thread.locked}
                   className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
                   placeholder="Yanıtını yaz"
                   onClick={(e) => e.stopPropagation()}
@@ -430,7 +439,7 @@ export function TeacherMessagesClient({
                     if (e.key !== "Enter" || e.shiftKey) return;
                     e.preventDefault();
                     e.stopPropagation();
-                    if ((drafts[thread.id] || "").trim() && !sending[thread.id]) {
+                    if ((drafts[thread.id] || "").trim() && !sending[thread.id] && !thread.locked) {
                       handleSend(thread.id);
                     }
                   }}
@@ -449,7 +458,7 @@ export function TeacherMessagesClient({
                       e.stopPropagation();
                       handleSend(thread.id);
                     }}
-                    disabled={sending[thread.id] || !(drafts[thread.id] || "").trim()}
+                    disabled={thread.locked || sending[thread.id] || !(drafts[thread.id] || "").trim()}
                   >
                     {sending[thread.id] ? "Gönderiliyor…" : "Yanıtla"}
                   </Button>

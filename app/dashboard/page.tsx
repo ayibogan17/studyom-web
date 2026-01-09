@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/geo";
+import { mergeRoles, normalizeRoles } from "@/lib/roles";
 import {
   Prisma,
   PricingModel,
@@ -92,6 +93,27 @@ type StudioWithRelations = PrismaStudio & {
   ratings: PrismaRating[];
 };
 
+type ReservationRequest = {
+  id: string;
+  roomId: string;
+  roomName: string;
+  requesterName: string;
+  requesterPhone: string;
+  requesterEmail: string | null;
+  requesterImage: string | null;
+  requesterIsAnon: boolean;
+  note: string | null;
+  startAt: string;
+  endAt: string;
+  hours: number;
+  totalPrice: number | null;
+  status: string;
+  studioUnread: boolean;
+  createdAt: string;
+  updatedAt: string;
+  calendarBlockId: string | null;
+};
+
 function mapStudioToResponse(studio: StudioWithRelations) {
   const openingHoursRaw =
     studio.openingHours as OpeningHours[] | null | undefined;
@@ -148,14 +170,20 @@ function mapStudioToResponse(studio: StudioWithRelations) {
 }
 
 async function loadStudio(email: string, name?: string | null) {
+  const ownerEmail = email.toLowerCase();
+  const existing = await prisma.user.findUnique({
+    where: { email: ownerEmail },
+    select: { id: true, roles: true, role: true, isTeacher: true, isProducer: true, isStudioOwner: true },
+  });
+  const nextRoles = existing ? mergeRoles(normalizeRoles(existing), ["studio_owner"]) : ["musician", "studio_owner"];
   await prisma.user.upsert({
-    where: { email },
-    update: { name: name ?? undefined, role: "STUDIO" },
-    create: { email, name: name ?? undefined, role: "STUDIO" },
+    where: { email: ownerEmail },
+    update: { name: name ?? undefined, role: "STUDIO", roles: { set: nextRoles }, isStudioOwner: true },
+    create: { email: ownerEmail, name: name ?? undefined, role: "STUDIO", roles: nextRoles, isStudioOwner: true },
   });
 
   const studio = (await prisma.studio.findFirst({
-    where: { ownerEmail: email },
+    where: { ownerEmail: { equals: ownerEmail, mode: "insensitive" } },
     include: {
       rooms: { include: { slots: true } },
       notifications: true,
@@ -177,11 +205,18 @@ export default async function DashboardPage({
 }) {
   const session = await getServerSession(authOptions);
   const search = await searchParams;
+  const tabParam =
+    typeof search?.tab === "string"
+      ? search.tab
+      : Array.isArray(search?.tab)
+        ? search.tab[0]
+        : null;
 
   if (!session?.user || !session.user.email) {
     redirect("/login");
   }
 
+  const ownerEmail = session.user.email.toLowerCase();
   const sessionRole =
     (session.user as { role?: string }).role === "STUDIO" ? UserRole.STUDIO : UserRole.USER;
   const isStudioHint =
@@ -189,10 +224,10 @@ export default async function DashboardPage({
     (Array.isArray(search?.as) && search?.as.includes("studio"));
 
   // Kullanıcı ve stüdyo var mı?
-  const [existingUser, existingStudio] = await Promise.all([
-    prisma.user.findUnique({ where: { email: session.user.email } }),
-    prisma.studio.findFirst({ where: { ownerEmail: session.user.email } }),
-  ]);
+  const existingUser = await prisma.user.findUnique({ where: { email: ownerEmail } });
+  const existingStudio = await prisma.studio.findFirst({
+    where: { ownerEmail: { equals: ownerEmail, mode: "insensitive" } },
+  });
 
   // Öncelik: query param -> mevcut stüdyo kaydı -> mevcut kullanıcı rolü -> oturum rolü
   const desiredRole = isStudioHint
@@ -204,13 +239,21 @@ export default async function DashboardPage({
         : sessionRole;
 
   // Kullanıcı kaydını oluştur/çek
+  const baseRoles = normalizeRoles(existingUser);
+  const nextRoles =
+    desiredRole === UserRole.STUDIO ? mergeRoles(baseRoles, ["studio_owner"]) : baseRoles.length ? baseRoles : ["musician"];
   const user = await prisma.user.upsert({
-    where: { email: session.user.email },
-    update: { name: session.user.name ?? undefined, role: desiredRole },
-    create: {
-      email: session.user.email,
+    where: { email: ownerEmail },
+    update: {
       name: session.user.name ?? undefined,
       role: desiredRole,
+      roles: { set: nextRoles },
+    },
+    create: {
+      email: ownerEmail,
+      name: session.user.name ?? undefined,
+      role: desiredRole,
+      roles: desiredRole === UserRole.STUDIO ? ["musician", "studio_owner"] : ["musician"],
     },
   });
 
@@ -222,6 +265,50 @@ export default async function DashboardPage({
   if (!initialStudio) {
     redirect("/studio/new");
   }
+
+  const rawRequests = await prisma.studioReservationRequest.findMany({
+    where: { studioId: initialStudio.id },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+    include: {
+      room: { select: { id: true, name: true } },
+      studentUser: { select: { image: true } },
+    },
+  });
+
+  const calendarSettings = await prisma.studioCalendarSettings.findUnique({
+    where: { studioId: initialStudio.id },
+    select: { bookingApprovalMode: true },
+  });
+  const bookingApprovalMode = calendarSettings?.bookingApprovalMode ?? "manual";
+
+  if (rawRequests.length > 0 && bookingApprovalMode === "manual") {
+    await prisma.studioReservationRequest.updateMany({
+      where: { studioId: initialStudio.id, studioUnread: true },
+      data: { studioUnread: false },
+    });
+  }
+
+  const reservationRequests: ReservationRequest[] = rawRequests.map((request) => ({
+    id: request.id,
+    roomId: request.roomId,
+    roomName: request.room.name || "Oda",
+    requesterName: request.requesterName,
+    requesterPhone: request.requesterPhone,
+    requesterEmail: request.requesterEmail ?? null,
+    requesterImage: request.studentUser?.image ?? null,
+    requesterIsAnon: !request.studentUserId,
+    note: request.note ?? null,
+    startAt: request.startAt.toISOString(),
+    endAt: request.endAt.toISOString(),
+    hours: request.hours,
+    totalPrice: request.totalPrice ?? null,
+    status: request.status,
+    studioUnread: request.studioUnread,
+    createdAt: request.createdAt.toISOString(),
+    updatedAt: request.updatedAt.toISOString(),
+    calendarBlockId: request.calendarBlockId ?? null,
+  }));
 
   const studioTeacherLinks = await prisma.teacherStudioLink.findMany({
     where: { studioId: initialStudio.id, status: "approved" },
@@ -304,6 +391,9 @@ export default async function DashboardPage({
   return (
     <DashboardClient
       initialStudio={initialStudio}
+      reservationRequests={reservationRequests}
+      bookingApprovalMode={bookingApprovalMode}
+      initialTab={tabParam}
       userName={user.name}
       userEmail={user.email}
       emailVerified={Boolean(user.emailVerified)}

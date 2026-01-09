@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import { getTeacherIdentityBySlug } from "@/lib/teacher-db";
+import { notifyUser } from "@/lib/user-notify";
 
 export const runtime = "nodejs";
 
@@ -96,6 +97,26 @@ export async function POST(req: Request) {
       status: "pending",
     },
   });
+
+  const student = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, fullName: true, name: true },
+  });
+  const studentName = student?.fullName || student?.name || student?.email || "Öğrenci";
+  const baseUrl =
+    process.env.NEXTAUTH_URL ||
+    process.env.AUTH_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000";
+  const teacherPanelLink = `${baseUrl.replace(/\/$/, "")}/teacher-panel/messages`;
+  const emailText = `Studyom'da yeni mesaj isteğin var.
+
+Öğrenci: ${studentName}${student?.email ? ` (${student.email})` : ""}
+Mesaj: ${messageText}
+
+İsteği görüntülemek için: ${teacherPanelLink}
+`;
+  await notifyUser(identity.userEmail, "Studyom'da yeni mesaj isteği", emailText);
 
   return NextResponse.json({
     ok: true,
