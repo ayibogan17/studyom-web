@@ -243,60 +243,7 @@ export const authOptions: NextAuthOptions = {
           profileToken.profileComplete = isProfileComplete(dbUser);
         }
       }
-      const shouldRefreshTeacherStatus =
-        !profileToken.teacherStatusUpdatedAt ||
-        now - profileToken.teacherStatusUpdatedAt > teacherStatusTtlMs;
-      if (shouldRefreshTeacherStatus && profileToken.sub) {
-        try {
-          const latest = await prisma.teacherApplication.findFirst({
-            where: { userId: profileToken.sub },
-            orderBy: { createdAt: "desc" },
-            select: { status: true },
-          });
-          profileToken.teacherStatus = mapTeacherStatus(latest?.status);
-          profileToken.teacherStatusUpdatedAt = now;
-        } catch (err) {
-          console.error("teacher status lookup failed", err);
-        }
-      }
-      const shouldRefreshProducerStatus =
-        !profileToken.producerStatusUpdatedAt ||
-        now - profileToken.producerStatusUpdatedAt > producerStatusTtlMs;
-      if (shouldRefreshProducerStatus && profileToken.sub) {
-        try {
-          const rows = await prisma.$queryRaw<{ status: string }[]>`
-            SELECT status FROM "ProducerApplication"
-            WHERE "userId" = ${profileToken.sub}
-            ORDER BY "createdAt" DESC
-            LIMIT 1
-          `;
-          profileToken.producerStatus = mapProducerStatus(rows[0]?.status);
-          profileToken.producerStatusUpdatedAt = now;
-        } catch (err) {
-          console.error("producer status lookup failed", err);
-        }
-      }
-      const shouldRefreshStudioStatus =
-        !profileToken.studioStatusUpdatedAt ||
-        now - profileToken.studioStatusUpdatedAt > studioStatusTtlMs;
-      if (shouldRefreshStudioStatus && profileToken.email) {
-        try {
-          const ownerEmail = profileToken.email.toString().toLowerCase();
-          const ownerFilter = { ownerEmail: { equals: ownerEmail, mode: "insensitive" as const } };
-          const activeCount = await prisma.studio.count({
-            where: { ...ownerFilter, isActive: true },
-          });
-          if (activeCount > 0) {
-            profileToken.studioStatus = "approved";
-          } else {
-            const anyCount = await prisma.studio.count({ where: ownerFilter });
-            profileToken.studioStatus = anyCount > 0 ? "pending" : "none";
-          }
-          profileToken.studioStatusUpdatedAt = now;
-        } catch (err) {
-          console.error("studio status lookup failed", err);
-        }
-      }
+      // Status lookups are now lazy and handled in panel pages to reduce DB load.
       return profileToken;
     },
     async session({ session, token }) {
