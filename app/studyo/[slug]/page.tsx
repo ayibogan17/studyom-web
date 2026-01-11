@@ -33,6 +33,7 @@ const normalizeRoomType = (value: string) => {
 };
 
 const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
+const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60000);
 
 const parseJson = <T,>(value: unknown, fallback: T): T => {
   if (value && typeof value === "object") return value as T;
