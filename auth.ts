@@ -14,6 +14,10 @@ const googleSecret =
 
 type ProfileUser = User & {
   role?: string;
+  roles?: string[];
+  isTeacher?: boolean;
+  isProducer?: boolean;
+  isStudioOwner?: boolean;
   city?: string | null;
   intent?: string[];
   fullName?: string | null;
@@ -28,6 +32,10 @@ type ProfileUser = User & {
 
 type ProfileToken = JWT & {
   role?: string;
+  roles?: string[];
+  isTeacher?: boolean;
+  isProducer?: boolean;
+  isStudioOwner?: boolean;
   city?: string | null;
   intent?: string[];
   fullName?: string | null;
@@ -120,7 +128,7 @@ export const authOptions: NextAuthOptions = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { email },
-            select: { id: true, email: true, fullName: true, name: true, phone: true, role: true, city: true, intent: true, emailVerified: true, image: true, isDisabled: true, isSuspended: true, isBanned: true, passwordHash: true },
+            select: { id: true, email: true, fullName: true, name: true, phone: true, role: true, roles: true, isTeacher: true, isProducer: true, isStudioOwner: true, city: true, intent: true, emailVerified: true, image: true, isDisabled: true, isSuspended: true, isBanned: true, passwordHash: true },
           });
           if (dbUser?.passwordHash) {
             const ok = await bcrypt.compare(password, dbUser.passwordHash);
@@ -138,6 +146,10 @@ export const authOptions: NextAuthOptions = {
                 fullName: dbUser.fullName || dbUser.name || undefined,
                 phone: dbUser.phone ?? null,
                 role: dbUser.role ?? "USER",
+                roles: dbUser.roles ?? [],
+                isTeacher: dbUser.isTeacher ?? false,
+                isProducer: dbUser.isProducer ?? false,
+                isStudioOwner: dbUser.isStudioOwner ?? false,
                 city: dbUser.city,
                 intent: dbUser.intent ?? [],
                 emailVerified: dbUser.emailVerified,
@@ -196,6 +208,10 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         const profileUser = user as ProfileUser;
         profileToken.role = profileUser.role ?? profileToken.role ?? "USER";
+        profileToken.roles = profileUser.roles ?? profileToken.roles ?? [];
+        profileToken.isTeacher = profileUser.isTeacher ?? profileToken.isTeacher ?? false;
+        profileToken.isProducer = profileUser.isProducer ?? profileToken.isProducer ?? false;
+        profileToken.isStudioOwner = profileUser.isStudioOwner ?? profileToken.isStudioOwner ?? false;
         profileToken.name = profileUser.name ?? profileUser.fullName ?? profileToken.name;
         profileToken.sub = profileUser.id ?? profileToken.sub;
         profileToken.city = profileUser.city ?? profileToken.city ?? null;
@@ -217,6 +233,7 @@ export const authOptions: NextAuthOptions = {
         // lazily fetch profile fields if missing
         const dbUser = await prisma.user.findUnique({
           where: { email: profileToken.email as string },
+          select: { city: true, intent: true, fullName: true, name: true, phone: true, emailVerified: true, image: true, roles: true, isTeacher: true, isProducer: true, isStudioOwner: true },
         });
         if (dbUser) {
           profileToken.city = dbUser.city;
@@ -226,11 +243,16 @@ export const authOptions: NextAuthOptions = {
           profileToken.emailVerified = dbUser.emailVerified ?? null;
           profileToken.image = dbUser.image ?? profileToken.image ?? null;
           profileToken.name = dbUser.fullName || dbUser.name || profileToken.name;
+          profileToken.roles = dbUser.roles ?? profileToken.roles ?? [];
+          profileToken.isTeacher = dbUser.isTeacher ?? profileToken.isTeacher ?? false;
+          profileToken.isProducer = dbUser.isProducer ?? profileToken.isProducer ?? false;
+          profileToken.isStudioOwner = dbUser.isStudioOwner ?? profileToken.isStudioOwner ?? false;
           profileToken.profileComplete = isProfileComplete(dbUser);
         }
       } else if (!profileToken.profileComplete && profileToken.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: profileToken.email as string },
+          select: { city: true, intent: true, fullName: true, name: true, phone: true, emailVerified: true, image: true, roles: true, isTeacher: true, isProducer: true, isStudioOwner: true },
         });
         if (dbUser) {
           profileToken.city = dbUser.city;
@@ -240,6 +262,10 @@ export const authOptions: NextAuthOptions = {
           profileToken.emailVerified = dbUser.emailVerified ?? null;
           profileToken.image = dbUser.image ?? profileToken.image ?? null;
           profileToken.name = dbUser.fullName || dbUser.name || profileToken.name;
+          profileToken.roles = dbUser.roles ?? profileToken.roles ?? [];
+          profileToken.isTeacher = dbUser.isTeacher ?? profileToken.isTeacher ?? false;
+          profileToken.isProducer = dbUser.isProducer ?? profileToken.isProducer ?? false;
+          profileToken.isStudioOwner = dbUser.isStudioOwner ?? profileToken.isStudioOwner ?? false;
           profileToken.profileComplete = isProfileComplete(dbUser);
         }
       }
@@ -251,6 +277,10 @@ export const authOptions: NextAuthOptions = {
         const profileToken = token as ProfileToken;
         const profileUser = session.user as ProfileUser;
         profileUser.role = profileToken.role ?? "USER";
+        profileUser.roles = profileToken.roles ?? [];
+        profileUser.isTeacher = profileToken.isTeacher ?? false;
+        profileUser.isProducer = profileToken.isProducer ?? false;
+        profileUser.isStudioOwner = profileToken.isStudioOwner ?? false;
         profileUser.name = (profileToken.name as string | undefined) ?? profileUser.name;
         profileUser.id = profileToken.sub ?? profileUser.id;
         profileUser.city = profileToken.city ?? null;
