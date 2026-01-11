@@ -3,8 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { buildHappyHourTemplatesByRoom, type HappyHourSlot } from "@/lib/happy-hour";
-import { normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
+import { type HappyHourSlot } from "@/lib/happy-hour";
 
 const slotSchema = z.object({
   roomId: z.string().min(1),
@@ -58,13 +57,9 @@ export async function GET(req: Request) {
 
   const settings = await prisma.studioCalendarSettings.findUnique({
     where: { studioId: studio.id },
-    select: { dayCutoffHour: true, weeklyHours: true },
+    select: { dayCutoffHour: true },
   });
   const dayCutoffHour = settings?.dayCutoffHour ?? 4;
-  const openingHours = normalizeOpeningHours(
-    (settings?.weeklyHours as OpeningHours[] | null | undefined) ??
-      (studio.openingHours as OpeningHours[] | null | undefined),
-  );
 
   const slots = await prisma.studioHappyHourSlot.findMany({
     where: {
@@ -73,15 +68,25 @@ export async function GET(req: Request) {
     },
     orderBy: { startAt: "asc" },
   });
-  const templatesByRoom = buildHappyHourTemplatesByRoom(
-    slots.map((slot) => ({
-      roomId: slot.roomId,
-      startAt: slot.startAt,
-      endAt: slot.endAt,
-    })) as HappyHourSlot[],
-    openingHours,
-    dayCutoffHour,
-  );
+  const templatesByRoom = new Map<string, Array<{ weekday: number; startMinutes: number; endMinutes: number }>>();
+  (slots as HappyHourSlot[]).forEach((slot) => {
+    const businessStart = getBusinessDayStart(slot.startAt, dayCutoffHour);
+    const weekday = weekdayIndex(businessStart);
+    const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
+    let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
+    if (endMinutes <= startMinutes) {
+      endMinutes += 24 * 60;
+    }
+    const list = templatesByRoom.get(slot.roomId) ?? [];
+    const existing = list.find((tpl) => tpl.weekday === weekday && tpl.startMinutes === startMinutes);
+    if (!existing || endMinutes > existing.endMinutes) {
+      const next = list.filter((tpl) => !(tpl.weekday === weekday && tpl.startMinutes === startMinutes));
+      next.push({ weekday, startMinutes, endMinutes });
+      templatesByRoom.set(slot.roomId, next);
+    } else {
+      templatesByRoom.set(slot.roomId, list);
+    }
+  });
   const templates = templatesByRoom.get(roomId) ?? [];
 
   const expanded: { startAt: string; endAt: string; roomId: string }[] = [];
