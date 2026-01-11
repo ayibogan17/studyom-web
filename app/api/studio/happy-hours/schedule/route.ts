@@ -19,13 +19,48 @@ const schema = z.object({
   days: z.array(daySchema).length(7),
 });
 
-const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60000);
-
 const parseTimeMinutes = (value: string) => {
   const [hours, minutes] = value.split(":").map((part) => Number(part));
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
   return hours * 60 + minutes;
+};
+
+const getZonedParts = (date: Date, timeZone: string) => {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const map = new Map(parts.map((part) => [part.type, part.value]));
+  return {
+    year: Number(map.get("year") ?? "0"),
+    month: Number(map.get("month") ?? "1"),
+    day: Number(map.get("day") ?? "1"),
+    hour: Number(map.get("hour") ?? "0"),
+    minute: Number(map.get("minute") ?? "0"),
+    second: Number(map.get("second") ?? "0"),
+  };
+};
+
+const getTimeZoneOffsetMs = (date: Date, timeZone: string) => {
+  const parts = getZonedParts(date, timeZone);
+  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  return asUtc - date.getTime();
+};
+
+const makeZonedDate = (year: number, month: number, day: number, minutes: number, timeZone: string) => {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  const utcDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+  const offset = getTimeZoneOffsetMs(utcDate, timeZone);
+  return new Date(utcDate.getTime() - offset);
 };
 
 export async function GET(req: Request) {
@@ -51,7 +86,7 @@ export async function GET(req: Request) {
 
   const settings = await prisma.studioCalendarSettings.findUnique({
     where: { studioId: studio.id },
-    select: { dayCutoffHour: true, weeklyHours: true },
+    select: { dayCutoffHour: true, weeklyHours: true, timezone: true },
   });
   const dayCutoffHour = settings?.dayCutoffHour ?? 4;
 
@@ -98,19 +133,22 @@ export async function POST(req: Request) {
 
   const settings = await prisma.studioCalendarSettings.findUnique({
     where: { studioId: studio.id },
-    select: { dayCutoffHour: true, weeklyHours: true },
+    select: { dayCutoffHour: true, weeklyHours: true, timezone: true },
   });
   const dayCutoffHour = settings?.dayCutoffHour ?? 4;
+  const timeZone = settings?.timezone ?? "Europe/Istanbul";
   const weeklyHours =
     (settings?.weeklyHours as { openTime: string }[] | null | undefined) ??
     (studio.openingHours as { openTime: string }[] | null | undefined) ??
     [];
 
   const today = new Date();
-  const currentWeekday = (today.getDay() + 6) % 7;
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - currentWeekday);
-  weekStart.setHours(0, 0, 0, 0);
+  const todayParts = getZonedParts(today, timeZone);
+  const todayUtcDate = new Date(Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day));
+  const currentWeekday = (todayUtcDate.getUTCDay() + 6) % 7;
+  const weekStartUtc = new Date(
+    Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day - currentWeekday),
+  );
 
   const entries = parsed.data.days
     .filter((day) => day.enabled)
@@ -118,12 +156,15 @@ export async function POST(req: Request) {
       const openTime = weeklyHours[day.weekday]?.openTime ?? "09:00";
       const openMinutes = parseTimeMinutes(openTime) ?? 0;
       const endMinutes = parseTimeMinutes(day.endTime) ?? 0;
-      const baseDay = new Date(weekStart);
-      baseDay.setDate(weekStart.getDate() + day.weekday);
-      const startAt = addMinutes(baseDay, openMinutes);
-      let endAt = addMinutes(baseDay, endMinutes);
+      const baseDayUtc = new Date(weekStartUtc);
+      baseDayUtc.setUTCDate(weekStartUtc.getUTCDate() + day.weekday);
+      const baseYear = baseDayUtc.getUTCFullYear();
+      const baseMonth = baseDayUtc.getUTCMonth() + 1;
+      const baseDay = baseDayUtc.getUTCDate();
+      const startAt = makeZonedDate(baseYear, baseMonth, baseDay, openMinutes, timeZone);
+      let endAt = makeZonedDate(baseYear, baseMonth, baseDay, endMinutes, timeZone);
       if (endMinutes <= openMinutes) {
-        endAt = addMinutes(baseDay, endMinutes + 24 * 60);
+        endAt = makeZonedDate(baseYear, baseMonth, baseDay, endMinutes + 24 * 60, timeZone);
       }
       return {
         studioId: studio.id,
