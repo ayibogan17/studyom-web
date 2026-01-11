@@ -134,8 +134,8 @@ export async function GET(req: Request) {
         businessStart.getUTCDate(),
       )),
     );
-    const openMinutes = parseTimeMinutes(openingHours[weekday]?.openTime ?? "");
-    if (openMinutes === null) return;
+    const openMinutesRaw = parseTimeMinutes(openingHours[weekday]?.openTime ?? "");
+    const openMinutes = openMinutesRaw ?? 0;
     const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
     if (startMinutes !== openMinutes) return;
     let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
@@ -148,13 +148,13 @@ export async function GET(req: Request) {
 
   const days = Array.from({ length: 7 }, (_, idx) => {
     const info = openingHours[idx];
-    const openMinutes = parseTimeMinutes(info?.openTime ?? "");
+    const openMinutesRaw = parseTimeMinutes(info?.openTime ?? "");
     const fallback = info?.closeTime ?? "22:00";
     const endMinutes = byWeekday.get(idx);
     return {
       weekday: idx,
-      enabled: openMinutes !== null && endMinutes !== undefined,
-      endTime: openMinutes !== null && endMinutes !== undefined ? minutesToTime(endMinutes) : fallback,
+      enabled: endMinutes !== undefined,
+      endTime: endMinutes !== undefined ? minutesToTime(endMinutes) : fallback,
     };
   });
 
