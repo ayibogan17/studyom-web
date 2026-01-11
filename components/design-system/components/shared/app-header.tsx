@@ -51,14 +51,30 @@ export function AppHeader() {
     fullName?: string | null;
     emailVerified?: Date | string | null;
     image?: string | null;
+    roles?: string[];
+    role?: string | null;
+    isTeacher?: boolean;
+    isProducer?: boolean;
+    isStudioOwner?: boolean;
     teacherStatus?: "approved" | "pending" | "none";
     producerStatus?: "approved" | "pending" | "none";
     studioStatus?: "approved" | "pending" | "none";
   };
   const profile = session?.user as HeaderUser | undefined;
-  const showTeacherPanel = profile?.teacherStatus === "approved";
-  const showProducerPanel = profile?.producerStatus === "approved";
-  const showStudioPanel = profile?.studioStatus !== "none";
+  const roleFlags = profile?.roles ?? [];
+  const showTeacherPanel =
+    profile?.teacherStatus === "approved" ||
+    profile?.isTeacher === true ||
+    roleFlags.includes("teacher");
+  const showProducerPanel =
+    profile?.producerStatus === "approved" ||
+    profile?.isProducer === true ||
+    roleFlags.includes("producer");
+  const showStudioPanel =
+    profile?.studioStatus !== "none" ||
+    profile?.isStudioOwner === true ||
+    profile?.role === "STUDIO" ||
+    roleFlags.includes("studio_owner");
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

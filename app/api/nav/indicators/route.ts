@@ -28,26 +28,9 @@ export async function GET() {
   const userEmail = dbUser?.email ?? sessionUser.email ?? null;
   const userId = dbUser?.id ?? sessionUser.id ?? null;
 
-  const notificationCount = userEmail
-    ? await prisma.notification.count({
-        where: {
-          studio: { ownerEmail: userEmail },
-          isRead: false,
-          OR: [
-            { message: { contains: "rezervasyon", mode: "insensitive" } },
-            { message: { contains: "talep", mode: "insensitive" } },
-          ],
-        },
-      })
-    : 0;
-  const leadCount = userEmail
-    ? await prisma.lead.count({
-        where: { email: userEmail, isRead: false, status: "new" },
-      })
-    : 0;
-  const teacherLeadCount = userEmail
-    ? await prisma.teacherLead.count({
-        where: { studentEmail: userEmail, isRead: false, status: "new" },
+  const teacherStudioLinkCount = userEmail
+    ? await prisma.teacherStudioLink.count({
+        where: { studio: { ownerEmail: userEmail }, status: "pending", isRead: false },
       })
     : 0;
   const producerStudioLinkCount = userEmail
@@ -129,17 +112,6 @@ export async function GET() {
         },
       })
     : 0;
-  const reservationUserUnreadCount = userId || userEmail
-    ? await prisma.studioReservationRequest.count({
-        where: {
-          userUnread: true,
-          OR: [
-            userId ? { studentUserId: userId } : undefined,
-            userEmail ? { requesterEmail: userEmail } : undefined,
-          ].filter(Boolean) as { studentUserId?: string; requesterEmail?: string }[],
-        },
-      })
-    : 0;
   const reservationStudioPendingCount = userEmail
     ? await prisma.studioReservationRequest.count({
         where: {
@@ -150,8 +122,7 @@ export async function GET() {
     : 0;
 
   return NextResponse.json({
-    notificationsUnread:
-      notificationCount + leadCount + teacherLeadCount + producerStudioLinkCount + reservationUserUnreadCount > 0,
+    notificationsUnread: teacherStudioLinkCount + producerStudioLinkCount > 0,
     messagesUnread:
       studentTeacherMessagesCount +
         studentTeacherRequestCount +

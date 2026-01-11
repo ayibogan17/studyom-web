@@ -1,75 +1,74 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  phone     String?
-  fullName  String?
-  name      String?
-  city      String?
-  intent    String[]
-  roles     String[] @default([])
-  isTeacher     Boolean   @default(false)
-  isProducer    Boolean   @default(false)
-  isStudioOwner Boolean   @default(false)
-  isDisabled    Boolean   @default(false)
-  isSuspended   Boolean   @default(false)
-  isBanned      Boolean   @default(false)
-  banReason     String?
-  adminNote     String?
-  emailVerified DateTime?
-  passwordHash  String?
-  image     String?
-  role      UserRole @default(USER)
-  studios   Studio[]
-  studioCalendarBlocksCreated StudioCalendarBlock[] @relation("StudioCalendarBlockCreator")
-  happyHourSlotsCreated      StudioHappyHourSlot[] @relation("StudioHappyHourCreator")
-  producerMessagesSent     ProducerMessageRequest[] @relation("ProducerMessageFrom")
-  producerMessagesReceived ProducerMessageRequest[] @relation("ProducerMessageTo")
-  producerThreadsAsProducer ProducerThread[] @relation("ProducerThreadProducer")
-  producerThreadsAsStudent  ProducerThread[] @relation("ProducerThreadStudent")
-  producerStudioLinks      ProducerStudioLink[]
-  teacherThreadsAsTeacher  TeacherThread[] @relation("TeacherThreadTeacher")
-  teacherThreadsAsStudent  TeacherThread[] @relation("TeacherThreadStudent")
-  teacherMessageRequestsSent     TeacherMessageRequest[] @relation("TeacherMessageRequestStudent")
-  teacherMessageRequestsReceived TeacherMessageRequest[] @relation("TeacherMessageRequestTeacher")
-  teacherStudioLinks       TeacherStudioLink[]
-  studioThreadsAsStudent StudioThread[] @relation("StudioThreadStudent")
-  studioContactEvents StudioContactEvent[]
-  contactEvents ContactEvent[]
-  studioReservationRequests StudioReservationRequest[]
-  accounts  Account[]
-  sessions  Session[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                             String                     @id @default(cuid())
+  email                          String                     @unique
+  name                           String?
+  role                           UserRole                   @default(USER)
+  createdAt                      DateTime                   @default(now())
+  updatedAt                      DateTime                   @updatedAt
+  emailVerified                  DateTime?
+  image                          String?
+  passwordHash                   String?
+  city                           String?
+  fullName                       String?
+  intent                         String[]
+  isProducer                     Boolean                    @default(false)
+  isStudioOwner                  Boolean                    @default(false)
+  isTeacher                      Boolean                    @default(false)
+  isDisabled                     Boolean                    @default(false)
+  phone                          String?
+  roles                          String[]                   @default([])
+  isSuspended                    Boolean                    @default(false)
+  isBanned                       Boolean                    @default(false)
+  banReason                      String?
+  adminNote                      String?
+  accounts                       Account[]
+  contactEvents                  ContactEvent[]
+  producerMessagesSent           ProducerMessageRequest[]   @relation("ProducerMessageFrom")
+  producerMessagesReceived       ProducerMessageRequest[]   @relation("ProducerMessageTo")
+  producerStudioLinks            ProducerStudioLink[]
+  producerThreadsAsProducer      ProducerThread[]           @relation("ProducerThreadProducer")
+  producerThreadsAsStudent       ProducerThread[]           @relation("ProducerThreadStudent")
+  sessions                       Session[]
+  studios                        Studio[]
+  studioCalendarBlocksCreated    StudioCalendarBlock[]      @relation("StudioCalendarBlockCreator")
+  studioContactEvents            StudioContactEvent[]
+  happyHourSlotsCreated          StudioHappyHourSlot[]      @relation("StudioHappyHourCreator")
+  studioReservationRequests      StudioReservationRequest[]
+  studioThreadsAsStudent         StudioThread[]             @relation("StudioThreadStudent")
+  teacherMessageRequestsSent     TeacherMessageRequest[]    @relation("TeacherMessageRequestStudent")
+  teacherMessageRequestsReceived TeacherMessageRequest[]    @relation("TeacherMessageRequestTeacher")
+  teacherStudioLinks             TeacherStudioLink[]
+  teacherThreadsAsStudent        TeacherThread[]            @relation("TeacherThreadStudent")
+  teacherThreadsAsTeacher        TeacherThread[]            @relation("TeacherThreadTeacher")
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
   oauth_token_secret String?
-  oauth_token       String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oauth_token        String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -100,120 +99,120 @@ model PasswordResetToken {
 }
 
 model Studio {
-  id            String         @id @default(cuid())
-  name          String
-  slug          String?        @unique
-  city          String?
-  district      String?
-  address       String?
-  coverImageUrl String?
-  ownerEmail    String
-  phone         String?
-  openingHours  Json?
-  isActive      Boolean        @default(true)
-  applicationStatus    String   @default("pending")
-  applicationAdminNote String?
-  applicationAdminTags String[] @default([])
-  applicationRejectReason String?
+  id                              String                     @id @default(cuid())
+  name                            String
+  city                            String?
+  district                        String?
+  address                         String?
+  ownerEmail                      String
+  phone                           String?
+  createdAt                       DateTime                   @default(now())
+  updatedAt                       DateTime                   @updatedAt
+  openingHours                    Json?
+  isActive                        Boolean                    @default(true)
+  coverImageUrl                   String?
+  slug                            String?                    @unique
+  applicationStatus               String                     @default("pending")
+  applicationAdminNote            String?
+  applicationAdminTags            String[]                   @default([])
+  applicationRejectReason         String?
   applicationChangesRequestedNote String?
-  visibilityStatus     String   @default("published")
-  moderationNote       String?
-  complaintsCount      Int      @default(0)
-  flagsCount           Int      @default(0)
-  owner         User?          @relation(fields: [ownerEmail], references: [email])
-  rooms         Room[]
-  notifications Notification[]
-  calendarSettings StudioCalendarSettings?
-  calendarBlocks   StudioCalendarBlock[]
-  happyHourSlots   StudioHappyHourSlot[]
-  teacherStudioLinks TeacherStudioLink[]
-  producerStudioLinks ProducerStudioLink[]
-  ratings       Rating[]
-  studioThreads StudioThread[]
-  contactEvents StudioContactEvent[]
-  reservationRequests StudioReservationRequest[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  visibilityStatus                String                     @default("published")
+  moderationNote                  String?
+  complaintsCount                 Int                        @default(0)
+  flagsCount                      Int                        @default(0)
+  notifications                   Notification[]
+  producerStudioLinks             ProducerStudioLink[]
+  ratings                         Rating[]
+  rooms                           Room[]
+  owner                           User                       @relation(fields: [ownerEmail], references: [email])
+  calendarBlocks                  StudioCalendarBlock[]
+  calendarSettings                StudioCalendarSettings?
+  contactEvents                   StudioContactEvent[]
+  happyHourSlots                  StudioHappyHourSlot[]
+  reservationRequests             StudioReservationRequest[]
+  studioThreads                   StudioThread[]
+  teacherStudioLinks              TeacherStudioLink[]
 }
 
 model Room {
-  id           String        @id @default(cuid())
-  name         String
-  type         String
-  color        String?
-  order        Int           @default(0)
-  pricingModel PricingModel  @default(FLAT)
-  flatRate     String?
-  minRate      String?
-  dailyRate    String?
-  hourlyRate   String?
-  happyHourRate String?
-  equipmentJson Json?
-  featuresJson  Json?
-  extrasJson    Json?
-  imagesJson    Json?
-  studioId     String
-  studio       Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  slots        Slot[]
-  calendarBlocks StudioCalendarBlock[]
-  happyHourSlots StudioHappyHourSlot[]
+  id                  String                     @id @default(cuid())
+  name                String
+  type                String
+  color               String?
+  pricingModel        PricingModel               @default(FLAT)
+  flatRate            String?
+  minRate             String?
+  dailyRate           String?
+  hourlyRate          String?
+  studioId            String
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  equipmentJson       Json?
+  extrasJson          Json?
+  featuresJson        Json?
+  imagesJson          Json?
+  order               Int                        @default(0)
+  happyHourRate       String?
+  studio              Studio                     @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  slots               Slot[]
+  calendarBlocks      StudioCalendarBlock[]
+  happyHourSlots      StudioHappyHourSlot[]
   reservationRequests StudioReservationRequest[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
 }
 
 model Slot {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   date         DateTime
   timeLabel    String
-  status       SlotStatus  @default(EMPTY)
+  status       SlotStatus @default(EMPTY)
   customerName String?
   roomId       String
-  room         Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  room         Room       @relation(fields: [roomId], references: [id], onDelete: Cascade)
 }
 
 model StudioCalendarSettings {
-  id              String   @id @default(cuid())
-  studioId        String   @unique
-  timezone        String   @default("Europe/Istanbul")
-  slotStepMinutes Int      @default(60)
-  dayCutoffHour   Int      @default(4)
-  happyHourEnabled Boolean @default(false)
-  bookingApprovalMode String @default("manual")
+  id                  String   @id @default(cuid())
+  studioId            String   @unique
+  timezone            String   @default("Europe/Istanbul")
+  slotStepMinutes     Int      @default(60)
+  dayCutoffHour       Int      @default(4)
+  weeklyHours         Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  happyHourEnabled    Boolean  @default(false)
+  bookingApprovalMode String   @default("manual")
   bookingCutoffUnit   String?
   bookingCutoffValue  Int?
-  weeklyHours     Json?
-  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  studio              Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
 }
 
 model StudioCalendarBlock {
-  id              String   @id @default(cuid())
-  studioId        String
-  roomId          String
-  startAt         DateTime
-  endAt           DateTime
-  type            String
-  title           String?
-  status          String?
-  note            String?
-  createdByUserId String?
-  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  createdByUser   User?    @relation("StudioCalendarBlockCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  id                 String                    @id @default(cuid())
+  studioId           String
+  roomId             String
+  startAt            DateTime
+  endAt              DateTime
+  type               String
+  status             String?
+  note               String?
+  createdByUserId    String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  title              String?
+  createdByUser      User?                     @relation("StudioCalendarBlockCreator", fields: [createdByUserId], references: [id])
+  room               Room                      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  studio             Studio                    @relation(fields: [studioId], references: [id], onDelete: Cascade)
   reservationRequest StudioReservationRequest? @relation("ReservationRequestBlock")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
   @@index([studioId, roomId, startAt])
   @@index([roomId, startAt])
 }
 
 model StudioReservationRequest {
-  id              String   @id @default(cuid())
+  id              String               @id @default(cuid())
   studioId        String
   roomId          String
   studentUserId   String?
@@ -225,17 +224,17 @@ model StudioReservationRequest {
   endAt           DateTime
   hours           Int
   totalPrice      Float?
-  currency        String?  @default("TRY")
-  status          String   @default("pending")
-  userUnread      Boolean  @default(true)
-  studioUnread    Boolean  @default(true)
-  calendarBlockId String?  @unique
-  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  studentUser     User?    @relation(fields: [studentUserId], references: [id], onDelete: SetNull)
-  calendarBlock   StudioCalendarBlock? @relation("ReservationRequestBlock", fields: [calendarBlockId], references: [id], onDelete: SetNull)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  currency        String?              @default("TRY")
+  status          String               @default("pending")
+  userUnread      Boolean              @default(true)
+  studioUnread    Boolean              @default(true)
+  calendarBlockId String?              @unique
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  calendarBlock   StudioCalendarBlock? @relation("ReservationRequestBlock", fields: [calendarBlockId], references: [id])
+  room            Room                 @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  studentUser     User?                @relation(fields: [studentUserId], references: [id])
+  studio          Studio               @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@index([studioId, createdAt])
   @@index([roomId, startAt])
@@ -249,11 +248,11 @@ model StudioHappyHourSlot {
   startAt         DateTime
   endAt           DateTime
   createdByUserId String?
-  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  createdByUser   User?    @relation("StudioHappyHourCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  createdByUser   User?    @relation("StudioHappyHourCreator", fields: [createdByUserId], references: [id])
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  studio          Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@unique([roomId, startAt, endAt])
   @@index([studioId, roomId, startAt])
@@ -264,9 +263,9 @@ model Notification {
   id        String   @id @default(cuid())
   message   String
   studioId  String
-  studio    Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  isRead    Boolean  @default(false)
+  studio    Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
 }
 
 model Rating {
@@ -274,44 +273,44 @@ model Rating {
   value     Float
   comment   String?
   studioId  String
-  studio    Studio  @relation(fields: [studioId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  studio    Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
 }
 
 model TeacherApplication {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  data      Json
-  status    String
-  adminNote String?
-  adminTags String[] @default([])
-  rejectReason String?
+  id                   Int      @id @default(autoincrement())
+  userId               String
+  data                 Json
+  status               String
+  createdAt            DateTime @default(now())
+  adminNote            String?
+  adminTags            String[] @default([])
+  rejectReason         String?
   changesRequestedNote String?
-  visibilityStatus String @default("published")
-  moderationNote   String?
-  complaintsCount  Int @default(0)
-  flagsCount       Int @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  visibilityStatus     String   @default("published")
+  moderationNote       String?
+  complaintsCount      Int      @default(0)
+  flagsCount           Int      @default(0)
+  updatedAt            DateTime @updatedAt
 
   @@map("TeacherApplication")
 }
 
 model ProducerApplication {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  data      Json
-  status    String
-  adminNote String?
-  adminTags String[] @default([])
-  rejectReason String?
+  id                   Int      @id @default(autoincrement())
+  userId               String
+  data                 Json
+  status               String
+  createdAt            DateTime @default(now())
+  adminNote            String?
+  adminTags            String[] @default([])
+  rejectReason         String?
   changesRequestedNote String?
-  visibilityStatus String @default("published")
-  moderationNote   String?
-  complaintsCount  Int @default(0)
-  flagsCount       Int @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  visibilityStatus     String   @default("published")
+  moderationNote       String?
+  complaintsCount      Int      @default(0)
+  flagsCount           Int      @default(0)
+  updatedAt            DateTime @updatedAt
 
   @@map("ProducerApplication")
 }
@@ -324,30 +323,28 @@ model ProducerMessageRequest {
   status         String   @default("pending")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  fromUser     User @relation("ProducerMessageFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
-  producerUser User @relation("ProducerMessageTo", fields: [producerUserId], references: [id], onDelete: Cascade)
+  fromUser       User     @relation("ProducerMessageFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  producerUser   User     @relation("ProducerMessageTo", fields: [producerUserId], references: [id], onDelete: Cascade)
 
   @@index([producerUserId, status])
   @@index([fromUserId, producerUserId, status])
 }
 
 model ProducerThread {
-  id             String   @id @default(cuid())
-  producerSlug   String
-  producerUserId String
-  studentUserId  String
-  locked         Boolean  @default(false)
-  complaintsCount Int     @default(0)
-  internalNote   String?
-  investigationEnabled Boolean @default(false)
-  resolved       Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  messages       ProducerMessage[]
-
-  producerUser User @relation("ProducerThreadProducer", fields: [producerUserId], references: [id], onDelete: Cascade)
-  studentUser  User @relation("ProducerThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  id                   String            @id @default(cuid())
+  producerSlug         String
+  producerUserId       String
+  studentUserId        String
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  locked               Boolean           @default(false)
+  complaintsCount      Int               @default(0)
+  internalNote         String?
+  investigationEnabled Boolean           @default(false)
+  resolved             Boolean           @default(false)
+  messages             ProducerMessage[]
+  producerUser         User              @relation("ProducerThreadProducer", fields: [producerUserId], references: [id], onDelete: Cascade)
+  studentUser          User              @relation("ProducerThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
 
   @@unique([producerSlug, studentUserId])
   @@index([producerUserId, updatedAt])
@@ -355,34 +352,33 @@ model ProducerThread {
 }
 
 model ProducerMessage {
-  id           String   @id @default(cuid())
+  id           String         @id @default(cuid())
   threadId     String
   senderRole   String
   senderUserId String?
   body         String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime       @default(now())
   readAt       DateTime?
-
-  thread ProducerThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread       ProducerThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId, createdAt])
   @@index([threadId, readAt])
 }
 
 model StudioThread {
-  id            String   @id @default(cuid())
-  studioId      String
-  studentUserId String
-  locked         Boolean  @default(false)
-  complaintsCount Int     @default(0)
-  internalNote   String?
-  investigationEnabled Boolean @default(false)
-  resolved       Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  messages      StudioMessage[]
-  studio        Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  studentUser   User     @relation("StudioThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  id                   String          @id @default(cuid())
+  studioId             String
+  studentUserId        String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  locked               Boolean         @default(false)
+  complaintsCount      Int             @default(0)
+  internalNote         String?
+  investigationEnabled Boolean         @default(false)
+  resolved             Boolean         @default(false)
+  messages             StudioMessage[]
+  studentUser          User            @relation("StudioThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  studio               Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@unique([studioId, studentUserId])
   @@index([studioId, updatedAt])
@@ -390,49 +386,48 @@ model StudioThread {
 }
 
 model StudioMessage {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   threadId     String
   senderRole   String
   senderUserId String?
   body         String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime     @default(now())
   readAt       DateTime?
-
-  thread StudioThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread       StudioThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId, createdAt])
   @@index([threadId, readAt])
 }
 
 model TeacherLead {
-  id                    String   @id @default(cuid())
-  teacherSlug           String
-  teacherName           String?
-  studentName           String
-  studentEmail          String
-  city                  String
-  preferredLessonType   String?
-  message               String
-  status                String   @default("new")
-  isRead                Boolean  @default(false)
-  createdAt             DateTime @default(now())
+  id                  String   @id @default(cuid())
+  teacherSlug         String
+  teacherName         String?
+  studentName         String
+  studentEmail        String
+  city                String
+  preferredLessonType String?
+  message             String
+  status              String   @default("new")
+  createdAt           DateTime @default(now())
+  isRead              Boolean  @default(false)
 }
 
 model TeacherThread {
-  id            String   @id @default(cuid())
-  teacherSlug   String
-  teacherUserId String
-  studentUserId String
-  locked         Boolean  @default(false)
-  complaintsCount Int     @default(0)
-  internalNote   String?
-  investigationEnabled Boolean @default(false)
-  resolved       Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  messages      TeacherMessage[]
-  teacherUser   User     @relation("TeacherThreadTeacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
-  studentUser   User     @relation("TeacherThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  id                   String           @id @default(cuid())
+  teacherSlug          String
+  teacherUserId        String
+  studentUserId        String
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  locked               Boolean          @default(false)
+  complaintsCount      Int              @default(0)
+  internalNote         String?
+  investigationEnabled Boolean          @default(false)
+  resolved             Boolean          @default(false)
+  messages             TeacherMessage[]
+  studentUser          User             @relation("TeacherThreadStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  teacherUser          User             @relation("TeacherThreadTeacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
 
   @@unique([teacherSlug, studentUserId])
   @@index([teacherUserId, updatedAt])
@@ -440,15 +435,14 @@ model TeacherThread {
 }
 
 model TeacherMessage {
-  id           String   @id @default(cuid())
+  id           String        @id @default(cuid())
   threadId     String
   senderRole   String
   senderUserId String?
   body         String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime      @default(now())
   readAt       DateTime?
-
-  thread TeacherThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  thread       TeacherThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId, createdAt])
   @@index([threadId, readAt])
@@ -463,9 +457,8 @@ model TeacherMessageRequest {
   status        String   @default("pending")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  studentUser User @relation("TeacherMessageRequestStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
-  teacherUser User @relation("TeacherMessageRequestTeacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
+  studentUser   User     @relation("TeacherMessageRequestStudent", fields: [studentUserId], references: [id], onDelete: Cascade)
+  teacherUser   User     @relation("TeacherMessageRequestTeacher", fields: [teacherUserId], references: [id], onDelete: Cascade)
 
   @@index([teacherUserId, status])
   @@index([studentUserId, teacherUserId, status])
@@ -476,12 +469,11 @@ model TeacherStudioLink {
   teacherUserId String
   studioId      String
   status        String   @default("pending")
-  isRead        Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
-  teacherUser User   @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
-  studio      Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  isRead        Boolean  @default(false)
+  studio        Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  teacherUser   User     @relation(fields: [teacherUserId], references: [id], onDelete: Cascade)
 
   @@unique([teacherUserId, studioId])
   @@index([studioId, status])
@@ -493,12 +485,11 @@ model ProducerStudioLink {
   producerUserId String
   studioId       String
   status         String   @default("pending")
-  isRead         Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  producerUser User   @relation(fields: [producerUserId], references: [id], onDelete: Cascade)
-  studio       Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  isRead         Boolean  @default(false)
+  producerUser   User     @relation(fields: [producerUserId], references: [id], onDelete: Cascade)
+  studio         Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
 
   @@unique([producerUserId, studioId])
   @@index([studioId, status])
@@ -510,23 +501,22 @@ model Lead {
   name      String?
   email     String
   note      String?
-  source    String?  // e.g., "contact", "teacher"
+  source    String?
   status    String   @default("new")
-  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  isRead    Boolean  @default(false)
 }
 
 model StudioContactEvent {
-  id        String   @id @default(cuid())
-  studioId  String
-  userId    String?
-  roomId    String?
+  id          String   @id @default(cuid())
+  studioId    String
+  userId      String?
+  roomId      String?
+  channel     String
+  createdAt   DateTime @default(now())
   anonymousId String?
-  channel   String
-  createdAt DateTime @default(now())
-
-  studio Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  user   User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  studio      Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@index([studioId, createdAt])
   @@index([userId, createdAt])
@@ -540,8 +530,8 @@ model AdminAuditLog {
   action     String
   before     Json?
   after      Json?
-  metadata   Json?
   createdAt  DateTime @default(now())
+  metadata   Json?
 }
 
 model ContactEvent {
@@ -553,11 +543,12 @@ model ContactEvent {
   anonymousId String?
   channel     String
   createdAt   DateTime @default(now())
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@index([entityType, entityId, createdAt])
   @@index([userId, createdAt])
+  @@index([entityType, entityId, createdAt], map: "ContactEvent_entity_idx")
+  @@index([userId, createdAt], map: "ContactEvent_user_idx")
 }
 
 model ContentBlock {
