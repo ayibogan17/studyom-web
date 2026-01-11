@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { buildHappyHourDays, type HappyHourSlot } from "@/lib/happy-hour";
+import { type HappyHourSlot } from "@/lib/happy-hour";
 import { normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
 
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -55,6 +55,30 @@ const getTimeZoneOffsetMs = (date: Date, timeZone: string) => {
   return asUtc - date.getTime();
 };
 
+const minutesToTime = (minutes: number) => {
+  const safe = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hours = Math.floor(safe / 60);
+  const mins = safe % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+};
+
+const getBusinessDayStartZoned = (date: Date, cutoffHour: number, timeZone: string) => {
+  const parts = getZonedParts(date, timeZone);
+  const hour = parts.hour + parts.minute / 60;
+  let baseYear = parts.year;
+  let baseMonth = parts.month;
+  let baseDay = parts.day;
+  if (hour < cutoffHour) {
+    const prev = new Date(Date.UTC(parts.year, parts.month - 1, parts.day - 1));
+    baseYear = prev.getUTCFullYear();
+    baseMonth = prev.getUTCMonth() + 1;
+    baseDay = prev.getUTCDate();
+  }
+  return makeZonedDate(baseYear, baseMonth, baseDay, 0, timeZone);
+};
+
+const weekdayIndexFromUtcDate = (date: Date) => (date.getUTCDay() + 6) % 7;
+
 const makeZonedDate = (year: number, month: number, day: number, minutes: number, timeZone: string) => {
   const hour = Math.floor(minutes / 60);
   const minute = minutes % 60;
@@ -89,6 +113,7 @@ export async function GET(req: Request) {
     select: { dayCutoffHour: true, weeklyHours: true, timezone: true },
   });
   const dayCutoffHour = settings?.dayCutoffHour ?? 4;
+  const timeZone = settings?.timezone ?? "Europe/Istanbul";
 
   const slots = await prisma.studioHappyHourSlot.findMany({
     where: { studioId: studio.id, roomId },
@@ -98,11 +123,40 @@ export async function GET(req: Request) {
     (settings?.weeklyHours as OpeningHours[] | null | undefined) ??
       (studio.openingHours as OpeningHours[] | null | undefined),
   );
-  const days = buildHappyHourDays(
-    slots.map((slot) => ({ roomId, startAt: slot.startAt, endAt: slot.endAt })) as HappyHourSlot[],
-    openingHours,
-    dayCutoffHour,
-  );
+  const byWeekday = new Map<number, number>();
+  const slotList = slots.map((slot) => ({ roomId, startAt: slot.startAt, endAt: slot.endAt })) as HappyHourSlot[];
+  slotList.forEach((slot) => {
+    const businessStart = getBusinessDayStartZoned(slot.startAt, dayCutoffHour, timeZone);
+    const weekday = weekdayIndexFromUtcDate(
+      new Date(Date.UTC(
+        businessStart.getUTCFullYear(),
+        businessStart.getUTCMonth(),
+        businessStart.getUTCDate(),
+      )),
+    );
+    const openMinutes = parseTimeMinutes(openingHours[weekday]?.openTime ?? "");
+    if (openMinutes === null) return;
+    const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
+    if (startMinutes !== openMinutes) return;
+    let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
+    if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+    const current = byWeekday.get(weekday);
+    if (current === undefined || endMinutes > current) {
+      byWeekday.set(weekday, endMinutes);
+    }
+  });
+
+  const days = Array.from({ length: 7 }, (_, idx) => {
+    const info = openingHours[idx];
+    const openMinutes = parseTimeMinutes(info?.openTime ?? "");
+    const fallback = info?.closeTime ?? "22:00";
+    const endMinutes = byWeekday.get(idx);
+    return {
+      weekday: idx,
+      enabled: openMinutes !== null && endMinutes !== undefined,
+      endTime: openMinutes !== null && endMinutes !== undefined ? minutesToTime(endMinutes) : fallback,
+    };
+  });
 
   return NextResponse.json({ days });
 }
