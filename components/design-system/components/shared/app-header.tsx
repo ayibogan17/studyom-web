@@ -138,6 +138,9 @@ export function AppHeader() {
         </div>
         <nav className="relative hidden min-w-0 items-center gap-4 text-sm font-medium text-[var(--color-primary)] whitespace-nowrap md:flex md:flex-nowrap">
           <Button asChild size="sm" className="shrink-0">
+            <Link href="/openjam" prefetch={false}>OpenJam</Link>
+          </Button>
+          <Button asChild size="sm" className="shrink-0">
             <Link href="/studyo" prefetch={false}>Stüdyo Bul</Link>
           </Button>
           <div className="relative" onMouseEnter={handleProdOpen} onMouseLeave={handleProdClose}>
@@ -295,6 +298,9 @@ export function AppHeader() {
               Hoş geldin, {profile?.fullName || profile?.name || session.user?.email}
             </span>
           )}
+          <Button asChild full size="sm">
+            <Link href="/openjam" prefetch={false}>OpenJam</Link>
+          </Button>
           <Button asChild full size="sm">
             <Link href="/studyo" prefetch={false}>Stüdyo Bul</Link>
           </Button>
