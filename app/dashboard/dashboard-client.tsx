@@ -2016,23 +2016,6 @@ export function DashboardClient({
     }
   }, [happyHourDays, happyHourSelectedRoomIds.length, happyHourSelectedSet, orderedRooms]);
 
-  useEffect(() => {
-    if ((!happyHourTouched && !happyHourSelectionTouched) || happyHourSaving || happyHourScheduleLoading) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      void saveHappyHourSchedule();
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [
-    happyHourDays,
-    happyHourTouched,
-    happyHourSelectionTouched,
-    happyHourSaving,
-    happyHourScheduleLoading,
-    saveHappyHourSchedule,
-  ]);
-
   const saveCalendarBlock = async () => {
     if (!drawerData || !currentRoom) return;
     const base = new Date(drawerData.day.getFullYear(), drawerData.day.getMonth(), drawerData.day.getDate());

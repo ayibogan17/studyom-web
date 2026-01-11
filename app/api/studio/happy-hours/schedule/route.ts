@@ -134,11 +134,7 @@ export async function GET(req: Request) {
         businessStart.getUTCDate(),
       )),
     );
-    const openMinutesRaw = parseTimeMinutes(openingHours[weekday]?.openTime ?? "");
     const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
-    const shouldMatchOpen = openMinutesRaw !== null;
-    const openMinutes = openMinutesRaw ?? startMinutes;
-    if (shouldMatchOpen && startMinutes !== openMinutes) return;
     let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
     if (endMinutes <= startMinutes) endMinutes += 24 * 60;
     const current = byWeekday.get(weekday);
@@ -149,7 +145,6 @@ export async function GET(req: Request) {
 
   const days = Array.from({ length: 7 }, (_, idx) => {
     const info = openingHours[idx];
-    const openMinutesRaw = parseTimeMinutes(info?.openTime ?? "");
     const fallback = info?.closeTime ?? "22:00";
     const endMinutes = byWeekday.get(idx);
     return {
