@@ -135,9 +135,10 @@ export async function GET(req: Request) {
       )),
     );
     const openMinutesRaw = parseTimeMinutes(openingHours[weekday]?.openTime ?? "");
-    const openMinutes = openMinutesRaw ?? 0;
     const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
-    if (startMinutes !== openMinutes) return;
+    const shouldMatchOpen = openMinutesRaw !== null;
+    const openMinutes = openMinutesRaw ?? startMinutes;
+    if (shouldMatchOpen && startMinutes !== openMinutes) return;
     let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
     if (endMinutes <= startMinutes) endMinutes += 24 * 60;
     const current = byWeekday.get(weekday);
