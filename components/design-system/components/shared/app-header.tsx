@@ -131,18 +131,19 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 text-xl font-semibold tracking-tight text-[var(--color-primary)]">
+          <Link href="/" prefetch={false} className="flex items-center gap-2 text-xl font-semibold tracking-tight text-[var(--color-primary)]">
             <img src="/logo.svg" alt="Studyom" className="h-3 w-3 shrink-0 object-contain" />
             Studyom
           </Link>
         </div>
         <nav className="relative hidden min-w-0 items-center gap-4 text-sm font-medium text-[var(--color-primary)] whitespace-nowrap md:flex md:flex-nowrap">
           <Button asChild size="sm" className="shrink-0">
-            <Link href="/studyo">Stüdyo Bul</Link>
+            <Link href="/studyo" prefetch={false}>Stüdyo Bul</Link>
           </Button>
           <div className="relative" onMouseEnter={handleProdOpen} onMouseLeave={handleProdClose}>
             <Link
               href="/uretim"
+              prefetch={false}
               className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
               aria-haspopup="true"
               aria-expanded={showProd}
@@ -173,6 +174,7 @@ export function AppHeader() {
             <div key={`${link.href}-${link.label}`} className="flex items-center gap-2">
               <Link
                 href={link.href}
+                prefetch={false}
                 className="transition hover:text-[var(--color-accent)]"
               >
                 {link.label}
@@ -181,7 +183,7 @@ export function AppHeader() {
           ))}
           {!session && (
             <Button asChild size="sm" variant="secondary">
-              <Link href="/login">Giriş</Link>
+              <Link href="/login" prefetch={false}>Giriş</Link>
             </Button>
           )}
           {session && showTeacherPanel && (
@@ -221,6 +223,7 @@ export function AppHeader() {
             <div className="flex items-center gap-2">
               <Link
                 href="/profile"
+                prefetch={false}
                 aria-label="Profil"
                 className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-secondary)] text-xs font-semibold text-[var(--color-primary)]"
               >
@@ -241,6 +244,7 @@ export function AppHeader() {
               </Link>
               <Link
                 href="/messages"
+                prefetch={false}
                 aria-label="Mesajlar"
                 className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
               >
@@ -251,6 +255,7 @@ export function AppHeader() {
               </Link>
               <Link
                 href="/notifications"
+                prefetch={false}
                 aria-label="Bildirimler"
                 className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)] transition hover:border-[var(--color-accent)]"
               >
@@ -291,11 +296,12 @@ export function AppHeader() {
             </span>
           )}
           <Button asChild full size="sm">
-            <Link href="/studyo">Stüdyo Bul</Link>
+            <Link href="/studyo" prefetch={false}>Stüdyo Bul</Link>
           </Button>
           <div className="space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
             <Link
               href="/uretim"
+              prefetch={false}
               className="text-sm font-semibold text-[var(--color-primary)]"
               onClick={() => setOpen(false)}
             >
@@ -314,6 +320,7 @@ export function AppHeader() {
             <Link
               key={`${link.href}-${link.label}`}
               href={link.href}
+              prefetch={false}
               className="rounded-xl px-3 py-2 hover:bg-[var(--color-secondary)]"
               onClick={() => setOpen(false)}
             >
@@ -322,7 +329,7 @@ export function AppHeader() {
           ))}
           {!session && (
             <Button asChild full size="sm" variant="secondary">
-              <Link href="/login">Giriş</Link>
+              <Link href="/login" prefetch={false}>Giriş</Link>
             </Button>
           )}
           {session && (
@@ -348,7 +355,7 @@ export function AppHeader() {
           )}
           {session && showTeacherPanel && (
             <Button asChild full size="sm" variant="secondary">
-              <Link href="/teacher-panel" onClick={() => setOpen(false)} className="relative">
+              <Link href="/teacher-panel" prefetch={false} onClick={() => setOpen(false)} className="relative">
                 Hoca Paneli
                 {indicators.teacherPanel && (
                   <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
@@ -358,7 +365,7 @@ export function AppHeader() {
           )}
           {session && showProducerPanel && (
             <Button asChild full size="sm" variant="secondary">
-              <Link href="/producer-panel" onClick={() => setOpen(false)} className="relative">
+              <Link href="/producer-panel" prefetch={false} onClick={() => setOpen(false)} className="relative">
                 Üretici Paneli
                 {indicators.producerPanel && (
                   <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-yellow-400" />
@@ -370,6 +377,7 @@ export function AppHeader() {
             <Button asChild full size="sm" variant="secondary">
               <Link
                 href="/dashboard?as=studio&tab=calendar"
+                prefetch={false}
                 onClick={() => setOpen(false)}
                 className="relative"
               >
@@ -384,6 +392,7 @@ export function AppHeader() {
             <div className="flex items-center gap-2">
               <Link
                 href="/messages"
+                prefetch={false}
                 onClick={() => setOpen(false)}
                 aria-label="Mesajlar"
                 className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"
@@ -395,6 +404,7 @@ export function AppHeader() {
               </Link>
               <Link
                 href="/notifications"
+                prefetch={false}
                 onClick={() => setOpen(false)}
                 aria-label="Bildirimler"
                 className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] text-[var(--color-primary)]"

@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/geo";
 import { parseStudioIdFromSlug } from "@/lib/studio-slug";
 import { isBlockingBlock, isWithinOpeningHours, normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
-import { buildHappyHourTemplatesByRoom, type HappyHourSlot } from "@/lib/happy-hour";
 import { Section } from "@/components/design-system/components/shared/section";
 import { Card } from "@/components/design-system/components/ui/card";
 import type { Equipment, Extras, Features } from "@/types/panel";
@@ -32,19 +31,6 @@ const normalizeRoomType = (value: string) => {
   const slug = slugify(value);
   return roomTypeLabels[slug] ?? value;
 };
-
-const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
-
-const getBusinessDayStart = (date: Date, cutoffHour: number) => {
-  const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const hour = date.getHours() + date.getMinutes() / 60;
-  if (hour < cutoffHour) {
-    base.setDate(base.getDate() - 1);
-  }
-  return base;
-};
-
-const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60000);
 
 const parseJson = <T,>(value: unknown, fallback: T): T => {
   if (value && typeof value === "object") return value as T;
@@ -257,34 +243,14 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
       })
     : [];
 
-  const happyHourTemplatesByRoom = buildHappyHourTemplatesByRoom(
-    happyHourSlots.map((slot) => ({
-      roomId: slot.roomId,
-      startAt: slot.startAt,
-      endAt: slot.endAt,
-    })) as HappyHourSlot[],
-    openingHours,
-    dayCutoffHour,
-  );
-
-  const maxDisplayDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + 13);
   const happyHoursByRoom = new Map<string, Array<{ startAt: string; endAt: string }>>();
-  if (happyHourTemplatesByRoom.size) {
-    const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
-    for (let d = new Date(cursor); d <= maxDisplayDate; d.setDate(d.getDate() + 1)) {
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const dayWeekday = weekdayIndex(dayStart);
-      happyHourTemplatesByRoom.forEach((templates, roomId) => {
-        templates.forEach((tpl) => {
-          if (tpl.weekday !== dayWeekday) return;
-          const slotStart = addMinutes(dayStart, tpl.startMinutes);
-          const slotEnd = addMinutes(dayStart, tpl.endMinutes);
-          const list = happyHoursByRoom.get(roomId) ?? [];
-          list.push({ startAt: slotStart.toISOString(), endAt: slotEnd.toISOString() });
-          happyHoursByRoom.set(roomId, list);
-        });
-      });
-    }
+  if (happyHourEnabled && happyHourSlots.length) {
+    happyHourSlots.forEach((slot) => {
+      if (slot.startAt >= rangeEnd || slot.endAt <= rangeStart) return;
+      const list = happyHoursByRoom.get(slot.roomId) ?? [];
+      list.push({ startAt: slot.startAt.toISOString(), endAt: slot.endAt.toISOString() });
+      happyHoursByRoom.set(slot.roomId, list);
+    });
   }
 
   if (dateParam && timeParam) {
