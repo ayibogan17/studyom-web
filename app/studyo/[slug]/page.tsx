@@ -32,6 +32,8 @@ const normalizeRoomType = (value: string) => {
   return roomTypeLabels[slug] ?? value;
 };
 
+const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
+
 const parseJson = <T,>(value: unknown, fallback: T): T => {
   if (value && typeof value === "object") return value as T;
   if (typeof value === "string") {
