@@ -77,7 +77,11 @@ const getBusinessDayStartZoned = (date: Date, cutoffHour: number, timeZone: stri
   return makeZonedDate(baseYear, baseMonth, baseDay, 0, timeZone);
 };
 
-const weekdayIndexFromUtcDate = (date: Date) => (date.getUTCDay() + 6) % 7;
+const weekdayIndexFromZonedDate = (date: Date, timeZone: string) => {
+  const parts = getZonedParts(date, timeZone);
+  const utcDate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  return (utcDate.getUTCDay() + 6) % 7;
+};
 
 const makeZonedDate = (year: number, month: number, day: number, minutes: number, timeZone: string) => {
   const hour = Math.floor(minutes / 60);
@@ -127,13 +131,7 @@ export async function GET(req: Request) {
   const slotList = slots.map((slot) => ({ roomId, startAt: slot.startAt, endAt: slot.endAt })) as HappyHourSlot[];
   slotList.forEach((slot) => {
     const businessStart = getBusinessDayStartZoned(slot.startAt, dayCutoffHour, timeZone);
-    const weekday = weekdayIndexFromUtcDate(
-      new Date(Date.UTC(
-        businessStart.getUTCFullYear(),
-        businessStart.getUTCMonth(),
-        businessStart.getUTCDate(),
-      )),
-    );
+    const weekday = weekdayIndexFromZonedDate(businessStart, timeZone);
     const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
     let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
     if (endMinutes <= startMinutes) endMinutes += 24 * 60;
