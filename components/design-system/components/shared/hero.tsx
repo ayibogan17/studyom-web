@@ -31,6 +31,13 @@ export function Hero({ title, subtitle }: HeroProps) {
             <Button asChild size="lg" variant="secondary">
               <Link href="/uretim">Üretici Bul</Link>
             </Button>
+            <Button
+              asChild
+              size="lg"
+              className="border-0 bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500 text-white hover:from-fuchsia-400 hover:via-purple-400 hover:to-indigo-400"
+            >
+              <Link href="/openjam">OpenJam</Link>
+            </Button>
           </div>
         </div>
         <div className="md:col-span-5">
