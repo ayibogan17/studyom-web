@@ -245,12 +245,51 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
 
   const happyHoursByRoom = new Map<string, Array<{ startAt: string; endAt: string }>>();
   if (happyHourEnabled && happyHourSlots.length) {
+    const templateMap = new Map<
+      string,
+      Array<{ weekday: number; startMinutes: number; endMinutes: number }>
+    >();
     happyHourSlots.forEach((slot) => {
-      if (slot.startAt >= rangeEnd || slot.endAt <= rangeStart) return;
-      const list = happyHoursByRoom.get(slot.roomId) ?? [];
-      list.push({ startAt: slot.startAt.toISOString(), endAt: slot.endAt.toISOString() });
-      happyHoursByRoom.set(slot.roomId, list);
+      const businessStart = new Date(slot.startAt);
+      if (businessStart.getHours() < dayCutoffHour) {
+        businessStart.setDate(businessStart.getDate() - 1);
+      }
+      businessStart.setHours(0, 0, 0, 0);
+      const weekday = weekdayIndex(businessStart);
+      const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
+      let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
+      if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+      const list = templateMap.get(slot.roomId) ?? [];
+      const existing = list.find(
+        (tpl) => tpl.weekday === weekday && tpl.startMinutes === startMinutes,
+      );
+      if (!existing || endMinutes > existing.endMinutes) {
+        const next = list.filter(
+          (tpl) => !(tpl.weekday === weekday && tpl.startMinutes === startMinutes),
+        );
+        next.push({ weekday, startMinutes, endMinutes });
+        templateMap.set(slot.roomId, next);
+      } else {
+        templateMap.set(slot.roomId, list);
+      }
     });
+
+    const maxDisplayDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + 13);
+    const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+    for (let d = new Date(cursor); d <= maxDisplayDate; d.setDate(d.getDate() + 1)) {
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const dayWeekday = weekdayIndex(dayStart);
+      templateMap.forEach((templates, roomId) => {
+        templates.forEach((tpl) => {
+          if (tpl.weekday !== dayWeekday) return;
+          const slotStart = addMinutes(dayStart, tpl.startMinutes);
+          const slotEnd = addMinutes(dayStart, tpl.endMinutes);
+          const list = happyHoursByRoom.get(roomId) ?? [];
+          list.push({ startAt: slotStart.toISOString(), endAt: slotEnd.toISOString() });
+          happyHoursByRoom.set(roomId, list);
+        });
+      });
+    }
   }
 
   if (dateParam && timeParam) {
