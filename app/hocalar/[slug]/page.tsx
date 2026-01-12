@@ -52,7 +52,7 @@ export async function generateMetadata({
       title: `${teacher.displayName} | Hocalar | Studyom`,
       description,
       url: canonical,
-      images: teacher.image ? [{ url: teacher.image }] : [{ url: "/logo.svg" }],
+      images: teacher.imageUrl ? [{ url: teacher.imageUrl }] : [{ url: "/logo.svg" }],
     },
   };
 }
