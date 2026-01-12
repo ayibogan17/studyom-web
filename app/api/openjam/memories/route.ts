@@ -138,10 +138,9 @@ export async function PATCH(req: Request) {
   });
 
   if (parsed.data.photoUrl) {
-    await prisma.openJamGalleryImage.upsert({
-      where: { memoryId: updated.id },
-      update: { photoUrl: parsed.data.photoUrl },
-      create: { memoryId: updated.id, photoUrl: parsed.data.photoUrl },
+    await prisma.openJamGalleryImage.deleteMany({ where: { memoryId: updated.id } });
+    await prisma.openJamGalleryImage.create({
+      data: { memoryId: updated.id, photoUrl: parsed.data.photoUrl },
     });
   } else if (existing.photoUrl) {
     await prisma.openJamGalleryImage.deleteMany({ where: { memoryId: updated.id } });
