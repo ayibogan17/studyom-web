@@ -854,6 +854,7 @@ export function DashboardClient({
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [happyHourOverlayReady, setHappyHourOverlayReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerData, setDrawerData] = useState<{
     id?: string;
@@ -1096,7 +1097,7 @@ export function DashboardClient({
   }, []);
   const isHappyHourSlot = useCallback(
     (day: Date, minutes: number) => {
-      if (!happyHourActive || happyHourDisplayRoomIds.length === 0) return false;
+      if (!happyHourOverlayReady || !happyHourActive || happyHourDisplayRoomIds.length === 0) return false;
       const slotStart = addMinutes(day, minutes);
       const businessStart = getBusinessDayStartForTime(slotStart, dayCutoffHour);
       const minutesFromStart = Math.round(
@@ -1107,7 +1108,14 @@ export function DashboardClient({
         return key ? !!happyHourSlots[key] : false;
       });
     },
-    [happyHourActive, happyHourDisplayRoomIds, dayCutoffHour, buildHappyHourKey, happyHourSlots],
+    [
+      happyHourOverlayReady,
+      happyHourActive,
+      happyHourDisplayRoomIds,
+      dayCutoffHour,
+      buildHappyHourKey,
+      happyHourSlots,
+    ],
   );
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
@@ -1334,6 +1342,7 @@ export function DashboardClient({
   }, [orderedRooms]);
 
   useEffect(() => {
+    if (activeTab !== "calendar") return;
     if (!orderedRooms.length || orderedRooms.length === 1) return;
     if (happyHourSelectionLoaded || happyHourSelectionTouched) return;
     let active = true;
@@ -1365,7 +1374,7 @@ export function DashboardClient({
     return () => {
       active = false;
     };
-  }, [orderedRooms, happyHourSelectionLoaded, happyHourSelectionTouched]);
+  }, [activeTab, orderedRooms, happyHourSelectionLoaded, happyHourSelectionTouched]);
 
   useEffect(() => {
     if (!studio) return;
@@ -1405,6 +1414,7 @@ export function DashboardClient({
   }, [studio?.id]);
 
   useEffect(() => {
+    if (activeTab !== "calendar") return;
     const scheduleRoomId = happyHourScheduleRoomId;
     const fallback = normalizeOpeningHours(
       calendarSettings?.weeklyHours ?? studio?.openingHours ?? null,
@@ -1466,7 +1476,7 @@ export function DashboardClient({
     return () => {
       active = false;
     };
-  }, [happyHourScheduleRoomId, calendarSettings?.weeklyHours, studio?.openingHours]);
+  }, [activeTab, happyHourScheduleRoomId, calendarSettings?.weeklyHours, studio?.openingHours]);
 
   useEffect(() => {
     if (!studio || basicTouched) return;
@@ -1480,6 +1490,7 @@ export function DashboardClient({
 
   useEffect(() => {
     if (!studio) return;
+    if (activeTab !== "calendar") return;
     if (!calendarRoomIds.length) return;
     let rangeStart: Date;
     let rangeEnd: Date;
@@ -1507,87 +1518,113 @@ export function DashboardClient({
       rangeEnd = getDayRange(dayStart, dayCutoffHour).end;
     }
 
+    let active = true;
     const loadBlocks = async () => {
       setCalendarLoading(true);
       setCalendarError(null);
+      setHappyHourOverlayReady(false);
       try {
         const roomQuery =
           calendarRoomScope === "all"
             ? `roomIds=${calendarRoomIds.join(",")}`
             : `roomId=${calendarRoomIds[0]}`;
-        const blocksPromise = fetch(
+        const blocksRes = await fetch(
           `/api/studio/calendar-blocks?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
         );
-        const happyRoomIds = happyHourActive
-          ? calendarRoomScope === "all"
-            ? calendarRoomIds.filter((roomId) => happyHourSelectedSet.has(roomId))
-            : happyHourRoomId && happyHourSelectedSet.has(happyHourRoomId)
-              ? [happyHourRoomId]
-              : []
-          : [];
-        const happyPromises = happyRoomIds.map((roomId) =>
-          fetch(
-            `/api/studio/happy-hours?roomId=${roomId}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
-          ),
-        );
-        const [blocksRes, happyResults] = await Promise.all([
-          blocksPromise,
-          Promise.all(happyPromises),
-        ]);
         const blocksJson = await blocksRes.json().catch(() => ({}));
         if (!blocksRes.ok) {
           setCalendarError(blocksJson.error || "Takvim blokları alınamadı.");
           setCalendarBlocks([]);
-          setCalendarLoading(false);
           return;
         }
+        if (!active) return;
         setCalendarBlocks((blocksJson.blocks as CalendarBlock[]) ?? []);
-        if (happyResults.length) {
-          const nextSlots: Record<string, boolean> = {};
-          for (const [index, happyRes] of happyResults.entries()) {
-            const happyJson = await happyRes.json().catch(() => ({}));
-            if (!happyRes.ok) continue;
-            const fallbackRoomId = happyRoomIds[index];
-            (happyJson.slots as { startAt: string; endAt: string; roomId?: string }[] | undefined)?.forEach(
-              (slot) => {
-                const start = new Date(slot.startAt);
-                const end = new Date(slot.endAt);
-                const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
-                const minutesFromStart = Math.round(
-                  (start.getTime() - businessStart.getTime()) / 60000,
-                );
-                const minutesToEnd = Math.round(
-                  (end.getTime() - businessStart.getTime()) / 60000,
-                );
-                if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
-                const roomId = typeof slot.roomId === "string" ? slot.roomId : fallbackRoomId;
-                if (!roomId) return;
-                const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
-                for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
-                  const key = buildHappyHourKey(roomId, businessStart, m);
-                  if (key) {
-                    nextSlots[key] = true;
-                  }
-                }
-              },
-            );
-          }
-          setHappyHourSlots(nextSlots);
-        } else {
-          setHappyHourSlots({});
-        }
       } catch (err) {
         console.error(err);
+        if (!active) return;
         setCalendarError("Takvim blokları alınamadı.");
         setCalendarBlocks([]);
         setHappyHourSlots({});
       } finally {
-        setCalendarLoading(false);
+        if (active) {
+          setCalendarLoading(false);
+        }
       }
     };
 
     void loadBlocks();
+
+    const happyRoomIds = happyHourActive
+      ? calendarRoomScope === "all"
+        ? calendarRoomIds.filter((roomId) => happyHourSelectedSet.has(roomId))
+        : happyHourRoomId && happyHourSelectedSet.has(happyHourRoomId)
+          ? [happyHourRoomId]
+          : []
+      : [];
+
+    if (!happyRoomIds.length) {
+      setHappyHourSlots({});
+      setHappyHourOverlayReady(true);
+      return () => {
+        active = false;
+      };
+    }
+
+    Promise.resolve()
+      .then(async () => {
+        const happyResults = await Promise.all(
+          happyRoomIds.map((roomId) =>
+            fetch(
+              `/api/studio/happy-hours?roomId=${roomId}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
+            ),
+          ),
+        );
+        if (!active) return;
+        const nextSlots: Record<string, boolean> = {};
+        for (const [index, happyRes] of happyResults.entries()) {
+          const happyJson = await happyRes.json().catch(() => ({}));
+          if (!happyRes.ok) continue;
+          const fallbackRoomId = happyRoomIds[index];
+          (happyJson.slots as { startAt: string; endAt: string; roomId?: string }[] | undefined)?.forEach(
+            (slot) => {
+              const start = new Date(slot.startAt);
+              const end = new Date(slot.endAt);
+              const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+              const minutesFromStart = Math.round(
+                (start.getTime() - businessStart.getTime()) / 60000,
+              );
+              const minutesToEnd = Math.round(
+                (end.getTime() - businessStart.getTime()) / 60000,
+              );
+              if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
+              const roomId = typeof slot.roomId === "string" ? slot.roomId : fallbackRoomId;
+              if (!roomId) return;
+              const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
+              for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
+                const key = buildHappyHourKey(roomId, businessStart, m);
+                if (key) {
+                  nextSlots[key] = true;
+                }
+              }
+            },
+          );
+        }
+        if (!active) return;
+        setHappyHourSlots(nextSlots);
+        setHappyHourOverlayReady(true);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (!active) return;
+        setHappyHourSlots({});
+        setHappyHourOverlayReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [
+    activeTab,
     calendarView,
     calendarRoomScope,
     calendarRoomIds,
