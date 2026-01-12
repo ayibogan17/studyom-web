@@ -266,7 +266,60 @@ function mapStudioToResponse(studio: StudioWithRelations) {
   };
 }
 
-export async function GET() {
+type StudioCalendarResponse = PrismaStudio & {
+  openingHours?: Prisma.JsonValue | null;
+  rooms: (PrismaRoom & { order?: number })[];
+  notifications: PrismaNotification[];
+  ratings: PrismaRating[];
+};
+
+function mapStudioToCalendarResponse(studio: StudioCalendarResponse) {
+  const openingHoursRaw =
+    studio.openingHours as OpeningHours[] | null | undefined;
+  const openingHours =
+    Array.isArray(openingHoursRaw) && openingHoursRaw.length === 7
+      ? openingHoursRaw
+      : defaultOpeningHours;
+
+  return {
+    id: studio.id,
+    name: studio.name,
+    city: studio.city ?? undefined,
+    district: studio.district ?? undefined,
+    address: studio.address ?? undefined,
+    coverImageUrl: studio.coverImageUrl ?? undefined,
+    ownerEmail: studio.ownerEmail,
+    phone: studio.phone ?? undefined,
+    openingHours,
+    ratings: studio.ratings?.map((r) => r.value) ?? [],
+    notifications: studio.notifications?.map((n) => n.message) ?? [],
+    rooms:
+      studio.rooms
+        ?.sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.createdAt.getTime() - b.createdAt.getTime())
+        .map((room) => ({
+        id: room.id,
+        name: room.name,
+        type: room.type,
+        color: room.color ?? "#6C63FF",
+        order: room.order ?? 0,
+        pricing: {
+          model: room.pricingModel.toLowerCase(),
+          flatRate: room.flatRate ?? undefined,
+          minRate: room.minRate ?? undefined,
+          dailyRate: room.dailyRate ?? undefined,
+          hourlyRate: room.hourlyRate ?? undefined,
+          happyHourRate: room.happyHourRate ?? undefined,
+        },
+        equipment: defaultEquipment,
+        features: defaultFeatures,
+        extras: { ...defaultExtras },
+        images: [],
+        slots: {},
+      })) ?? [],
+  };
+}
+
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
@@ -288,14 +341,50 @@ export async function GET() {
     create: { email, name: name ?? undefined, role: "STUDIO", roles: nextRoles, isStudioOwner: true },
   });
 
-  const studio = (await prisma.studio.findFirst({
-    where: { ownerEmail: { equals: email, mode: "insensitive" } },
-    include: {
-      rooms: { include: { slots: true }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
-      notifications: true,
-      ratings: true,
-    },
-  })) as StudioWithRelations | null;
+  const scope = new URL(req.url).searchParams.get("scope");
+  const studio =
+    scope === "calendar"
+      ? ((await prisma.studio.findFirst({
+          where: { ownerEmail: { equals: email, mode: "insensitive" } },
+          select: {
+            id: true,
+            name: true,
+            city: true,
+            district: true,
+            address: true,
+            coverImageUrl: true,
+            ownerEmail: true,
+            phone: true,
+            openingHours: true,
+            rooms: {
+              orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                color: true,
+                order: true,
+                createdAt: true,
+                pricingModel: true,
+                flatRate: true,
+                minRate: true,
+                dailyRate: true,
+                hourlyRate: true,
+                happyHourRate: true,
+              },
+            },
+            notifications: { select: { message: true } },
+            ratings: { select: { value: true } },
+          },
+        })) as StudioCalendarResponse | null)
+      : ((await prisma.studio.findFirst({
+          where: { ownerEmail: { equals: email, mode: "insensitive" } },
+          include: {
+            rooms: { include: { slots: true }, orderBy: [{ order: "asc" }, { createdAt: "asc" }] },
+            notifications: true,
+            ratings: true,
+          },
+        })) as StudioWithRelations | null);
 
   if (!studio) {
     return NextResponse.json({ ok: false, error: "Studio not found" }, { status: 404 });
@@ -303,7 +392,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
-    studio: mapStudioToResponse(studio),
+    studio: scope === "calendar" ? mapStudioToCalendarResponse(studio as StudioCalendarResponse) : mapStudioToResponse(studio as StudioWithRelations),
   });
 }
 

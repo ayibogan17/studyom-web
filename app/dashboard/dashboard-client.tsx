@@ -781,16 +781,18 @@ export function DashboardClient({
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
   );
+  const [roomDetailsLoaded, setRoomDetailsLoaded] = useState(Boolean(initialStudio));
   useEffect(() => {
     if (studio) return;
     let cancelled = false;
     const loadStudio = async () => {
       try {
-        const res = await fetch("/api/studio");
+        const res = await fetch("/api/studio?scope=calendar");
         if (!res.ok) return;
         const json = (await res.json().catch(() => null)) as { studio?: Studio | null } | null;
         if (!cancelled && json?.studio) {
           setStudio(normalizeStudio(json.studio));
+          setRoomDetailsLoaded(false);
         }
       } catch {
         // noop
@@ -801,6 +803,29 @@ export function DashboardClient({
       cancelled = true;
     };
   }, [studio]);
+
+  useEffect(() => {
+    if (!activeTab.startsWith("room-")) return;
+    if (roomDetailsLoaded) return;
+    let cancelled = false;
+    const loadDetails = async () => {
+      try {
+        const res = await fetch("/api/studio");
+        if (!res.ok) return;
+        const json = (await res.json().catch(() => null)) as { studio?: Studio | null } | null;
+        if (!cancelled && json?.studio) {
+          setStudio(normalizeStudio(json.studio));
+          setRoomDetailsLoaded(true);
+        }
+      } catch {
+        // noop
+      }
+    };
+    loadDetails();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, roomDetailsLoaded]);
   const reservationItems = reservationRequests ?? [];
   const [reservationRequestsState, setReservationRequestsState] = useState<ReservationRequest[]>(reservationItems);
   const [reservationAction, setReservationAction] = useState<{ id: string; action: "approve" | "reject" | "read" } | null>(
@@ -2438,30 +2463,27 @@ export function DashboardClient({
     }
   };
 
-  useEffect(() => {
+  const loadCalendarSummary = async () => {
     if (!studio) return;
-    const run = async () => {
-      setSummaryLoading(true);
-      try {
-        const res = await fetch("/api/studio/calendar-bundle?includeBlocks=0&includeHappy=0&includeSummary=1");
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(json.error || "Özet alınamadı");
-        }
-        const data = json.summary as {
-          weekOccupancy: number;
-          monthOccupancy: number;
-          monthRevenue: number;
-        };
-        setCalendarSummary(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setSummaryLoading(false);
+    setSummaryLoading(true);
+    try {
+      const res = await fetch("/api/studio/calendar-bundle?includeBlocks=0&includeHappy=0&includeSummary=1");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || "Özet alınamadı");
       }
-    };
-    run();
-  }, [studio?.id]);
+      const data = json.summary as {
+        weekOccupancy: number;
+        monthOccupancy: number;
+        monthRevenue: number;
+      };
+      setCalendarSummary(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
 
   const buildRoomsPayload = (rooms: Room[]) =>
     rooms.map((r) => ({
@@ -2533,6 +2555,7 @@ export function DashboardClient({
   const weekOccupancy = calendarSummary?.weekOccupancy ?? 0;
   const monthOccupancy = calendarSummary?.monthOccupancy ?? 0;
   const monthRevenue = calendarSummary?.monthRevenue ?? 0;
+  const summaryReady = Boolean(calendarSummary);
 
   const getFilledHoursForDay = (date: Date) => {
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -2648,6 +2671,14 @@ export function DashboardClient({
             <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 lg:col-span-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-blue-900">Rezervasyon özeti</p>
+                <button
+                  type="button"
+                  onClick={loadCalendarSummary}
+                  disabled={summaryLoading}
+                  className="rounded-full border border-blue-200 px-3 py-1 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:text-blue-800 disabled:opacity-60"
+                >
+                  {summaryLoading ? "Hesaplanıyor..." : "Hesapla"}
+                </button>
                 <Link
                   href="/dashboard/reservation-stats?as=studio"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#9A3412] text-[#9A3412] transition hover:border-[#7C2D12] hover:text-[#7C2D12]"
@@ -2660,15 +2691,15 @@ export function DashboardClient({
               <div className="mt-2 space-y-1 text-sm text-blue-800">
                 <p>
                   Bu haftaki doluluk:{" "}
-                  {summaryLoading ? "Hesaplanıyor..." : formatPercent(weekOccupancy)}
+                  {summaryLoading ? "Hesaplanıyor..." : summaryReady ? formatPercent(weekOccupancy) : "Hesaplanmadı"}
                 </p>
                 <p>
                   Bu ayki doluluk:{" "}
-                  {summaryLoading ? "Hesaplanıyor..." : formatPercent(monthOccupancy)}
+                  {summaryLoading ? "Hesaplanıyor..." : summaryReady ? formatPercent(monthOccupancy) : "Hesaplanmadı"}
                 </p>
                 <p>
                   Tahmini aylık gelir:{" "}
-                  {summaryLoading ? "Hesaplanıyor..." : formatCurrency(monthRevenue)}
+                  {summaryLoading ? "Hesaplanıyor..." : summaryReady ? formatCurrency(monthRevenue) : "Hesaplanmadı"}
                 </p>
               </div>
             </div>
