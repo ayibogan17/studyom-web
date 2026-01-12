@@ -8,36 +8,10 @@ import { StudioCard } from "@/components/design-system/components/shared/studio-
 import { EmptyState } from "@/components/design-system/components/shared/empty-state";
 import { SkeletonCard } from "@/components/design-system/components/shared/skeleton-card";
 import { loadGeo, slugify, type TRGeo } from "@/lib/geo";
-import { buildQueryString, parseFiltersFromSearchParams, type StudioFilters } from "@/lib/filters";
+import { buildQueryString, defaultFilters, parseFiltersFromSearchParams, type StudioFilters } from "@/lib/filters";
 import { createStudioSlug } from "@/lib/studio-slug";
 import type { Equipment, Extras, Features, OpeningHours, Pricing } from "@/types/panel";
-
-export type ServerStudio = {
-  id: string;
-  slug: string;
-  name: string;
-  province: string;
-  district: string;
-  happyHourEnabled?: boolean;
-  openingHours?: OpeningHours[] | null;
-  roomTypes: string[];
-  rooms: Array<{
-    name: string;
-    type: string;
-    pricingModel: string | null;
-    flatRate: string | null;
-    minRate: string | null;
-    dailyRate: string | null;
-    hourlyRate: string | null;
-    equipmentJson: unknown;
-    featuresJson: unknown;
-    extrasJson: unknown;
-  }>;
-  pricePerHour?: number;
-  badges?: string[];
-  imageUrl?: string;
-  interactionCount?: number;
-};
+import type { ServerStudio } from "./studyo-server";
 
 type StudioRoom = {
   name: string;
@@ -358,7 +332,13 @@ function buildMockStudios(geo: TRGeo): Studio[] {
     .filter(Boolean) as Studio[];
 }
 
-export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: ServerStudio[] }) {
+export function StudyoClientPage({
+  serverStudios = [],
+  defaultFilters: defaultFiltersOverride,
+}: {
+  serverStudios?: ServerStudio[];
+  defaultFilters?: StudioFilters;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -409,19 +389,41 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
       .filter(Boolean) as Studio[];
     return [...buildMockStudios(geo), ...mappedServer];
   }, [geo, serverStudios]);
-  const [filters, setFilters] = useState<StudioFilters>(() => parseFiltersFromSearchParams(searchParams));
+  const hasQueryFilters = useMemo(() => {
+    const params = new URLSearchParams(searchParamsString);
+    return ["il", "ilce", "oda", "sira", "happy"].some((key) => {
+      const value = params.get(key);
+      return value !== null && value !== "";
+    });
+  }, [searchParamsString]);
+
+  const [filters, setFilters] = useState<StudioFilters>(() => {
+    const parsed = parseFiltersFromSearchParams(searchParams);
+    if (hasQueryFilters || !defaultFiltersOverride) return parsed;
+    return { ...defaultFilters, ...defaultFiltersOverride };
+  });
   const [availableStudioIds, setAvailableStudioIds] = useState<string[] | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   useEffect(() => {
     const next = parseFiltersFromSearchParams(searchParams);
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFilters((prev) => ({
-      ...prev,
-      ...next,
-      advanced: prev.advanced ?? {},
-    }));
-  }, [searchParamsString, searchParams]);
+    setFilters((prev) => {
+      if (!hasQueryFilters && defaultFiltersOverride) {
+        return {
+          ...prev,
+          ...next,
+          ...defaultFiltersOverride,
+          advanced: prev.advanced ?? {},
+        };
+      }
+      return {
+        ...prev,
+        ...next,
+        advanced: prev.advanced ?? {},
+      };
+    });
+  }, [searchParamsString, searchParams, hasQueryFilters, defaultFiltersOverride]);
 
   const hasAdvancedFilters = useMemo(() => {
     const advanced = filters.advanced ?? {};
@@ -432,42 +434,11 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
   }, [filters.advanced]);
 
   useEffect(() => {
-    if (!filters.date || !filters.time) {
-      setAvailableStudioIds(null);
-      setAvailabilityLoading(false);
-      return;
-    }
-    const controller = new AbortController();
-    const params = new URLSearchParams();
-    params.set("date", filters.date);
-    params.set("time", filters.time);
-    params.set("duration", String(filters.duration ?? 60));
-    if (filters.province) params.set("il", filters.province);
-    if (filters.district) params.set("ilce", filters.district);
-    if (filters.roomType) params.set("oda", filters.roomType);
+    setAvailableStudioIds(null);
+    setAvailabilityLoading(false);
+  }, [filters.district, filters.province, filters.roomType]);
 
-    setAvailabilityLoading(true);
-    fetch(`/api/studio/availability?${params.toString()}`, { signal: controller.signal })
-      .then((res) => res.json())
-      .then((data) => {
-        if (controller.signal.aborted) return;
-        const ids = Array.isArray(data?.studioIds) ? data.studioIds : [];
-        setAvailableStudioIds(ids);
-      })
-      .catch((err) => {
-        if (controller.signal.aborted) return;
-        console.error("availability fetch failed", err);
-        setAvailableStudioIds([]);
-      })
-      .finally(() => {
-        if (controller.signal.aborted) return;
-        setAvailabilityLoading(false);
-      });
-
-    return () => controller.abort();
-  }, [filters.date, filters.time, filters.duration, filters.district, filters.province, filters.roomType]);
-
-  const hasAvailabilityFilter = Boolean(filters.date && filters.time);
+  const hasAvailabilityFilter = false;
   const availabilitySet = useMemo(() => new Set(availableStudioIds ?? []), [availableStudioIds]);
   const availabilityPending = hasAvailabilityFilter && availableStudioIds === null;
 

@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
@@ -38,18 +38,6 @@ const serviceLevelExtraOptions = [
 const dawOptions = ["Logic Pro", "Ableton", "FL Studio", "Pro Tools", "Studio One", "Reaper", "Reason"];
 
 const productionAreaOptions = ["Beat yapımı", "Enstrüman ekleme"];
-const durationOptions = [60, 120, 180, 240, 300, 360, 420, 480, 540];
-const weekdayLabels = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
-const fullDayTimeOptions = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`);
-const pad = (value: number) => value.toString().padStart(2, "0");
-const formatDateKey = (date: Date) =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-const parseDateKey = (value?: string) => {
-  if (!value) return null;
-  const [y, m, d] = value.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-};
 
 type FilterBarProps = {
   geo: TRGeo;
@@ -61,9 +49,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
   const [province, setProvince] = useState(defaults.province ?? "");
   const [district, setDistrict] = useState(defaults.district ?? "");
   const [roomType, setRoomType] = useState(defaults.roomType ?? "");
-  const [date, setDate] = useState(defaults.date ?? "");
-  const [time, setTime] = useState(defaults.time ?? "");
-  const [duration, setDuration] = useState(defaults.duration ?? 60);
   const [happyHourOnly, setHappyHourOnly] = useState(Boolean(defaults.happyHourOnly));
   const [sort, setSort] = useState(defaults.sort ?? "");
   const [advanced, setAdvanced] = useState<StudioAdvancedFilters>(defaults.advanced ?? {});
@@ -73,9 +58,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
     setProvince(defaults.province ?? "");
     setDistrict(defaults.district ?? "");
     setRoomType(defaults.roomType ?? "");
-    setDate(defaults.date ?? "");
-    setTime(defaults.time ?? "");
-    setDuration(defaults.duration ?? 60);
     setHappyHourOnly(Boolean(defaults.happyHourOnly));
     setSort(defaults.sort ?? "");
     setAdvanced(defaults.advanced ?? {});
@@ -84,9 +66,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
     defaults.district,
     defaults.province,
     defaults.roomType,
-    defaults.date,
-    defaults.time,
-    defaults.duration,
     defaults.happyHourOnly,
     defaults.sort,
   ]);
@@ -113,9 +92,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
     province?: string;
     district?: string;
     roomType?: string;
-    date?: string;
-    time?: string;
-    duration?: number;
     happyHourOnly?: boolean;
     sort?: StudioFilters["sort"];
     advanced?: StudioAdvancedFilters;
@@ -123,9 +99,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
     const nextProvince = next.province ?? province;
     const nextDistrict = next.district ?? district;
     const nextRoomType = next.roomType ?? roomType;
-    const nextDate = next.date ?? date;
-    const nextTime = next.time ?? time;
-    const nextDuration = next.duration ?? duration;
     const nextHappyHourOnly = next.happyHourOnly ?? happyHourOnly;
     const nextSort = next.sort ?? sort;
     const nextAdvanced = next.advanced ?? advanced;
@@ -133,9 +106,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
       province: nextProvince,
       district: nextDistrict,
       roomType: nextRoomType,
-      date: nextDate,
-      time: nextTime,
-      duration: nextDuration,
       happyHourOnly: nextHappyHourOnly,
       sort: nextSort,
       advanced: nextAdvanced,
@@ -149,9 +119,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
           province={province}
           district={district}
           roomType={roomType}
-          date={date}
-          time={time}
-          duration={duration}
           happyHourOnly={happyHourOnly}
           sort={sort}
           provinces={provinces}
@@ -172,22 +139,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
             if (next.roomType !== undefined) {
               setRoomType(next.roomType);
               updateFilters({ roomType: next.roomType });
-              return;
-            }
-            if (next.date !== undefined) {
-              setDate(next.date);
-              setTime(next.time ?? "");
-              updateFilters({ date: next.date, time: next.time ?? "" });
-              return;
-            }
-            if (next.time !== undefined) {
-              setTime(next.time);
-              updateFilters({ time: next.time });
-              return;
-            }
-            if (next.duration !== undefined) {
-              setDuration(next.duration);
-              updateFilters({ duration: next.duration });
               return;
             }
             if (next.happyHourOnly !== undefined) {
@@ -237,9 +188,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
             province={province}
             district={district}
             roomType={roomType}
-            date={date}
-            time={time}
-            duration={duration}
             happyHourOnly={happyHourOnly}
             sort={sort}
             provinces={provinces}
@@ -261,22 +209,6 @@ export function FilterBar({ geo, defaults, onChange }: FilterBarProps) {
               if (next.roomType !== undefined) {
                 setRoomType(next.roomType);
                 updateFilters({ roomType: next.roomType });
-                return;
-              }
-              if (next.date !== undefined) {
-                setDate(next.date);
-                setTime(next.time ?? "");
-                updateFilters({ date: next.date, time: next.time ?? "" });
-                return;
-              }
-              if (next.time !== undefined) {
-                setTime(next.time);
-                updateFilters({ time: next.time });
-                return;
-              }
-              if (next.duration !== undefined) {
-                setDuration(next.duration);
-                updateFilters({ duration: next.duration });
                 return;
               }
               if (next.happyHourOnly !== undefined) {
@@ -323,9 +255,6 @@ type FieldsProps = {
   province: string;
   district: string;
   roomType: string;
-  date: string;
-  time: string;
-  duration: number;
   happyHourOnly: boolean;
   sort: StudioFilters["sort"];
   provinces: TRGeo;
@@ -336,9 +265,6 @@ type FieldsProps = {
     province?: string;
     district?: string;
     roomType?: string;
-    date?: string;
-    time?: string;
-    duration?: number;
     happyHourOnly?: boolean;
     sort?: StudioFilters["sort"];
   }) => void;
@@ -348,9 +274,6 @@ function FilterFields({
   province,
   district,
   roomType,
-  date,
-  time,
-  duration,
   happyHourOnly,
   sort,
   provinces,
@@ -415,14 +338,6 @@ function FilterFields({
           ))}
         </select>
       </div>
-      <DateTimeFilter
-        date={date}
-        time={time}
-        duration={duration}
-        happyHourOnly={happyHourOnly}
-        isMobile={isMobile}
-        onChange={onChange}
-      />
       <div className="space-y-1">
         <Label htmlFor={`sort-${isMobile ? "mobile" : "desktop"}`}>Fiyat sıralama</Label>
         <select
@@ -437,178 +352,6 @@ function FilterFields({
           <option value="price-desc">Önce en yüksek</option>
         </select>
       </div>
-    </div>
-  );
-}
-
-function DateTimeFilter({
-  date,
-  time,
-  duration,
-  happyHourOnly,
-  isMobile,
-  onChange,
-}: {
-  date: string;
-  time: string;
-  duration: number;
-  happyHourOnly: boolean;
-  isMobile?: boolean;
-  onChange: (next: { date?: string; time?: string; duration?: number; happyHourOnly?: boolean }) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedDate = useMemo(() => parseDateKey(date), [date]);
-  const [viewDate, setViewDate] = useState<Date>(() => selectedDate ?? new Date());
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    if (selectedDate) {
-      setViewDate(selectedDate);
-    }
-  }, [selectedDate]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (popoverRef.current?.contains(target) || buttonRef.current?.contains(target)) {
-        return;
-      }
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  const monthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
-  const monthEnd = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
-  const leadingEmptyDays = (monthStart.getDay() + 6) % 7;
-  const totalCells = leadingEmptyDays + monthEnd.getDate();
-  const cells = Array.from({ length: totalCells }, (_, idx) => {
-    if (idx < leadingEmptyDays) return null;
-    const day = idx - leadingEmptyDays + 1;
-    return new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-  });
-
-  const label = selectedDate
-    ? selectedDate.toLocaleDateString("tr-TR", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : "Tarih seç";
-
-  return (
-    <div className="space-y-2">
-      <Label htmlFor={`date-${isMobile ? "mobile" : "desktop"}`}>Tarih</Label>
-      <div className="relative">
-        <button
-          ref={buttonRef}
-          id={`date-${isMobile ? "mobile" : "desktop"}`}
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex h-10 w-full items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] hover:border-[var(--color-accent)] focus:border-[var(--color-accent)] focus:outline-none"
-        >
-          <span className={selectedDate ? "text-[var(--color-primary)]" : "text-[var(--color-muted)]"}>
-            {label}
-          </span>
-          <ChevronDown size={16} className={`transition ${open ? "rotate-180" : ""}`} />
-        </button>
-        {open ? (
-          <div
-            ref={popoverRef}
-            className="absolute z-20 mt-2 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-lg"
-          >
-            <div className="flex items-center justify-between text-sm font-semibold text-[var(--color-primary)]">
-              <button
-                type="button"
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
-                className="rounded-full px-2 py-1 text-[var(--color-muted)] hover:text-[var(--color-primary)]"
-              >
-                Önceki
-              </button>
-              <span>
-                {viewDate.toLocaleDateString("tr-TR", { month: "long", year: "numeric" })}
-              </span>
-              <button
-                type="button"
-                onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
-                className="rounded-full px-2 py-1 text-[var(--color-muted)] hover:text-[var(--color-primary)]"
-              >
-                Sonraki
-              </button>
-            </div>
-            <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-[var(--color-muted)]">
-              {weekdayLabels.map((label) => (
-                <span key={label}>{label}</span>
-              ))}
-            </div>
-            <div className="mt-2 grid grid-cols-7 gap-1">
-              {cells.map((cell, idx) => {
-                if (!cell) return <div key={`empty-${idx}`} className="h-9" />;
-                const key = formatDateKey(cell);
-                const selected = date === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      onChange({ date: key, time: "" });
-                      setOpen(false);
-                    }}
-                    className={`h-9 rounded-xl text-sm ${
-                      selected
-                        ? "bg-[var(--color-accent)] text-white"
-                        : "text-[var(--color-primary)] hover:bg-[var(--color-secondary)]"
-                    }`}
-                  >
-                    {cell.getDate()}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-      </div>
-      {date ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor={`time-${isMobile ? "mobile" : "desktop"}`}>Saat</Label>
-            <select
-              id={`time-${isMobile ? "mobile" : "desktop"}`}
-              value={time}
-              onChange={(e) => onChange({ time: e.target.value })}
-              className="h-10 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-            >
-              <option value="">Saat seç</option>
-              {fullDayTimeOptions.map((slot) => (
-                <option key={slot} value={slot}>
-                  {slot}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`duration-${isMobile ? "mobile" : "desktop"}`}>Süre</Label>
-            <select
-              id={`duration-${isMobile ? "mobile" : "desktop"}`}
-              value={duration}
-              onChange={(e) => onChange({ duration: Number.parseInt(e.target.value, 10) })}
-              className="h-10 w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-            >
-              {durationOptions.map((value) => (
-                <option key={value} value={value}>
-                  {Math.round(value / 60)} saat
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      ) : null}
-      <p className="text-xs text-[var(--color-muted)]">
-        Seçtiğiniz stüdyonun boş saatlerini Stüdyo detaylarında görebilirsiniz.
-      </p>
       <label className="flex items-center gap-2 text-xs text-amber-300">
         <input
           type="checkbox"

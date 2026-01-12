@@ -4,9 +4,6 @@ export type StudioFilters = {
   province: string;
   district?: string;
   roomType?: string;
-  date?: string;
-  time?: string;
-  duration?: number;
   happyHourOnly?: boolean;
   sort?: "" | "price-asc" | "price-desc";
   advanced?: StudioAdvancedFilters;
@@ -16,9 +13,6 @@ export const defaultFilters: StudioFilters = {
   province: "",
   district: "",
   roomType: "",
-  date: "",
-  time: "",
-  duration: 60,
   happyHourOnly: false,
   sort: "",
   advanced: {},
@@ -90,9 +84,6 @@ export function parseFiltersFromSearchParams(
   const provinceRaw = getParamValue(params, "il") || "";
   const districtRaw = getParamValue(params, "ilce") || "";
   const roomTypeRaw = getParamValue(params, "oda") || "";
-  const dateRaw = getParamValue(params, "date") || "";
-  const timeRaw = getParamValue(params, "time") || "";
-  const durationRaw = getParamValue(params, "duration") || "";
   const sortRaw = getParamValue(params, "sira") || "";
   const happyRaw = getParamValue(params, "happy") || "";
 
@@ -100,17 +91,12 @@ export function parseFiltersFromSearchParams(
   const district = districtRaw ? slugify(districtRaw) : "";
   const roomType = roomTypeRaw ? slugify(roomTypeRaw) : "";
   const sort = sortRaw === "price-asc" || sortRaw === "price-desc" ? sortRaw : "";
-  const duration = durationRaw ? Number.parseInt(durationRaw, 10) : 60;
-  const normalizedDuration = Number.isFinite(duration) && duration > 0 ? duration : 60;
   const happyHourOnly = ["1", "true", "yes"].includes(happyRaw.toLowerCase());
 
   return {
     province,
     district,
     roomType,
-    date: dateRaw,
-    time: timeRaw,
-    duration: normalizedDuration,
     happyHourOnly,
     sort,
     advanced: {},
@@ -123,9 +109,6 @@ export function buildQueryString(filters: StudioFilters): string {
   if (filters.province) params.set("il", filters.province);
   if (filters.district) params.set("ilce", filters.district);
   if (filters.roomType) params.set("oda", filters.roomType);
-  if (filters.date) params.set("date", filters.date);
-  if (filters.time) params.set("time", filters.time);
-  if (filters.duration) params.set("duration", String(filters.duration));
   if (filters.happyHourOnly) params.set("happy", "1");
   if (filters.sort) params.set("sira", filters.sort);
 
