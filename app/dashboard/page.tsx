@@ -10,7 +10,6 @@ import {
   type Notification as PrismaNotification,
   type Rating as PrismaRating,
   type Room as PrismaRoom,
-  type Slot as PrismaSlot,
   type Studio as PrismaStudio,
   UserRole,
 } from "@prisma/client";
@@ -87,7 +86,6 @@ type StudioWithRelations = PrismaStudio & {
     featuresJson?: Prisma.JsonValue | null;
     extrasJson?: Prisma.JsonValue | null;
     imagesJson?: Prisma.JsonValue | null;
-    slots: PrismaSlot[];
   })[];
   notifications: PrismaNotification[];
   ratings: PrismaRating[];
@@ -152,40 +150,17 @@ function mapStudioToResponse(studio: StudioWithRelations) {
         features: (room.featuresJson as Features | null | undefined) ?? defaultFeatures,
         extras: { ...defaultExtras, ...((room.extrasJson as Extras | null | undefined) ?? {}) },
         images: (room.imagesJson as string[] | null | undefined) ?? [],
-        slots: room.slots?.reduce<Record<string, { timeLabel: string; status: "empty" | "confirmed"; name?: string }[]>>(
-          (acc, slot) => {
-            const key = slot.date.toISOString().slice(0, 10);
-            acc[key] = acc[key] || [];
-            acc[key].push({
-              timeLabel: slot.timeLabel,
-              status: slot.status === "CONFIRMED" ? "confirmed" : "empty",
-              name: slot.customerName ?? undefined,
-            });
-            return acc;
-          },
-          {},
-        ) ?? {},
+        slots: {},
       })) ?? [],
   };
 }
 
-async function loadStudio(email: string, name?: string | null) {
+async function loadStudio(email: string) {
   const ownerEmail = email.toLowerCase();
-  const existing = await prisma.user.findUnique({
-    where: { email: ownerEmail },
-    select: { id: true, roles: true, role: true, isTeacher: true, isProducer: true, isStudioOwner: true },
-  });
-  const nextRoles = existing ? mergeRoles(normalizeRoles(existing), ["studio_owner"]) : ["musician", "studio_owner"];
-  await prisma.user.upsert({
-    where: { email: ownerEmail },
-    update: { name: name ?? undefined, role: "STUDIO", roles: { set: nextRoles }, isStudioOwner: true },
-    create: { email: ownerEmail, name: name ?? undefined, role: "STUDIO", roles: nextRoles, isStudioOwner: true },
-  });
-
   const studio = (await prisma.studio.findFirst({
     where: { ownerEmail: { equals: ownerEmail, mode: "insensitive" } },
     include: {
-      rooms: { include: { slots: true } },
+      rooms: true,
       notifications: true,
       ratings: true,
     },
@@ -261,7 +236,7 @@ export default async function DashboardPage({
     redirect("/profile");
   }
 
-  const initialStudio = await loadStudio(user.email, user.name);
+  const initialStudio = await loadStudio(user.email);
   if (!initialStudio) {
     redirect("/studio/new");
   }
