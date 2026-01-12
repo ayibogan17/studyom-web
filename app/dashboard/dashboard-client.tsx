@@ -781,6 +781,26 @@ export function DashboardClient({
   const [studio, setStudio] = useState<Studio | null>(
     normalizeStudio(initialStudio ?? null),
   );
+  useEffect(() => {
+    if (studio) return;
+    let cancelled = false;
+    const loadStudio = async () => {
+      try {
+        const res = await fetch("/api/studio");
+        if (!res.ok) return;
+        const json = (await res.json().catch(() => null)) as { studio?: Studio | null } | null;
+        if (!cancelled && json?.studio) {
+          setStudio(normalizeStudio(json.studio));
+        }
+      } catch {
+        // noop
+      }
+    };
+    loadStudio();
+    return () => {
+      cancelled = true;
+    };
+  }, [studio]);
   const reservationItems = reservationRequests ?? [];
   const [reservationRequestsState, setReservationRequestsState] = useState<ReservationRequest[]>(reservationItems);
   const [reservationAction, setReservationAction] = useState<{ id: string; action: "approve" | "reject" | "read" } | null>(
@@ -2546,7 +2566,7 @@ export function DashboardClient({
   if (!studio) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-gray-600">
-        Studio verisi yüklenemedi.
+        Yükleniyor...
       </div>
     );
   }

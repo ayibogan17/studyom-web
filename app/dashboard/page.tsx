@@ -202,6 +202,7 @@ export default async function DashboardPage({
   const existingUser = await prisma.user.findUnique({ where: { email: ownerEmail } });
   const existingStudio = await prisma.studio.findFirst({
     where: { ownerEmail: { equals: ownerEmail, mode: "insensitive" } },
+    select: { id: true },
   });
 
   // Öncelik: query param -> mevcut stüdyo kaydı -> mevcut kullanıcı rolü -> oturum rolü
@@ -236,136 +237,18 @@ export default async function DashboardPage({
     redirect("/profile");
   }
 
-  const initialStudio = await loadStudio(user.email);
-  if (!initialStudio) {
+  if (!existingStudio) {
     redirect("/studio/new");
   }
 
-  const rawRequests = await prisma.studioReservationRequest.findMany({
-    where: { studioId: initialStudio.id },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    include: {
-      room: { select: { id: true, name: true } },
-      studentUser: { select: { image: true } },
-    },
-  });
-
-  const calendarSettings = await prisma.studioCalendarSettings.findUnique({
-    where: { studioId: initialStudio.id },
-    select: { bookingApprovalMode: true },
-  });
-  const bookingApprovalMode = (calendarSettings?.bookingApprovalMode ?? "manual") as "manual" | "auto";
-
-  if (rawRequests.length > 0 && bookingApprovalMode === "manual") {
-    await prisma.studioReservationRequest.updateMany({
-      where: { studioId: initialStudio.id, studioUnread: true },
-      data: { studioUnread: false },
-    });
-  }
-
-  const reservationRequests: ReservationRequest[] = rawRequests.map((request) => ({
-    id: request.id,
-    roomId: request.roomId,
-    roomName: request.room.name || "Oda",
-    requesterName: request.requesterName,
-    requesterPhone: request.requesterPhone,
-    requesterEmail: request.requesterEmail ?? null,
-    requesterImage: request.studentUser?.image ?? null,
-    requesterIsAnon: !request.studentUserId,
-    note: request.note ?? null,
-    startAt: request.startAt.toISOString(),
-    endAt: request.endAt.toISOString(),
-    hours: request.hours,
-    totalPrice: request.totalPrice ?? null,
-    status: request.status,
-    studioUnread: request.studioUnread,
-    createdAt: request.createdAt.toISOString(),
-    updatedAt: request.updatedAt.toISOString(),
-    calendarBlockId: request.calendarBlockId ?? null,
-  }));
-
-  const studioTeacherLinks = await prisma.teacherStudioLink.findMany({
-    where: { studioId: initialStudio.id, status: "approved" },
-    include: {
-      teacherUser: { select: { id: true, email: true, fullName: true, name: true, image: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  const teacherUserIds = studioTeacherLinks.map((link) => link.teacherUserId);
-  const teacherApps = teacherUserIds.length
-    ? await prisma.teacherApplication.findMany({
-        where: { userId: { in: teacherUserIds }, status: "approved" },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, userId: true },
-      })
-    : [];
-  const appByUser = new Map<string, { id: number; userId: string }>();
-  for (const app of teacherApps) {
-    if (!appByUser.has(app.userId)) {
-      appByUser.set(app.userId, app);
-    }
-  }
-  const linkedTeachers = studioTeacherLinks
-    .map((link) => {
-      const app = appByUser.get(link.teacherUserId);
-      if (!app) return null;
-      const displayName =
-        link.teacherUser.fullName || link.teacherUser.name || link.teacherUser.email || "Hoca";
-      return {
-        id: link.id,
-        name: displayName,
-        email: link.teacherUser.email,
-        image: link.teacherUser.image,
-        slug: `${slugify(displayName)}-${app.id}`,
-      };
-    })
-    .filter((item): item is { id: string; name: string; email: string; image: string | null; slug: string } =>
-      Boolean(item),
-    );
-
-  const studioProducerLinks = await prisma.producerStudioLink.findMany({
-    where: { studioId: initialStudio.id, status: "approved" },
-    include: {
-      producerUser: { select: { id: true, email: true, fullName: true, name: true, image: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  const producerUserIds = studioProducerLinks.map((link) => link.producerUserId);
-  const producerApps = producerUserIds.length
-    ? await prisma.producerApplication.findMany({
-        where: { userId: { in: producerUserIds }, status: "approved" },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, userId: true },
-      })
-    : [];
-  const producerAppByUser = new Map<string, { id: number; userId: string }>();
-  for (const app of producerApps) {
-    if (!producerAppByUser.has(app.userId)) {
-      producerAppByUser.set(app.userId, app);
-    }
-  }
-  const linkedProducers = studioProducerLinks
-    .map((link) => {
-      const app = producerAppByUser.get(link.producerUserId);
-      if (!app) return null;
-      const displayName =
-        link.producerUser.fullName || link.producerUser.name || link.producerUser.email || "Üretici";
-      return {
-        id: link.id,
-        name: displayName,
-        email: link.producerUser.email,
-        image: link.producerUser.image,
-        slug: `${slugify(displayName)}-${app.id}`,
-      };
-    })
-    .filter((item): item is { id: string; name: string; email: string; image: string | null; slug: string } =>
-      Boolean(item),
-    );
+  const reservationRequests: ReservationRequest[] = [];
+  const bookingApprovalMode = "manual";
+  const linkedTeachers: Array<{ id: string; name: string; email: string | null; image: string | null; slug: string }> = [];
+  const linkedProducers: Array<{ id: string; name: string; email: string | null; image: string | null; slug: string }> = [];
 
   return (
     <DashboardClient
-      initialStudio={initialStudio}
+      initialStudio={undefined}
       reservationRequests={reservationRequests}
       bookingApprovalMode={bookingApprovalMode}
       initialTab={tabParam}

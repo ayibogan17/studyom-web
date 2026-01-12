@@ -22,15 +22,11 @@ const getPublicStudios = unstable_cache(
       where: { entityType: "studio" },
       _count: { _all: true },
     });
-    const contactMap = new Map(contactCounts.map((row) => [row.entityId, row._count._all]));
     const approvedReservationCounts = await prisma.studioReservationRequest.groupBy({
       by: ["studioId"],
       where: { status: "approved" },
       _count: { _all: true },
     });
-    const approvedReservationMap = new Map(
-      approvedReservationCounts.map((row) => [row.studioId, row._count._all]),
-    );
 
     const studios = await prisma.studio.findMany({
       where: { isActive: true },
@@ -54,15 +50,12 @@ const getPublicStudios = unstable_cache(
             minRate: true,
             dailyRate: true,
             imagesJson: true,
-            equipmentJson: true,
-            featuresJson: true,
-            extrasJson: true,
           },
         },
       },
     });
 
-    return { studios, contactMap, approvedReservationMap };
+    return { studios, contactCounts, approvedReservationCounts };
   },
   ["studyo-public-list"],
   { revalidate: 60 },
@@ -74,7 +67,10 @@ export default async function StudioListPage() {
 
   const publicData = await getPublicStudios();
   let studios = [...publicData.studios];
-  const { contactMap, approvedReservationMap } = publicData;
+  const contactMap = new Map(publicData.contactCounts.map((row) => [row.entityId, row._count._all]));
+  const approvedReservationMap = new Map(
+    publicData.approvedReservationCounts.map((row) => [row.studioId, row._count._all]),
+  );
 
   if (userEmail) {
     const ownerStudios = await prisma.studio.findMany({
@@ -99,9 +95,6 @@ export default async function StudioListPage() {
             minRate: true,
             dailyRate: true,
             imagesJson: true,
-            equipmentJson: true,
-            featuresJson: true,
-            extrasJson: true,
           },
         },
       },
@@ -208,9 +201,9 @@ export default async function StudioListPage() {
         minRate: room.minRate,
         dailyRate: room.dailyRate,
         hourlyRate: room.hourlyRate,
-        equipmentJson: room.equipmentJson,
-        featuresJson: room.featuresJson,
-        extrasJson: room.extrasJson,
+        equipmentJson: null,
+        featuresJson: null,
+        extrasJson: null,
       })),
       pricePerHour,
       badges: roomTypes.slice(0, 3),
