@@ -64,7 +64,7 @@ export async function PATCH(
           slug: true,
           ownerEmail: true,
           openingHours: true,
-          calendarSettings: { select: { weeklyHours: true, dayCutoffHour: true } },
+          calendarSettings: { select: { weeklyHours: true, dayCutoffHour: true, timezone: true } },
         },
       },
       room: { select: { id: true, name: true } },
@@ -163,7 +163,10 @@ Studyom ekibi
       (request.studio.openingHours as { open: boolean; openTime: string; closeTime: string }[] | null | undefined),
   );
   const cutoffHour = request.studio.calendarSettings?.dayCutoffHour ?? 4;
-  if (!isWithinOpeningHours(request.startAt, request.endAt, openingHours, cutoffHour)) {
+  const timeZone = request.studio.calendarSettings?.timezone ?? "Europe/Istanbul";
+  const startAtLocal = new Date(request.startAt.toLocaleString("en-US", { timeZone }));
+  const endAtLocal = new Date(request.endAt.toLocaleString("en-US", { timeZone }));
+  if (!isWithinOpeningHours(startAtLocal, endAtLocal, openingHours, cutoffHour)) {
     return NextResponse.json({ error: "Rezervasyon saatleri açık saatler dışında." }, { status: 400 });
   }
 
