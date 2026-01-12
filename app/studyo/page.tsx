@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { buildUniqueStudioSlug } from "@/lib/studio-slug";
 import { getServerSession } from "next-auth";
@@ -14,56 +15,104 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+const getPublicStudios = unstable_cache(
+  async () => {
+    const contactCounts = await prisma.contactEvent.groupBy({
+      by: ["entityId"],
+      where: { entityType: "studio" },
+      _count: { _all: true },
+    });
+    const contactMap = new Map(contactCounts.map((row) => [row.entityId, row._count._all]));
+    const approvedReservationCounts = await prisma.studioReservationRequest.groupBy({
+      by: ["studioId"],
+      where: { status: "approved" },
+      _count: { _all: true },
+    });
+    const approvedReservationMap = new Map(
+      approvedReservationCounts.map((row) => [row.studioId, row._count._all]),
+    );
+
+    const studios = await prisma.studio.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        city: true,
+        district: true,
+        coverImageUrl: true,
+        openingHours: true,
+        calendarSettings: { select: { happyHourEnabled: true } },
+        rooms: {
+          orderBy: { order: "asc" },
+          select: {
+            name: true,
+            type: true,
+            pricingModel: true,
+            hourlyRate: true,
+            flatRate: true,
+            minRate: true,
+            dailyRate: true,
+            imagesJson: true,
+            equipmentJson: true,
+            featuresJson: true,
+            extrasJson: true,
+          },
+        },
+      },
+    });
+
+    return { studios, contactMap, approvedReservationMap };
+  },
+  ["studyo-public-list"],
+  { revalidate: 60 },
+);
+
 export default async function StudioListPage() {
   const session = await getServerSession(authOptions);
   const userEmail = session?.user?.email ?? null;
 
-  const contactCounts = await prisma.contactEvent.groupBy({
-    by: ["entityId"],
-    where: { entityType: "studio" },
-    _count: { _all: true },
-  });
-  const contactMap = new Map(contactCounts.map((row) => [row.entityId, row._count._all]));
-  const approvedReservationCounts = await prisma.studioReservationRequest.groupBy({
-    by: ["studioId"],
-    where: { status: "approved" },
-    _count: { _all: true },
-  });
-  const approvedReservationMap = new Map(
-    approvedReservationCounts.map((row) => [row.studioId, row._count._all]),
-  );
+  const publicData = await getPublicStudios();
+  let studios = [...publicData.studios];
+  const { contactMap, approvedReservationMap } = publicData;
 
-  const studios = await prisma.studio.findMany({
-    where: userEmail
-      ? { OR: [{ isActive: true }, { ownerEmail: userEmail }] }
-      : { isActive: true },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      city: true,
-      district: true,
-      coverImageUrl: true,
-      openingHours: true,
-      calendarSettings: { select: { happyHourEnabled: true } },
-      rooms: {
-        orderBy: { order: "asc" },
-        select: {
-          name: true,
-          type: true,
-          pricingModel: true,
-          hourlyRate: true,
-          flatRate: true,
-          minRate: true,
-          dailyRate: true,
-          imagesJson: true,
-          equipmentJson: true,
-          featuresJson: true,
-          extrasJson: true,
+  if (userEmail) {
+    const ownerStudios = await prisma.studio.findMany({
+      where: { ownerEmail: userEmail, isActive: false },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        city: true,
+        district: true,
+        coverImageUrl: true,
+        openingHours: true,
+        calendarSettings: { select: { happyHourEnabled: true } },
+        rooms: {
+          orderBy: { order: "asc" },
+          select: {
+            name: true,
+            type: true,
+            pricingModel: true,
+            hourlyRate: true,
+            flatRate: true,
+            minRate: true,
+            dailyRate: true,
+            imagesJson: true,
+            equipmentJson: true,
+            featuresJson: true,
+            extrasJson: true,
+          },
         },
       },
-    },
-  });
+    });
+    const byId = new Map(studios.map((studio) => [studio.id, studio]));
+    ownerStudios.forEach((studio) => {
+      if (!byId.has(studio.id)) {
+        studios.push(studio);
+      }
+    });
+  }
 
   const usedSlugs = new Set(studios.map((studio) => studio.slug).filter((slug): slug is string => Boolean(slug)));
   const missingSlugs: Array<{ id: string; slug: string }> = [];
