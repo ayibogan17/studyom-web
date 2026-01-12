@@ -816,6 +816,10 @@ export function DashboardClient({
     if (activeTab !== "panel") return;
     const updateHeight = () => {
       if (!approvalCardRef.current) return;
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 1024px)").matches) {
+        setReservationCardHeight(null);
+        return;
+      }
       const height = Math.round(approvalCardRef.current.getBoundingClientRect().height);
       if (height > 0) setReservationCardHeight(height);
     };
