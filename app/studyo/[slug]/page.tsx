@@ -208,7 +208,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     studio.coverImageUrl ||
     roomImages.find((img) => typeof img === "string" && img.length > 0) ||
     "/logo.svg";
-  const canonical = `https://www.studyom.net/studyo/${studio.slug ?? slug}`;
+  const canonical = `https://www.studyom.net/studyo/${slug}`;
   return {
     title: `${studio.name} | Prova & Kayıt Stüdyosu | Studyom`,
     description,
