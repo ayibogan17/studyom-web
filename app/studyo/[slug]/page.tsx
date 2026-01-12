@@ -375,7 +375,7 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
 
   const priceRange = buildPriceRange(studio.rooms ?? []);
   const addressParts = [studio.address, studio.district, studio.city].filter(Boolean).join(", ");
-  const canonicalUrl = `https://www.studyom.net/studyo/${studio.slug ?? slug}`;
+  const canonicalUrl = `https://www.studyom.net/studyo/${slug}`;
   const studioJsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
