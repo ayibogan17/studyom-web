@@ -126,7 +126,7 @@ const getOccupiedMinutes = (
   }, 0);
 };
 
-type ReservationStatsSearchParams = { compareA?: string; compareB?: string; as?: string };
+type ReservationStatsSearchParams = { compareA?: string; compareB?: string; as?: string; calc?: string };
 
 export default async function ReservationStatsPage({
   searchParams,
