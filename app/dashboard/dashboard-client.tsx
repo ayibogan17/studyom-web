@@ -2752,10 +2752,10 @@ export function DashboardClient({
             </div>
 
             <div
-              className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 flex flex-col"
+              className="flex flex-col rounded-2xl border border-blue-100 bg-blue-50/80 p-3 sm:p-4"
               style={reservationCardHeight ? { height: reservationCardHeight } : undefined}
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-blue-900">{reservationLabel}</p>
                   <Link
@@ -2796,7 +2796,7 @@ export function DashboardClient({
               <div className="mt-2 flex-1">
                 {reservationActive ? (
                   <div className="flex h-full flex-col rounded-xl border border-blue-100 bg-white/80 p-3 overflow-hidden">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-start">
                       <div className="flex items-start gap-3">
                         <ReservationAvatar
                           name={reservationActive.requesterName}
@@ -2804,7 +2804,7 @@ export function DashboardClient({
                           isAnon={reservationActive.requesterIsAnon}
                         />
                         <div className="space-y-1">
-                          <p className="text-sm font-semibold text-blue-900">
+                          <p className="text-sm font-semibold text-blue-900 break-words">
                             {reservationActive.requesterName} · {reservationActive.roomName}
                           </p>
                           <p className="text-xs text-blue-700">
@@ -2824,7 +2824,7 @@ export function DashboardClient({
                     {reservationActiveStatus}
                   </span>
                     </div>
-                    <div className="mt-2 flex-1 space-y-1 overflow-auto pr-1 text-xs text-blue-700">
+                    <div className="mt-2 flex-1 space-y-1 overflow-auto pr-1 text-xs text-blue-700 max-h-24 sm:max-h-none">
                       <p>Telefon: {reservationActive.requesterPhone}</p>
                       {reservationActive.requesterEmail && <p>E-posta: {reservationActive.requesterEmail}</p>}
                       {reservationActive.note && <p>Not: {reservationActive.note}</p>}

@@ -285,29 +285,19 @@ export function AppHeader() {
             size="sm"
             className="border-0 bg-gradient-to-r from-fuchsia-500 via-purple-500 to-indigo-500 text-white hover:from-fuchsia-400 hover:via-purple-400 hover:to-indigo-400"
           >
-            <Link href="/openjam" prefetch={false}>OpenJam</Link>
+            <Link href="/openjam" prefetch={false} onClick={() => setOpen(false)}>OpenJam</Link>
           </Button>
           <Button asChild full size="sm">
-            <Link href="/studyo" prefetch={false}>Stüdyo Bul</Link>
+            <Link href="/studyo" prefetch={false} onClick={() => setOpen(false)}>Stüdyo Bul</Link>
           </Button>
-          <div className="space-y-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
-            <Link
-              href="/uretim"
-              prefetch={false}
-              className="text-sm font-semibold text-[var(--color-primary)]"
-              onClick={() => setOpen(false)}
-            >
-              Üretim
-            </Link>
-            <div className="space-y-2">
-              {productionItems.map((item) => (
-                <div key={item.title} className="rounded-xl bg-[var(--color-surface)] p-2">
-                  <p className="text-xs font-semibold text-[var(--color-primary)]">{item.title}</p>
-                  <p className="text-[11px] text-[var(--color-muted)]">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Link
+            href="/uretim"
+            prefetch={false}
+            className="rounded-xl px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-secondary)]"
+            onClick={() => setOpen(false)}
+          >
+            Üretim
+          </Link>
           {links.map((link) => (
             <Link
               key={`${link.href}-${link.label}`}
@@ -321,7 +311,7 @@ export function AppHeader() {
           ))}
           {!session && (
             <Button asChild full size="sm" variant="secondary">
-              <Link href="/login" prefetch={false}>Giriş</Link>
+              <Link href="/login" prefetch={false} onClick={() => setOpen(false)}>Giriş</Link>
             </Button>
           )}
           {session && (

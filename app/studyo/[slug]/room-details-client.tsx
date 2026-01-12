@@ -355,7 +355,7 @@ function RoomCalendarPreview({
 
   return (
     <div
-      className={`rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-4 overflow-hidden ${className ?? ""}`}
+      className={`rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-4 overflow-x-auto sm:overflow-visible ${className ?? ""}`}
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold text-[var(--color-primary)]">Haftalık Takvim</p>
@@ -378,8 +378,8 @@ function RoomCalendarPreview({
           </button>
         </div>
       </div>
-      <div className="mt-2 overflow-hidden">
-        <div className="w-full">
+      <div className="mt-2">
+        <div className="min-w-[520px] sm:min-w-0">
           <div className="grid grid-cols-[48px_repeat(7,1fr)] gap-1 text-[10px] font-semibold text-[var(--color-muted)]">
             <div />
             {days.map((day) => {
@@ -1359,7 +1359,7 @@ export function StudioRoomDetails({
         );
 
         return (
-          <Card key={room.id} className="space-y-4 p-5">
+          <Card key={room.id} className="space-y-4 p-4 sm:p-5">
             <button
               type="button"
               onClick={() => setOpenRooms((prev) => ({ ...prev, [room.id]: !isOpen }))}
@@ -1382,7 +1382,7 @@ export function StudioRoomDetails({
                   ) : null}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {happyHourLabel ? (
                   <span className="text-xs font-semibold text-amber-400">{happyHourLabel}</span>
                 ) : null}
@@ -1397,7 +1397,7 @@ export function StudioRoomDetails({
             </button>
             {isOpen && (
               <>
-                <div className="grid items-stretch gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+                <div className="grid items-stretch gap-3 sm:gap-4 lg:grid-cols-[0.85fr_1.15fr]">
                   <div className="flex h-full min-h-0 items-center justify-center overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
                     {onlyEtut ? (
                       <div className="flex h-full w-full flex-col justify-center gap-2 text-xs text-[var(--color-muted)]">
@@ -1405,7 +1405,7 @@ export function StudioRoomDetails({
                         <p className="whitespace-pre-line">{formatText(room.extras.practiceDescription)}</p>
                       </div>
                     ) : showDrumInline ? (
-                      <div className="relative h-72 w-full">
+                      <div className="relative h-56 w-full sm:h-72">
                         {drumLayoutItems.length ? (
                           drumLayoutItems.map((item) => {
                             const detailText = item.detail?.trim();
@@ -1421,7 +1421,7 @@ export function StudioRoomDetails({
                                   <img
                                     src={item.src}
                                     alt={item.label}
-                                    className="h-full w-full origin-center scale-[2] object-contain"
+                                    className="h-full w-full origin-center scale-[1.5] object-contain sm:scale-[2]"
                                     loading="lazy"
                                   />
                                   {detailText ? (
@@ -1440,7 +1440,7 @@ export function StudioRoomDetails({
                         )}
                       </div>
                     ) : iconItems.length ? (
-                      <div className="grid max-h-full w-full grid-cols-3 items-center justify-items-center gap-3 overflow-y-auto pr-1">
+                      <div className="grid max-h-full w-full grid-cols-2 items-center justify-items-center gap-2 overflow-y-auto pr-1 sm:grid-cols-3 sm:gap-3">
                         {iconItems.map((item, index) => {
                           const detailText = item.detail?.trim();
                           return (
@@ -1449,12 +1449,12 @@ export function StudioRoomDetails({
                               className="group flex flex-col items-center gap-1 text-[10px] text-[var(--color-muted)]"
                             >
                               <div className="relative flex items-center justify-center">
-                                <img
-                                  src={item.src}
-                                  alt={item.label}
-                                  className="h-20 w-auto max-w-full object-contain"
-                                  loading="lazy"
-                                />
+                                  <img
+                                    src={item.src}
+                                    alt={item.label}
+                                    className="h-16 w-auto max-w-full object-contain sm:h-20"
+                                    loading="lazy"
+                                  />
                               </div>
                               <span>{item.label}</span>
                               {detailText ? (
@@ -1472,9 +1472,12 @@ export function StudioRoomDetails({
                       </p>
                     )}
                   </div>
-                  <div ref={(node) => {
-                    calendarRefs.current[room.id] = node;
-                  }}>
+                  <div
+                    ref={(node) => {
+                      calendarRefs.current[room.id] = node;
+                    }}
+                    className="overflow-x-auto"
+                  >
                     <RoomCalendarPreview calendar={room.calendar} onSlotSelect={(startAt) => openReservation(room, startAt)} />
                   </div>
                 </div>
@@ -1496,7 +1499,7 @@ export function StudioRoomDetails({
                     </button>
                     {isDrumOpen ? (
                       <div className="border-t border-[var(--color-border)] p-4">
-                        <div className="relative h-72 w-full">
+                        <div className="relative h-56 w-full sm:h-72">
                           <div className="relative h-full w-full origin-center" style={{ transform: "scale(0.8)" }}>
                             {drumLayoutItems.length ? (
                               drumLayoutItems.map((item) => {
@@ -1513,7 +1516,7 @@ export function StudioRoomDetails({
                                       <img
                                         src={item.src}
                                         alt={item.label}
-                                        className="h-full w-full origin-center scale-[2.5] object-contain"
+                                        className="h-full w-full origin-center scale-[2] object-contain sm:scale-[2.5]"
                                         loading="lazy"
                                       />
                                       {detailText ? (
@@ -1560,10 +1563,12 @@ export function StudioRoomDetails({
                       {visibleInfoRows.map((row) => (
                         <div
                           key={row.label}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-xs"
+                          className="flex flex-col items-start justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-xs sm:flex-row sm:items-center"
                         >
                           <span className="text-[var(--color-muted)]">{row.label}</span>
-                          <span className="text-[var(--color-primary)]">{row.value}</span>
+                          <span className="text-[var(--color-primary)] break-words sm:text-right">
+                            {row.value}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1577,10 +1582,12 @@ export function StudioRoomDetails({
                       {visibleExtrasRows.map((row, index) => (
                         <div
                           key={`${row.label}-${row.value}-${index}`}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-xs"
+                          className="flex flex-col items-start justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-xs sm:flex-row sm:items-center"
                         >
                           <span className="text-[var(--color-muted)]">{row.label}</span>
-                          <span className="text-[var(--color-primary)]">{row.value}</span>
+                          <span className="text-[var(--color-primary)] break-words sm:text-right">
+                            {row.value}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1628,7 +1635,7 @@ export function StudioRoomDetails({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-lg rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-2xl"
+            className="w-full max-w-lg rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-2xl sm:max-h-none sm:overflow-visible max-h-[85vh] overflow-y-auto"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -1647,7 +1654,7 @@ export function StudioRoomDetails({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 overflow-x-auto">
               <RoomCalendarPreview
                 calendar={calendarPreviewRoom.calendar}
                 onSlotSelect={(startAt) => {
@@ -1667,7 +1674,7 @@ export function StudioRoomDetails({
           aria-modal="true"
         >
           <div
-            className="w-full max-w-lg rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-2xl"
+            className="w-full max-w-lg rounded-t-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-2xl sm:rounded-2xl sm:max-h-none sm:overflow-visible max-h-[85vh] overflow-y-auto"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -1797,12 +1804,12 @@ export function StudioRoomDetails({
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => setReservationOpen(false)}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <Button size="sm" variant="secondary" className="w-full sm:w-auto" onClick={() => setReservationOpen(false)}>
                       Vazgeç
                     </Button>
-                    <Button size="sm" onClick={handleReservationSubmit} disabled={reservationSending || !canSubmitReservation}>
+                    <Button size="sm" className="w-full sm:w-auto" onClick={handleReservationSubmit} disabled={reservationSending || !canSubmitReservation}>
                       {reservationSending ? "Gönderiliyor…" : autoApproval ? "Rezervasyon yap" : "İstek gönder"}
                     </Button>
                   </div>
