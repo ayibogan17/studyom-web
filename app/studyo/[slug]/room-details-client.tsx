@@ -1734,17 +1734,31 @@ export function StudioRoomDetails({
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-[var(--color-muted)]">Kaç saat istiyorsun?</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={reservationMaxHours || 1}
-                    value={reservationHours}
-                    onChange={(event) => {
-                      const next = Number.parseInt(event.target.value, 10);
-                      setReservationHours(Number.isFinite(next) ? next : 1);
-                    }}
-                    className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)] focus:border-[var(--color-accent)] focus:outline-none"
-                  />
+                  <div className="flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] px-3 py-2 text-sm text-[var(--color-primary)]">
+                    <button
+                      type="button"
+                      onClick={() => setReservationHours((prev) => Math.max(1, prev - 1))}
+                      disabled={reservationHours <= 1}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-base font-semibold disabled:opacity-50"
+                      aria-label="Bir saat azalt"
+                    >
+                      -
+                    </button>
+                    <span className="text-sm font-semibold">{reservationHours} saat</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setReservationHours((prev) =>
+                          Math.min(reservationMaxHours || 1, prev + 1),
+                        )
+                      }
+                      disabled={reservationHours >= (reservationMaxHours || 1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] text-base font-semibold disabled:opacity-50"
+                      aria-label="Bir saat artır"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-1">
