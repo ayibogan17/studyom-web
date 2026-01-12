@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { isBlockingBlock, normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
 import { buildHappyHourTemplatesByRoom, type HappyHourSlot } from "@/lib/happy-hour";
 
+export const revalidate = 60;
+
 const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
 
 const minutesFromTime = (value: string) => {

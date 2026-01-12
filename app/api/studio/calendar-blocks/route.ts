@@ -118,6 +118,16 @@ export async function GET(req: Request) {
       endAt: { gt: startAt },
     },
     orderBy: { startAt: "asc" },
+    select: {
+      id: true,
+      roomId: true,
+      startAt: true,
+      endAt: true,
+      type: true,
+      title: true,
+      status: true,
+      note: true,
+    },
   });
 
   return NextResponse.json({
