@@ -20,5 +20,10 @@ export default async function OpenJamMemoriesPage() {
     },
   });
 
-  return <OpenJamMemoriesClient memories={memories} />;
+  const payload = memories.map((memory) => ({
+    ...memory,
+    createdAt: memory.createdAt.toISOString(),
+  }));
+
+  return <OpenJamMemoriesClient memories={payload} />;
 }
