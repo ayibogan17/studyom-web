@@ -1528,17 +1528,42 @@ export function DashboardClient({
           calendarRoomScope === "all"
             ? `roomIds=${calendarRoomIds.join(",")}`
             : `roomId=${calendarRoomIds[0]}`;
-        const blocksRes = await fetch(
-          `/api/studio/calendar-blocks?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
+        const bundleRes = await fetch(
+          `/api/studio/calendar-bundle?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}&includeSummary=0`,
         );
-        const blocksJson = await blocksRes.json().catch(() => ({}));
-        if (!blocksRes.ok) {
-          setCalendarError(blocksJson.error || "Takvim blokları alınamadı.");
+        const bundleJson = await bundleRes.json().catch(() => ({}));
+        if (!bundleRes.ok) {
+          setCalendarError(bundleJson.error || "Takvim blokları alınamadı.");
           setCalendarBlocks([]);
+          setHappyHourSlots({});
           return;
         }
         if (!active) return;
-        setCalendarBlocks((blocksJson.blocks as CalendarBlock[]) ?? []);
+        setCalendarBlocks((bundleJson.blocks as CalendarBlock[]) ?? []);
+        const nextSlots: Record<string, boolean> = {};
+        (bundleJson.happyHours as { startAt: string; endAt: string; roomId: string }[] | undefined)?.forEach(
+          (slot) => {
+            const start = new Date(slot.startAt);
+            const end = new Date(slot.endAt);
+            const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+            const minutesFromStart = Math.round(
+              (start.getTime() - businessStart.getTime()) / 60000,
+            );
+            const minutesToEnd = Math.round(
+              (end.getTime() - businessStart.getTime()) / 60000,
+            );
+            if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
+            const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
+            for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
+              const key = buildHappyHourKey(slot.roomId, businessStart, m);
+              if (key) {
+                nextSlots[key] = true;
+              }
+            }
+          },
+        );
+        setHappyHourSlots(nextSlots);
+        setHappyHourOverlayReady(true);
       } catch (err) {
         console.error(err);
         if (!active) return;
@@ -1553,72 +1578,6 @@ export function DashboardClient({
     };
 
     void loadBlocks();
-
-    const happyRoomIds = happyHourActive
-      ? calendarRoomScope === "all"
-        ? calendarRoomIds.filter((roomId) => happyHourSelectedSet.has(roomId))
-        : happyHourRoomId && happyHourSelectedSet.has(happyHourRoomId)
-          ? [happyHourRoomId]
-          : []
-      : [];
-
-    if (!happyRoomIds.length) {
-      setHappyHourSlots({});
-      setHappyHourOverlayReady(true);
-      return () => {
-        active = false;
-      };
-    }
-
-    Promise.resolve()
-      .then(async () => {
-        const happyResults = await Promise.all(
-          happyRoomIds.map((roomId) =>
-            fetch(
-              `/api/studio/happy-hours?roomId=${roomId}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}`,
-            ),
-          ),
-        );
-        if (!active) return;
-        const nextSlots: Record<string, boolean> = {};
-        for (const [index, happyRes] of happyResults.entries()) {
-          const happyJson = await happyRes.json().catch(() => ({}));
-          if (!happyRes.ok) continue;
-          const fallbackRoomId = happyRoomIds[index];
-          (happyJson.slots as { startAt: string; endAt: string; roomId?: string }[] | undefined)?.forEach(
-            (slot) => {
-              const start = new Date(slot.startAt);
-              const end = new Date(slot.endAt);
-              const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
-              const minutesFromStart = Math.round(
-                (start.getTime() - businessStart.getTime()) / 60000,
-              );
-              const minutesToEnd = Math.round(
-                (end.getTime() - businessStart.getTime()) / 60000,
-              );
-              if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
-              const roomId = typeof slot.roomId === "string" ? slot.roomId : fallbackRoomId;
-              if (!roomId) return;
-              const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
-              for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
-                const key = buildHappyHourKey(roomId, businessStart, m);
-                if (key) {
-                  nextSlots[key] = true;
-                }
-              }
-            },
-          );
-        }
-        if (!active) return;
-        setHappyHourSlots(nextSlots);
-        setHappyHourOverlayReady(true);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!active) return;
-        setHappyHourSlots({});
-        setHappyHourOverlayReady(true);
-      });
 
     return () => {
       active = false;
@@ -2470,7 +2429,7 @@ export function DashboardClient({
     const run = async () => {
       setSummaryLoading(true);
       try {
-        const res = await fetch("/api/studio/calendar-summary");
+        const res = await fetch("/api/studio/calendar-bundle?includeBlocks=0&includeHappy=0&includeSummary=1");
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(json.error || "Özet alınamadı");
