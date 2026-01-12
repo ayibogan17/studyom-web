@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { isBlockingBlock, isWithinOpeningHours, normalizeOpeningHours } from "@/lib/studio-availability";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const schema = z.object({
   action: z.enum(["approve", "reject", "read"]),
@@ -132,16 +134,18 @@ Yeni istek oluşturmak için: ${baseUrl}/studyo/${studioSlug}
 Müzikle kal,
 Studyom ekibi
 `;
-      try {
-        await resend.emails.send({
-          from: leadFrom,
-        to: [recipientEmail],
-        subject: "Rezervasyon isteği reddedildi",
-        text,
-      });
-    } catch (err) {
-      console.error("reservation reject email error", err);
-      }
+      Promise.resolve()
+        .then(() =>
+          resend.emails.send({
+            from: leadFrom,
+            to: [recipientEmail],
+            subject: "Rezervasyon isteği reddedildi",
+            text,
+          }),
+        )
+        .catch((err) => {
+          console.error("reservation reject email error", err);
+        });
     }
 
     return NextResponse.json({ ok: true, status: updated.status });
@@ -240,16 +244,18 @@ Detaylar için: ${baseUrl}/notifications
 Müzikle kal,
 Studyom ekibi
 `;
-    try {
-      await resend.emails.send({
-        from: leadFrom,
-      to: [recipientEmail],
-      subject: "Rezervasyon isteği onaylandı",
-      text,
-    });
-    } catch (err) {
-      console.error("reservation approve email error", err);
-    }
+    Promise.resolve()
+      .then(() =>
+        resend.emails.send({
+          from: leadFrom,
+          to: [recipientEmail],
+          subject: "Rezervasyon isteği onaylandı",
+          text,
+        }),
+      )
+      .catch((err) => {
+        console.error("reservation approve email error", err);
+      });
   }
 
   return NextResponse.json({ ok: true, status: updated.status, calendarBlockId: updated.calendarBlockId });
