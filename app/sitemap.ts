@@ -2,8 +2,18 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { getProducerListings } from "@/lib/producer-db";
 import { getApprovedTeachers } from "@/lib/teacher-db";
+import { isProductionIndexingOn } from "@/lib/seo/productionIndexing";
 
 const baseUrl = "https://www.studyom.net";
+
+const productionSeoRoutes = [
+  "/istanbul/mixing-mastering",
+  "/online/mixing-mastering",
+  "/istanbul/beat-yapimi",
+  "/rap-hiphop/beat-yapimi",
+  "/istanbul/muzik-produksiyonu",
+  "/istanbul/aranjor",
+];
 
 const staticRoutes = [
   "",
@@ -64,7 +74,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     getApprovedTeachers(),
   ]);
 
-  const staticEntries = staticRoutes.map((route) => ({
+  // Production SEO pages are excluded from sitemap when indexing is toggled off.
+  const routes = isProductionIndexingOn()
+    ? [...staticRoutes, ...productionSeoRoutes]
+    : staticRoutes;
+
+  const staticEntries = routes.map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,

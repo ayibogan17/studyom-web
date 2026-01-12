@@ -155,11 +155,42 @@ function containsUrl(value: string) {
   return /(https?:\/\/|www\.)/i.test(value);
 }
 
-export default function ProductionPageClient({ initialProducers }: { initialProducers: ProducerProfile[] }) {
+type ProductionHeader = {
+  label?: string;
+  title: string;
+  description: string;
+};
+
+type EmptyStateConfig = {
+  title: string;
+  description: string;
+  cta?: { label: string; href: string };
+  secondaryCta?: { label: string; href: string };
+};
+
+export default function ProductionPageClient({
+  initialProducers,
+  defaultFilters,
+  header,
+  emptyState,
+  lowSupplyNotice,
+}: {
+  initialProducers: ProducerProfile[];
+  defaultFilters?: ProducerFilters;
+  header?: ProductionHeader;
+  emptyState?: EmptyStateConfig;
+  lowSupplyNotice?: EmptyStateConfig;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { status: sessionStatus } = useSession();
-  const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
+  const searchParamsString = searchParams.toString();
+  const hasQueryFilters = searchParamsString.length > 0;
+  const filters = useMemo(() => {
+    const parsed = parseFilters(searchParams);
+    if (hasQueryFilters || !defaultFilters) return parsed;
+    return { ...parsed, ...defaultFilters };
+  }, [searchParams, hasQueryFilters, defaultFilters]);
   const producers = useMemo(() => listProducers(filters, initialProducers), [filters, initialProducers]);
   const isAuthenticated = sessionStatus === "authenticated";
   const isSessionLoading = sessionStatus === "loading";
@@ -228,9 +259,11 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
     <main className="bg-[var(--color-secondary)]">
       <Section containerClassName="max-w-6xl space-y-6">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Üretim</p>
-          <h1 className="text-3xl font-semibold text-[var(--color-primary)]">Üretim</h1>
-          <p className="text-sm text-[var(--color-muted)]">Şarkın için doğru üreticiyi bul.</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+            {header?.label ?? "Üretim"}
+          </p>
+          <h1 className="text-3xl font-semibold text-[var(--color-primary)]">{header?.title ?? "Üretim"}</h1>
+          <p className="text-sm text-[var(--color-muted)]">{header?.description ?? "Şarkın için doğru üreticiyi bul."}</p>
         </div>
 
         <ProductionFilterBar
@@ -251,16 +284,48 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
 
         {producers.length === 0 ? (
           <Card className="flex flex-col items-start gap-3 p-6">
-            <p className="text-base font-semibold text-[var(--color-primary)]">Sonuç bulunamadı</p>
-            <p className="text-sm text-[var(--color-muted)]">Bu filtrelerle eşleşen üretici yok. Filtreleri gevşet.</p>
-            <Button asChild size="sm">
-              <Link href="/uretim">Filtreleri temizle</Link>
-            </Button>
+            <p className="text-base font-semibold text-[var(--color-primary)]">
+              {emptyState?.title ?? "Sonuç bulunamadı"}
+            </p>
+            <p className="text-sm text-[var(--color-muted)]">
+              {emptyState?.description ?? "Bu filtrelerle eşleşen üretici yok. Filtreleri gevşet."}
+            </p>
+            {emptyState?.cta ? (
+              <Button asChild size="sm">
+                <Link href={emptyState.cta.href}>{emptyState.cta.label}</Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm">
+                <Link href="/uretim">Filtreleri temizle</Link>
+              </Button>
+            )}
+            {emptyState?.secondaryCta ? (
+              <Button asChild size="sm" variant="secondary">
+                <Link href={emptyState.secondaryCta.href}>{emptyState.secondaryCta.label}</Link>
+              </Button>
+            ) : null}
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {producers.map((producer) => (
-              <Card key={producer.id} className="space-y-3 p-5 shadow-sm">
+          <div className="space-y-4">
+            {lowSupplyNotice && producers.length <= 2 ? (
+              <Card className="flex flex-col items-start gap-3 p-6">
+                <p className="text-base font-semibold text-[var(--color-primary)]">{lowSupplyNotice.title}</p>
+                <p className="text-sm text-[var(--color-muted)]">{lowSupplyNotice.description}</p>
+                {lowSupplyNotice.cta ? (
+                  <Button asChild size="sm">
+                    <Link href={lowSupplyNotice.cta.href}>{lowSupplyNotice.cta.label}</Link>
+                  </Button>
+                ) : null}
+                {lowSupplyNotice.secondaryCta ? (
+                  <Button asChild size="sm" variant="secondary">
+                    <Link href={lowSupplyNotice.secondaryCta.href}>{lowSupplyNotice.secondaryCta.label}</Link>
+                  </Button>
+                ) : null}
+              </Card>
+            ) : null}
+            <div className="grid gap-4 md:grid-cols-2">
+              {producers.map((producer) => (
+                <Card key={producer.id} className="space-y-3 p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
                     {producer.image ? (
@@ -358,7 +423,8 @@ export default function ProductionPageClient({ initialProducers }: { initialProd
                   </Link>
                 </div>
               </Card>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </Section>
