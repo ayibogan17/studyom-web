@@ -112,10 +112,6 @@ export async function POST(req: Request) {
     if (Number.isNaN(startAt.getTime())) {
       return NextResponse.json({ error: "Başlangıç zamanı geçersiz." }, { status: 400 });
     }
-    if (startAt.getMinutes() % 60 !== 0 || startAt.getSeconds() !== 0) {
-      return NextResponse.json({ error: "Saat başlangıcı tam olmalı." }, { status: 400 });
-    }
-
     const endAt = new Date(startAt.getTime() + parsed.data.hours * 60 * 60 * 1000);
     if (endAt <= startAt) {
       return NextResponse.json({ error: "Zaman aralığı geçersiz." }, { status: 400 });
@@ -132,6 +128,7 @@ export async function POST(req: Request) {
           select: {
             weeklyHours: true,
             dayCutoffHour: true,
+            timezone: true,
             bookingApprovalMode: true,
             bookingCutoffUnit: true,
             bookingCutoffValue: true,
@@ -158,12 +155,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Oda bulunamadı" }, { status: 404 });
     }
 
+    const timeZone = studio.calendarSettings?.timezone ?? "Europe/Istanbul";
+    const startAtLocal = new Date(startAt.toLocaleString("en-US", { timeZone }));
+    const endAtLocal = new Date(endAt.toLocaleString("en-US", { timeZone }));
+    if (startAtLocal.getMinutes() % 60 !== 0 || startAtLocal.getSeconds() !== 0) {
+      return NextResponse.json({ error: "Saat başlangıcı tam olmalı." }, { status: 400 });
+    }
+
     const openingHours = normalizeOpeningHours(
       (studio.calendarSettings?.weeklyHours as { open: boolean; openTime: string; closeTime: string }[] | null | undefined) ??
         (studio.openingHours as { open: boolean; openTime: string; closeTime: string }[] | null | undefined),
     );
     const cutoffHour = studio.calendarSettings?.dayCutoffHour ?? 4;
-    if (!isWithinOpeningHours(startAt, endAt, openingHours, cutoffHour)) {
+    if (!isWithinOpeningHours(startAtLocal, endAtLocal, openingHours, cutoffHour)) {
       return NextResponse.json({ error: "Seçilen saatler açık saatler dışında." }, { status: 400 });
     }
 
