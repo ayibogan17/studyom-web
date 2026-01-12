@@ -24,6 +24,14 @@ export default async function StudioListPage() {
     _count: { _all: true },
   });
   const contactMap = new Map(contactCounts.map((row) => [row.entityId, row._count._all]));
+  const approvedReservationCounts = await prisma.studioReservationRequest.groupBy({
+    by: ["studioId"],
+    where: { status: "approved" },
+    _count: { _all: true },
+  });
+  const approvedReservationMap = new Map(
+    approvedReservationCounts.map((row) => [row.studioId, row._count._all]),
+  );
 
   const studios = await prisma.studio.findMany({
     where: userEmail
@@ -158,7 +166,7 @@ export default async function StudioListPage() {
       pricePerHour,
       badges: roomTypes.slice(0, 3),
       imageUrl: coverImage,
-      interactionCount: contactMap.get(studio.id) ?? 0,
+      interactionCount: (contactMap.get(studio.id) ?? 0) + (approvedReservationMap.get(studio.id) ?? 0),
     };
   });
 

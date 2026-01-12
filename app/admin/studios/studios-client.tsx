@@ -18,6 +18,8 @@ type StudioRow = {
   complaintsCount: number;
   flagsCount: number;
   contactCount: number;
+  reservationRequestCount: number;
+  reservationApprovedCount: number;
   createdAt: Date;
   updatedAt: Date;
   openingHours: unknown;
@@ -87,6 +89,8 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
             <th className="p-2">Şehir</th>
             <th className="p-2">Durum</th>
             <th className="p-2">Etkileşim (30g)</th>
+            <th className="p-2">Rez İstek</th>
+            <th className="p-2">Rez Onay</th>
             <th className="p-2">Şikayet</th>
             <th className="p-2">Flag</th>
             <th className="p-2">İşlem</th>
@@ -110,6 +114,8 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
                   </span>
                 </td>
                 <td className="p-2">{studio.contactCount ?? 0}</td>
+                <td className="p-2">{studio.reservationRequestCount ?? 0}</td>
+                <td className="p-2">{studio.reservationApprovedCount ?? 0}</td>
                 <td className="p-2">{studio.complaintsCount ?? 0}</td>
                 <td className="p-2">{studio.flagsCount ?? 0}</td>
                 <td className="p-2 space-x-2">
@@ -159,7 +165,7 @@ export default function StudiosClient({ studios }: { studios: StudioRow[] }) {
               </tr>
               {openRow === studio.id ? (
                 <tr className="bg-[var(--color-secondary)]/40">
-                  <td colSpan={7} className="p-3 text-xs text-[var(--color-muted)]">
+                  <td colSpan={9} className="p-3 text-xs text-[var(--color-muted)]">
                     <div className="mb-3 grid gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-3">
                       <div>
                         <div className="font-semibold text-[var(--color-primary)]">Moderasyon notu</div>

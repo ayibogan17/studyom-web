@@ -97,8 +97,11 @@ export async function GET(req: Request) {
   if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+  const roomIdsParam = searchParams.get("roomIds");
   const roomId = searchParams.get("roomId");
-  if (!roomId) return NextResponse.json({ error: "roomId required" }, { status: 400 });
+  if (!roomId && !roomIdsParam) {
+    return NextResponse.json({ error: "roomId required" }, { status: 400 });
+  }
 
   const studio = await prisma.studio.findFirst({
     where: { ownerEmail: email },
@@ -106,27 +109,82 @@ export async function GET(req: Request) {
   });
   if (!studio) return NextResponse.json({ error: "Studio not found" }, { status: 404 });
 
-  const room = await prisma.room.findFirst({
-    where: { id: roomId, studioId: studio.id },
-    select: { id: true },
-  });
-  if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
-
   const settings = await prisma.studioCalendarSettings.findUnique({
     where: { studioId: studio.id },
     select: { dayCutoffHour: true, weeklyHours: true, timezone: true },
   });
   const dayCutoffHour = settings?.dayCutoffHour ?? 4;
   const timeZone = settings?.timezone ?? "Europe/Istanbul";
+  const openingHours = normalizeOpeningHours(
+    (settings?.weeklyHours as OpeningHours[] | null | undefined) ??
+      (studio.openingHours as OpeningHours[] | null | undefined),
+  );
+
+  if (roomIdsParam) {
+    const roomIds = roomIdsParam
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (!roomIds.length) {
+      return NextResponse.json({ error: "roomIds required" }, { status: 400 });
+    }
+    const rooms = await prisma.room.findMany({
+      where: { id: { in: roomIds }, studioId: studio.id },
+      select: { id: true },
+    });
+    const validRoomIds = rooms.map((room) => room.id);
+    if (!validRoomIds.length) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    }
+    const slots = await prisma.studioHappyHourSlot.findMany({
+      where: { studioId: studio.id, roomId: { in: validRoomIds } },
+      select: { startAt: true, endAt: true, roomId: true },
+    });
+    const byRoomWeekday = new Map<string, Map<number, number>>();
+    slots.forEach((slot) => {
+      const businessStart = getBusinessDayStartZoned(slot.startAt, dayCutoffHour, timeZone);
+      const weekday = weekdayIndexFromZonedDate(businessStart, timeZone);
+      const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
+      let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
+      if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+      let map = byRoomWeekday.get(slot.roomId);
+      if (!map) {
+        map = new Map<number, number>();
+        byRoomWeekday.set(slot.roomId, map);
+      }
+      const current = map.get(weekday);
+      if (current === undefined || endMinutes > current) {
+        map.set(weekday, endMinutes);
+      }
+    });
+    const roomsPayload: Record<string, { weekday: number; enabled: boolean; endTime: string }[]> = {};
+    validRoomIds.forEach((id) => {
+      const byWeekday = byRoomWeekday.get(id) ?? new Map<number, number>();
+      roomsPayload[id] = Array.from({ length: 7 }, (_, idx) => {
+        const info = openingHours[idx];
+        const fallback = info?.closeTime ?? "22:00";
+        const endMinutes = byWeekday.get(idx);
+        return {
+          weekday: idx,
+          enabled: endMinutes !== undefined,
+          endTime: endMinutes !== undefined ? minutesToTime(endMinutes) : fallback,
+        };
+      });
+    });
+    return NextResponse.json({ rooms: roomsPayload });
+  }
+
+  if (!roomId) return NextResponse.json({ error: "roomId required" }, { status: 400 });
+  const room = await prisma.room.findFirst({
+    where: { id: roomId, studioId: studio.id },
+    select: { id: true },
+  });
+  if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
 
   const slots = await prisma.studioHappyHourSlot.findMany({
     where: { studioId: studio.id, roomId },
     select: { startAt: true, endAt: true },
   });
-  const openingHours = normalizeOpeningHours(
-    (settings?.weeklyHours as OpeningHours[] | null | undefined) ??
-      (studio.openingHours as OpeningHours[] | null | undefined),
-  );
   const byWeekday = new Map<number, number>();
   const slotList = slots.map((slot) => ({ roomId, startAt: slot.startAt, endAt: slot.endAt })) as HappyHourSlot[];
   slotList.forEach((slot) => {

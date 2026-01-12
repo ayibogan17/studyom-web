@@ -1325,19 +1325,18 @@ export function DashboardClient({
     let active = true;
     const loadSelection = async () => {
       try {
-        const responses = await Promise.all(
-          orderedRooms.map((room) => fetch(`/api/studio/happy-hours/schedule?roomId=${room.id}`)),
-        );
+        const roomIds = orderedRooms.map((room) => room.id);
+        const res = await fetch(`/api/studio/happy-hours/schedule?roomIds=${roomIds.join(",")}`);
+        const json = await res.json().catch(() => ({}));
         if (!active) return;
+        const rooms = (json.rooms ?? {}) as Record<string, { enabled?: boolean }[]>;
         const next: Record<string, boolean> = {};
-        for (const [idx, res] of responses.entries()) {
-          if (!res.ok) continue;
-          const json = await res.json().catch(() => ({}));
-          const days = Array.isArray(json.days) ? json.days : [];
-          if (days.some((day: { enabled?: boolean }) => day.enabled)) {
-            next[orderedRooms[idx].id] = true;
+        roomIds.forEach((id) => {
+          const days = Array.isArray(rooms[id]) ? rooms[id] : [];
+          if (days.some((day) => day?.enabled)) {
+            next[id] = true;
           }
-        }
+        });
         if (!active) return;
         setHappyHourRoomSelection(next);
         setHappyHourSelectionLoaded(true);

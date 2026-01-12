@@ -15,6 +15,19 @@ export default async function AdminStudiosPage() {
     _count: { _all: true },
   });
   const contactMap = new Map(contactCounts.map((row) => [row.entityId, row._count._all]));
+  const reservationCounts = await prisma.studioReservationRequest.groupBy({
+    by: ["studioId", "status"],
+    _count: { _all: true },
+  });
+  const reservationTotalMap = new Map<string, number>();
+  const reservationApprovedMap = new Map<string, number>();
+  reservationCounts.forEach((row) => {
+    const total = reservationTotalMap.get(row.studioId) ?? 0;
+    reservationTotalMap.set(row.studioId, total + row._count._all);
+    if (row.status === "approved") {
+      reservationApprovedMap.set(row.studioId, row._count._all);
+    }
+  });
   const studios = await prisma.studio.findMany({
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -75,6 +88,8 @@ export default async function AdminStudiosPage() {
   const items = studios.map((studio) => ({
     ...studio,
     contactCount: contactMap.get(studio.id) ?? 0,
+    reservationRequestCount: reservationTotalMap.get(studio.id) ?? 0,
+    reservationApprovedCount: reservationApprovedMap.get(studio.id) ?? 0,
   }));
 
   return (
