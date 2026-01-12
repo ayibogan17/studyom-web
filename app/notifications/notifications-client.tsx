@@ -85,8 +85,8 @@ export default function NotificationsClient({ studioRequests, producerRequests }
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-10">
-      <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold text-[var(--color-primary)]">Bildirimler</h1>
           <p className="text-sm text-[var(--color-muted)]">Stüdyo taleplerini burada görürsün.</p>
@@ -100,7 +100,7 @@ export default function NotificationsClient({ studioRequests, producerRequests }
 
       <div className="grid gap-6">
         <Card className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-[var(--color-primary)]">Hoca stüdyo talepleri</h2>
             <Badge variant="muted">{requests.length}</Badge>
           </div>
@@ -123,11 +123,11 @@ export default function NotificationsClient({ studioRequests, producerRequests }
                       if (e.key === "Enter" || e.key === " ") toggleRequest(item.id);
                     }}
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
                         {item.studioName} — {item.teacherName}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
                         <Badge
                           variant={item.status === "pending" ? "outline" : "default"}
                           className={cn(item.status === "rejected" ? "bg-[var(--color-danger)] text-white" : "")}
@@ -183,7 +183,7 @@ export default function NotificationsClient({ studioRequests, producerRequests }
         </Card>
 
         <Card className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-[var(--color-primary)]">Üretici stüdyo talepleri</h2>
             <Badge variant="muted">{producerRequestsState.length}</Badge>
           </div>
@@ -206,11 +206,11 @@ export default function NotificationsClient({ studioRequests, producerRequests }
                       if (e.key === "Enter" || e.key === " ") toggleProducerRequest(item.id);
                     }}
                   >
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
                         {item.studioName} — {item.producerName}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
                         <Badge
                           variant={item.status === "pending" ? "outline" : "default"}
                           className={cn(item.status === "rejected" ? "bg-[var(--color-danger)] text-white" : "")}

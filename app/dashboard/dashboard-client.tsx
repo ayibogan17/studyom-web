@@ -844,6 +844,7 @@ export function DashboardClient({
   const [monthCursor, setMonthCursor] = useState<Date>(new Date());
   const [weekCursor, setWeekCursor] = useState<Date>(new Date());
   const [calendarView, setCalendarView] = useState<CalendarView>("week");
+  const [approvalInfoOpen, setApprovalInfoOpen] = useState(false);
   const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
   const [calendarDraft, setCalendarDraft] = useState<CalendarSettings | null>(null);
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
@@ -872,6 +873,15 @@ export function DashboardClient({
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
   const [showPalette, setShowPalette] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== "calendar") return;
+    if (typeof window === "undefined") return;
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+    if (isMobile) {
+      setCalendarView("day");
+    }
+  }, [activeTab]);
 
   const handleReservationDecision = async (request: ReservationRequest, action: "approve" | "reject") => {
     if (reservationAction) return;
@@ -2652,11 +2662,20 @@ export function DashboardClient({
             <div ref={approvalCardRef} className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-blue-900">Onay yöntemi</p>
-                <div className="group relative inline-flex items-center">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-200 text-[10px] font-semibold text-blue-700">
+                <div className="relative inline-flex items-center md:group">
+                  <button
+                    type="button"
+                    onClick={() => setApprovalInfoOpen((prev) => !prev)}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-blue-200 text-[10px] font-semibold text-blue-700"
+                    aria-label="Onay yöntemi hakkında"
+                  >
                     i
-                  </span>
-                  <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs text-blue-900 opacity-0 shadow-lg transition group-hover:opacity-100">
+                  </button>
+                  <div
+                    className={`pointer-events-none absolute right-0 top-full z-20 mt-2 w-64 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs text-blue-900 opacity-0 shadow-lg transition md:group-hover:opacity-100 ${
+                      approvalInfoOpen ? "opacity-100" : ""
+                    }`}
+                  >
                     Talep otomatik onaylanır olarak seçtiğinizde, müzisyenler Studyom üzerinden sizinle hiç iletişime geçmeden bir odanızın bir saatini kapatabilirler. Whatsapp ve Mail üzerinden bilgilendirilirsiniz.
                   </div>
                 </div>
@@ -3878,7 +3897,7 @@ export function DashboardClient({
                         >
                           <span className="px-2 py-1 text-sm font-semibold">{dayNum}</span>
                           {filledHours > 0 && (
-                            <span className="px-2 text-xs text-green-700">
+                            <span className="px-2 text-[10px] leading-tight text-green-700">
                               {filledHours} saat dolu
                             </span>
                           )}
@@ -4118,7 +4137,8 @@ export function DashboardClient({
                       const slotHeight = 28;
                       const totalHeight = slots.length * slotHeight;
                       return (
-                        <div className="grid grid-cols-[72px_1fr] gap-3">
+                        <div className="overflow-x-auto">
+                          <div className="grid min-w-[860px] grid-cols-[72px_1fr] gap-3">
                           <div className="flex flex-col">
                             {slots.map((m) => (
                               <div
@@ -4282,6 +4302,7 @@ export function DashboardClient({
                               );
                             })}
                           </div>
+                        </div>
                         </div>
                       );
                     })()

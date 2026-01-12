@@ -233,9 +233,18 @@ const splitPipeList = (value?: string | null) =>
         .filter(Boolean)
     : [];
 const weekdayIndex = (date: Date) => (date.getDay() + 6) % 7;
+const getBusinessDayStartForTime = (date: Date, cutoffHour: number) => {
+  const base = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const hour = date.getHours() + date.getMinutes() / 60;
+  if (hour < cutoffHour) {
+    base.setDate(base.getDate() - 1);
+  }
+  return base;
+};
 const getOpenRange = (
   day: Date,
   openingHours: RoomCalendarSummary["openingHours"],
+  _cutoffHour: number,
 ) => {
   const info = openingHours[weekdayIndex(day)];
   if (!info || !info.open) return null;
@@ -342,7 +351,8 @@ function RoomCalendarPreview({
   const days = Array.from({ length: 7 }).map(
     (_, idx) => new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + idx),
   );
-  const ranges = days.map((day) => getOpenRange(day, calendar.openingHours));
+  const dayCutoffHour = calendar.dayCutoffHour ?? 4;
+  const ranges = days.map((day) => getOpenRange(day, calendar.openingHours, dayCutoffHour));
   const starts = ranges.filter(Boolean).map((range) => range!.start);
   const ends = ranges.filter(Boolean).map((range) => range!.end);
   const globalStart = starts.length ? Math.min(...starts) : 10 * 60;
@@ -411,11 +421,16 @@ function RoomCalendarPreview({
                     );
                   }
                   const range = ranges[idx];
+                  const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
                   const slotStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
                   slotStart.setMinutes(slotStart.getMinutes() + slot);
                   const slotEnd = new Date(slotStart.getTime() + slotStepMinutes * 60000);
+                  const slotBusinessStart = getBusinessDayStartForTime(slotStart, dayCutoffHour);
                   const inOpenRange =
-                    range && slot >= range.start && slot + slotStepMinutes <= range.end;
+                    slotBusinessStart.getTime() === dayStart.getTime() &&
+                    range &&
+                    slot >= range.start &&
+                    slot + slotStepMinutes <= range.end;
                   const isBlocked = inOpenRange
                     ? calendar.blocks.some((block) => {
                         if (!isBlocking(block)) return false;
@@ -586,15 +601,11 @@ export function StudioRoomDetails({
   const reservationMaxHours = useMemo(() => {
     if (!reservationRoom?.calendar || !reservationStart) return 0;
     const calendar = reservationRoom.calendar;
-    const day = new Date(
-      reservationStart.getFullYear(),
-      reservationStart.getMonth(),
-      reservationStart.getDate(),
-    );
-    const range = getOpenRange(day, calendar.openingHours);
+    const dayCutoffHour = calendar.dayCutoffHour ?? 4;
+    const businessStart = getBusinessDayStartForTime(reservationStart, dayCutoffHour);
+    const range = getOpenRange(businessStart, calendar.openingHours, dayCutoffHour);
     if (!range) return 0;
-    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-    const startMinutes = (reservationStart.getTime() - dayStart.getTime()) / 60000;
+    const startMinutes = (reservationStart.getTime() - businessStart.getTime()) / 60000;
     let max = 0;
     for (let h = 1; h <= 24; h += 1) {
       const endMinutes = startMinutes + h * 60;

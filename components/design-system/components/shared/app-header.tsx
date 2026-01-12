@@ -315,25 +315,9 @@ export function AppHeader() {
             </Button>
           )}
           {session && (
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm text-[var(--color-primary)]">
-              <p className="font-semibold">
-                {profile?.fullName || session.user?.name || session.user?.email}
-              </p>
-              <p className="text-[var(--color-muted)]">{session.user?.email}</p>
-              {profile?.city && <p className="mt-1">Şehir: {profile.city}</p>}
-              {profile?.intent && profile.intent.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {profile.intent.map((i) => (
-                    <span key={i} className="rounded-full bg-[var(--color-secondary)] px-2 py-1 text-[12px]">
-                      {i}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="mt-1 text-xs text-[var(--color-muted)]">
-                {profile?.emailVerified ? "E-posta doğrulandı" : "E-posta doğrulaması bekleniyor"}
-              </p>
-            </div>
+            <Button asChild full size="sm" variant="secondary">
+              <Link href="/profile" prefetch={false} onClick={() => setOpen(false)}>Profilim</Link>
+            </Button>
           )}
           {session && showTeacherPanel && (
             <Button asChild full size="sm" variant="secondary">

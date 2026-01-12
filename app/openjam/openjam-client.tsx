@@ -275,11 +275,11 @@ export default function OpenJamClient({ defaultCity }: Props) {
                     .slice(0, 2)
                     .toUpperCase();
                   return (
-                    <Link key={jam.id} href={`/openjam/${jam.id}`}>
-                      <Card className="flex h-full flex-col gap-3 p-4 transition hover:border-[var(--color-accent)]">
+                    <Link key={jam.id} href={`/openjam/${jam.id}`} className="block min-w-0">
+                      <Card className="flex h-full min-w-0 flex-col gap-3 p-4 transition hover:border-[var(--color-accent)]">
                         <div className="space-y-1">
                           <p className="text-sm font-semibold text-[var(--color-primary)]">{jam.title}</p>
-                          <p className="text-xs text-[var(--color-muted)]">
+                          <p className="text-xs text-[var(--color-muted)] break-words">
                             {jam.studio.name} · {location}
                           </p>
                         </div>
@@ -298,7 +298,7 @@ export default function OpenJamClient({ defaultCity }: Props) {
                           <span>Yaratan: {creatorName}</span>
                         </div>
                         {modeText ? (
-                          <div className="text-xs text-[var(--color-muted)]">
+                          <div className="text-xs text-[var(--color-muted)] break-words">
                             {jam.genre ? (
                               <>Takılmaç: {modeText}</>
                             ) : (
@@ -307,7 +307,7 @@ export default function OpenJamClient({ defaultCity }: Props) {
                                 <span
                                   role="link"
                                   tabIndex={0}
-                                  className="underline hover:text-[var(--color-primary)]"
+                                  className="break-all underline hover:text-[var(--color-primary)]"
                                   onClick={(event) => {
                                     event.preventDefault();
                                     event.stopPropagation();
