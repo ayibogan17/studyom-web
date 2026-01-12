@@ -782,6 +782,32 @@ export function DashboardClient({
     normalizeStudio(initialStudio ?? null),
   );
   const [roomDetailsLoaded, setRoomDetailsLoaded] = useState(Boolean(initialStudio));
+  const reservationItems = reservationRequests ?? [];
+  const [reservationRequestsState, setReservationRequestsState] = useState<ReservationRequest[]>(reservationItems);
+  const [reservationAction, setReservationAction] = useState<{ id: string; action: "approve" | "reject" | "read" } | null>(
+    null,
+  );
+  const [reservationIndex, setReservationIndex] = useState(0);
+  const approvalCardRef = useRef<HTMLDivElement | null>(null);
+  const [reservationCardHeight, setReservationCardHeight] = useState<number | null>(null);
+
+  const initialTabValue = typeof initialTab === "string" ? initialTab.trim() : "";
+  const initialRooms = initialStudio?.rooms ?? [];
+  const initialRoomIdFromTab =
+    initialTabValue.startsWith("room-") && initialTabValue.length > 5
+      ? initialTabValue.slice(5)
+      : "";
+  const initialRoomValid = initialRoomIdFromTab
+    ? initialRooms.some((room) => room.id === initialRoomIdFromTab)
+    : false;
+  const initialActiveTab = initialTabValue === "panel" ? "panel" : "calendar";
+
+  useEffect(() => {
+    setReservationRequestsState(reservationItems);
+  }, [reservationItems]);
+  const reservationPendingList = reservationRequestsState.filter((item) => isReservationPending(item.status));
+
+  const [activeTab, setActiveTab] = useState<string>(initialActiveTab);
   useEffect(() => {
     if (studio) return;
     let cancelled = false;
@@ -826,32 +852,6 @@ export function DashboardClient({
       cancelled = true;
     };
   }, [activeTab, roomDetailsLoaded]);
-  const reservationItems = reservationRequests ?? [];
-  const [reservationRequestsState, setReservationRequestsState] = useState<ReservationRequest[]>(reservationItems);
-  const [reservationAction, setReservationAction] = useState<{ id: string; action: "approve" | "reject" | "read" } | null>(
-    null,
-  );
-  const [reservationIndex, setReservationIndex] = useState(0);
-  const approvalCardRef = useRef<HTMLDivElement | null>(null);
-  const [reservationCardHeight, setReservationCardHeight] = useState<number | null>(null);
-
-  const initialTabValue = typeof initialTab === "string" ? initialTab.trim() : "";
-  const initialRooms = initialStudio?.rooms ?? [];
-  const initialRoomIdFromTab =
-    initialTabValue.startsWith("room-") && initialTabValue.length > 5
-      ? initialTabValue.slice(5)
-      : "";
-  const initialRoomValid = initialRoomIdFromTab
-    ? initialRooms.some((room) => room.id === initialRoomIdFromTab)
-    : false;
-  const initialActiveTab = initialTabValue === "panel" ? "panel" : "calendar";
-
-  useEffect(() => {
-    setReservationRequestsState(reservationItems);
-  }, [reservationItems]);
-  const reservationPendingList = reservationRequestsState.filter((item) => isReservationPending(item.status));
-
-  const [activeTab, setActiveTab] = useState<string>(initialActiveTab);
   useEffect(() => {
     if (activeTab !== "panel") return;
     const updateHeight = () => {
