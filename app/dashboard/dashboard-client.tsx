@@ -819,8 +819,7 @@ export function DashboardClient({
   const initialRoomValid = initialRoomIdFromTab
     ? initialRooms.some((room) => room.id === initialRoomIdFromTab)
     : false;
-  const initialActiveTab =
-    initialTabValue === "panel" || initialTabValue === "calendar" ? initialTabValue : "calendar";
+  const initialActiveTab = initialTabValue === "panel" ? "panel" : "calendar";
 
   useEffect(() => {
     setReservationRequestsState(reservationItems);
