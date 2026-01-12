@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Stüdyo Paneli | Studyom",
   description: "Onaylanan stüdyo başvurunuzun özetini görüntüleyin.",
+  robots: { index: false, follow: false },
 };
 
 type NotificationItem = { message: string };

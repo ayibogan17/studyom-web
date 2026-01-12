@@ -7,6 +7,7 @@ import { StudioNewClient } from "./studio-new-client";
 export const metadata: Metadata = {
   title: "Yeni Stüdyo Başvurusu | Studyom",
   description: "Stüdyonu yayınlamak için ilk adımı at.",
+  robots: { index: false, follow: false },
 };
 
 export default async function StudioNewPage() {
@@ -17,4 +18,3 @@ export default async function StudioNewPage() {
 
   return <StudioNewClient />;
 }
-

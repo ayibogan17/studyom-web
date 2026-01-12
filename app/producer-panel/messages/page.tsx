@@ -10,6 +10,7 @@ import { ProducerMessagesClient, type ProducerThreadItem, type ProducerRequestIt
 export const metadata: Metadata = {
   title: "Üretici Paneli Mesajları | Studyom",
   description: "Kullanıcılardan gelen mesajları görüntüleyin ve yanıtlayın.",
+  robots: { index: false, follow: false },
 };
 
 function getInitials(value: string) {

@@ -9,6 +9,7 @@ import { buildHappyHourTemplatesByRoom, type HappyHourSlot } from "@/lib/happy-h
 export const metadata = {
   title: "Rezervasyon İstatistikleri | Studyom",
   description: "Stüdyonuzun haftalık ve aylık doluluk özetleri.",
+  robots: { index: false, follow: false },
 };
 
 const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;

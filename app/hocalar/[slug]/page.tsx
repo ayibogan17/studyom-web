@@ -15,7 +15,7 @@ import { TeacherBioCard } from "./teacher-bio-card";
 
 type Params = { slug: string };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 function getInitials(value: string) {
   const parts = value
@@ -42,9 +42,18 @@ export async function generateMetadata({
     };
   }
   const instrumentText = teacher.instruments.join(", ");
+  const canonical = `https://www.studyom.net/hocalar/${teacher.slug}`;
+  const description = `${teacher.displayName} - ${teacher.city} | ${instrumentText} dersleri`;
   return {
     title: `${teacher.displayName} | Hocalar | Studyom`,
-    description: `${teacher.displayName} - ${teacher.city} | ${instrumentText} dersleri`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${teacher.displayName} | Hocalar | Studyom`,
+      description,
+      url: canonical,
+      images: teacher.image ? [{ url: teacher.image }] : [{ url: "/logo.svg" }],
+    },
   };
 }
 

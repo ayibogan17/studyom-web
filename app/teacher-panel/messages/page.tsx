@@ -10,6 +10,7 @@ import { TeacherMessagesClient, type TeacherThreadItem, type TeacherRequestItem 
 export const metadata: Metadata = {
   title: "Hoca Paneli Mesajları | Studyom",
   description: "Öğrencilerden gelen mesajları görüntüleyin ve yanıtlayın.",
+  robots: { index: false, follow: false },
 };
 
 function getInitials(value: string) {

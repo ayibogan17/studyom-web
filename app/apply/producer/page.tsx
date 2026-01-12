@@ -7,6 +7,7 @@ import { ProducerApplyClient } from "./producer-client";
 export const metadata: Metadata = {
   title: "Üretici Başvurusu | Studyom",
   description: "Prodüksiyon rolü için başvuru formu.",
+  robots: { index: false, follow: false },
 };
 
 export default async function ProducerApplyPage() {

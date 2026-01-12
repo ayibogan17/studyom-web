@@ -3,6 +3,7 @@ import { LoginForm } from "./_components/LoginForm";
 
 export const metadata = {
   title: "Giriş Yap | Studyom",
+  robots: { index: false, follow: false },
 };
 
 export default function LoginPage() {

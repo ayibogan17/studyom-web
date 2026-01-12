@@ -16,6 +16,7 @@ import { TeacherPanelSection } from "./teacher-panel-section";
 export const metadata: Metadata = {
   title: "Hoca Paneli | Studyom",
   description: "Onaylanan hoca başvurunun özetini görüntüleyin.",
+  robots: { index: false, follow: false },
 };
 
 type TeacherApplicationData = {

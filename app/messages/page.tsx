@@ -9,6 +9,7 @@ import { MessagesClient } from "./messages-client";
 export const metadata: Metadata = {
   title: "Mesajlar | Studyom",
   description: "Hocalar, üreticiler ve stüdyolar ile mesajlarını görüntüle.",
+  robots: { index: false, follow: false },
 };
 
 type SimpleUser = {

@@ -10,6 +10,7 @@ import { StudioOwnerThreadClient } from "./studio-thread-client";
 export const metadata: Metadata = {
   title: "Rezervasyon İsteği | Studyom",
   description: "Stüdyona gelen mesajları görüntüleyin ve yanıtlayın.",
+  robots: { index: false, follow: false },
 };
 
 export default async function StudioMessageThreadPage({

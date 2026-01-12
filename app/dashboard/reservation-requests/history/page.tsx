@@ -7,6 +7,7 @@ import ReservationHistoryClient from "./history-client";
 export const metadata = {
   title: "Rezervasyon Geçmişi | Studyom",
   description: "Onaylanan ve reddedilen rezervasyon istekleri.",
+  robots: { index: false, follow: false },
 };
 
 type HistoryItem = {

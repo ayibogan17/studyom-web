@@ -7,6 +7,7 @@ import { SignupForm } from "./signup-form";
 export const metadata: Metadata = {
   title: "Üyelik | Studyom",
   description: "Tek hesapla Studyom'a katıl. Şehir, niyet ve şifrenle hızlıca kayıt ol.",
+  robots: { index: false, follow: false },
 };
 
 export default async function SignupPage() {

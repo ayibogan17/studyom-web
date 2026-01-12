@@ -8,6 +8,7 @@ import OpenJamMineClient from "./openjam-mine-client";
 export const metadata: Metadata = {
   title: "Jam'lerim | OpenJam",
   description: "Oluşturduğun ve katıldığın jam'ler.",
+  robots: { index: false, follow: false },
 };
 
 export default async function OpenJamMinePage() {

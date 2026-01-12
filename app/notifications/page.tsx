@@ -11,6 +11,7 @@ import NotificationsClient, {
 export const metadata: Metadata = {
   title: "Bildirimler | Studyom",
   description: "Stüdyo taleplerini görüntüleyin.",
+  robots: { index: false, follow: false },
 };
 
 export default async function NotificationsPage() {

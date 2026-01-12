@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/auth";
@@ -16,6 +17,11 @@ import {
 import type { Equipment, Extras, Features, OpeningHours } from "@/types/panel";
 
 import { DashboardClient } from "./dashboard-client";
+
+export const metadata: Metadata = {
+  title: "Stüdyo Dashboard | Studyom",
+  robots: { index: false, follow: false },
+};
 
 const defaultEquipment: Equipment = {
   hasDrum: false,

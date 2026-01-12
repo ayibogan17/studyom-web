@@ -8,6 +8,7 @@ import OpenJamNewClient from "./openjam-new-client";
 export const metadata: Metadata = {
   title: "Jam oluştur | OpenJam",
   description: "Yeni bir OpenJam oluştur.",
+  robots: { index: false, follow: false },
 };
 
 export default async function OpenJamNewPage() {

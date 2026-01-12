@@ -7,6 +7,7 @@ import { TeacherApplyClient } from "./teacher-client";
 export const metadata: Metadata = {
   title: "Öğretmen Başvurusu | Studyom",
   description: "Öğretmen rolü için başvuru formu.",
+  robots: { index: false, follow: false },
 };
 
 export default async function TeacherApplyPage() {

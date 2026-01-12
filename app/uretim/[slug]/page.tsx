@@ -11,7 +11,7 @@ import { Gallery } from "./producer-gallery";
 
 type Params = { slug: string };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -24,9 +24,18 @@ export async function generateMetadata({
     return { title: "Üretici bulunamadı | Studyom" };
   }
   const areas = producer.areas.slice(0, 3).join(", ");
+  const canonical = `https://www.studyom.net/uretim/${producer.slug}`;
+  const description = `${producer.displayName} üretim alanları: ${areas || "Üretim"}`;
   return {
     title: `${producer.displayName} | Üretim | Studyom`,
-    description: `${producer.displayName} üretim alanları: ${areas || "Üretim"}`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${producer.displayName} | Üretim | Studyom`,
+      description,
+      url: canonical,
+      images: producer.image ? [{ url: producer.image }] : [{ url: "/logo.svg" }],
+    },
   };
 }
 

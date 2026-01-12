@@ -8,6 +8,7 @@ import { ProfileClient } from "./profile-client";
 export const metadata: Metadata = {
   title: "Profilim | Studyom",
   description: "Hesap kimliği, tercihlerin ve rollerinin özetini görüntüleyin.",
+  robots: { index: false, follow: false },
 };
 
 export default async function ProfilePage() {

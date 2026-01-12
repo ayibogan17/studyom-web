@@ -17,6 +17,7 @@ import { ProducerStudioLinksClient } from "./producer-studio-links-client";
 export const metadata: Metadata = {
   title: "Üretici Paneli | Studyom",
   description: "Onaylanan üretici başvurunun özetini görüntüleyin.",
+  robots: { index: false, follow: false },
 };
 
 type ProducerApplicationData = {

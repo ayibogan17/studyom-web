@@ -9,6 +9,7 @@ import { CompleteProfileForm } from "./profile-form";
 export const metadata: Metadata = {
   title: "Profilini tamamla | Studyom",
   description: "Şehir ve kullanım tercihini ekleyerek hesabını tamamla.",
+  robots: { index: false, follow: false },
 };
 
 export default async function CompleteProfilePage() {

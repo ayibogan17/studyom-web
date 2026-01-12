@@ -7,6 +7,7 @@ import { normalizeRoles } from "@/lib/roles";
 export const metadata = {
   title: "Yönlendiriliyor | Studyom",
   description: "Hesabınız için uygun sayfaya yönlendiriliyorsunuz.",
+  robots: { index: false, follow: false },
 };
 
 export default async function AuthRedirectPage() {

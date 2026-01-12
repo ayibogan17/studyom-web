@@ -103,6 +103,31 @@ const formatPricing = (room: {
   return parts.join(" · ");
 };
 
+const parsePriceValue = (value?: string | null) => {
+  if (!value) return null;
+  const raw = value.toString().trim();
+  if (!raw) return null;
+  const cleaned = raw.replace(/[^\d.,]/g, "").replace(",", ".");
+  const parsed = Number.parseFloat(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildPriceRange = (rooms: Array<{ hourlyRate: string | null; flatRate: string | null; minRate: string | null; dailyRate: string | null }>) => {
+  const values = rooms
+    .flatMap((room) => [
+      parsePriceValue(room.hourlyRate),
+      parsePriceValue(room.minRate),
+      parsePriceValue(room.flatRate),
+      parsePriceValue(room.dailyRate),
+    ])
+    .filter((value): value is number => Number.isFinite(value));
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (min === max) return `₺${Math.round(min)}`;
+  return `₺${Math.round(min)}-₺${Math.round(max)}`;
+};
+
 const studioSelect = {
   id: true,
   name: true,
@@ -169,9 +194,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "Stüdyo bulunamadı | Studyom" };
   }
   const city = studio.city ? ` · ${studio.city}` : "";
+  const district = studio.district ? `, ${studio.district}` : "";
+  const roomCount = studio.rooms?.length ?? 0;
+  const priceRange = buildPriceRange(studio.rooms ?? []);
+  const descriptionParts = [
+    studio.city ? `${studio.city}${district} bölgesinde` : "Türkiye'de",
+    roomCount ? `${roomCount} odalı` : "stüdyo",
+    priceRange ? `fiyat aralığı ${priceRange}` : null,
+  ].filter(Boolean);
+  const description = `${studio.name} ${descriptionParts.join(" ")}. Prova ve kayıt için Studyom'da incele.`;
+  const roomImages = studio.rooms.flatMap((room) => extractImages(room.imagesJson));
+  const imageUrl =
+    studio.coverImageUrl ||
+    roomImages.find((img) => typeof img === "string" && img.length > 0) ||
+    "/logo.svg";
+  const canonical = `https://www.studyom.net/studyo/${studio.slug ?? slug}`;
   return {
-    title: `${studio.name}${city} | Studyom`,
-    description: `${studio.name} stüdyo detayları ve oda bilgileri.`,
+    title: `${studio.name} | Prova & Kayıt Stüdyosu | Studyom`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${studio.name} | Prova & Kayıt Stüdyosu | Studyom`,
+      description,
+      url: canonical,
+      images: [{ url: imageUrl }],
+    },
   };
 }
 
@@ -326,6 +373,35 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
     }
   }
 
+  const priceRange = buildPriceRange(studio.rooms ?? []);
+  const addressParts = [studio.address, studio.district, studio.city].filter(Boolean).join(", ");
+  const canonicalUrl = `https://www.studyom.net/studyo/${studio.slug ?? slug}`;
+  const studioJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: studio.name,
+    url: canonicalUrl,
+    address: addressParts
+      ? {
+          "@type": "PostalAddress",
+          streetAddress: studio.address ?? undefined,
+          addressLocality: studio.district ?? undefined,
+          addressRegion: studio.city ?? undefined,
+          addressCountry: "TR",
+        }
+      : undefined,
+    priceRange: priceRange ?? undefined,
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Ana Sayfa", item: "https://www.studyom.net" },
+      { "@type": "ListItem", position: 2, name: "Stüdyolar", item: "https://www.studyom.net/studyo" },
+      { "@type": "ListItem", position: 3, name: studio.name, item: canonicalUrl },
+    ],
+  };
+
   const formatPriceBadge = (room: {
     pricingModel: string | null;
     flatRate: string | null;
@@ -462,6 +538,14 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
 
   return (
     <main className="bg-[var(--color-secondary)]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(studioJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <Section>
         <div className="space-y-6">
             <div className="space-y-2 text-center">
