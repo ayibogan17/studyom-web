@@ -811,11 +811,14 @@ export function DashboardClient({
   const [reservationCardHeight, setReservationCardHeight] = useState<number | null>(null);
 
   const initialTabValue = typeof initialTab === "string" ? initialTab.trim() : "";
+  const initialRooms = initialStudio?.rooms ?? [];
   const initialRoomIdFromTab =
     initialTabValue.startsWith("room-") && initialTabValue.length > 5
       ? initialTabValue.slice(5)
       : "";
-  const initialRooms = initialStudio?.rooms ?? [];
+  const initialRoomValid = initialRoomIdFromTab
+    ? initialRooms.some((room) => room.id === initialRoomIdFromTab)
+    : false;
   const initialActiveTab =
     initialTabValue === "panel" || initialTabValue === "calendar" ? initialTabValue : "calendar";
 
