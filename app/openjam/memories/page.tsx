@@ -6,6 +6,8 @@ export const metadata = {
   description: "Dolu jam’leri keşfedin.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function OpenJamMemoriesPage() {
   const memories = await prisma.openJamMemory.findMany({
     orderBy: { createdAt: "desc" },
