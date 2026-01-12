@@ -272,7 +272,10 @@ export default async function ReservationStatsPage({
         select: { roomId: true, startAt: true, endAt: true },
       })
     : [];
-  const happyHourByRoom = shouldCompute
+  const happyHourByRoom: Map<
+    string,
+    Array<{ weekday: number; startMinutes: number; endMinutes: number }>
+  > = shouldCompute
     ? buildHappyHourTemplatesByRoom(
         happyHourSlots.map((slot) => ({
           roomId: slot.roomId,
@@ -303,7 +306,9 @@ export default async function ReservationStatsPage({
     const weekday = weekdayIndex(businessStart);
     const blockStartMinutes = (clampedStart - businessStart.getTime()) / 60000;
     const blockEndMinutes = (clampedEnd - businessStart.getTime()) / 60000;
-    const templates = happyHourByRoom.get(block.roomId ?? "") ?? [];
+    const templates =
+      happyHourByRoom.get(block.roomId ?? "") ??
+      ([] as Array<{ weekday: number; startMinutes: number; endMinutes: number }>);
     let happyMinutes = 0;
     templates.forEach((tpl) => {
       if (tpl.weekday !== weekday) return;
