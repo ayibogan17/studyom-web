@@ -1818,7 +1818,6 @@ export function DashboardClient({
     const exists = orderedRooms.some((r) => r.id === selectedRoomId);
     if (!exists) {
       setSelectedRoomId(orderedRooms[0].id);
-      setActiveTab(`room-${orderedRooms[0].id}`);
     }
   }, [orderedRooms, selectedRoomId]);
 
