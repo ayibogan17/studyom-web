@@ -4143,7 +4143,7 @@ export function DashboardClient({
                       return (
                         <div className="overflow-x-auto">
                           <div className="grid min-w-[860px] grid-cols-[72px_1fr] gap-3">
-                          <div className="flex flex-col">
+                          <div className="flex flex-col pt-6">
                             {slots.map((m) => (
                               <div
                                 key={`week-label-${m}`}
