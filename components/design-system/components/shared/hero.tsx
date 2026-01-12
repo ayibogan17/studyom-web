@@ -14,9 +14,6 @@ export function Hero({ title, subtitle }: HeroProps) {
     <Section className="bg-gradient-to-br from-[var(--color-primary)] via-[#111827] to-[var(--color-primary)] text-white">
       <div className="grid items-center gap-10 md:grid-cols-12">
         <div className="md:col-span-7 space-y-6">
-          <Badge variant="muted" className="bg-white/10 text-white">
-            Yeni: Studyom tasarım sistemi
-          </Badge>
           <h1 className="font-[var(--font-display)] text-4xl font-semibold leading-tight md:text-5xl">
             {title}
           </h1>

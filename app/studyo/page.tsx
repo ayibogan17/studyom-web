@@ -18,6 +18,13 @@ export default async function StudioListPage() {
   const session = await getServerSession(authOptions);
   const userEmail = session?.user?.email ?? null;
 
+  const contactCounts = await prisma.contactEvent.groupBy({
+    by: ["entityId"],
+    where: { entityType: "studio" },
+    _count: { _all: true },
+  });
+  const contactMap = new Map(contactCounts.map((row) => [row.entityId, row._count._all]));
+
   const studios = await prisma.studio.findMany({
     where: userEmail
       ? { OR: [{ isActive: true }, { ownerEmail: userEmail }] }
@@ -151,6 +158,7 @@ export default async function StudioListPage() {
       pricePerHour,
       badges: roomTypes.slice(0, 3),
       imageUrl: coverImage,
+      interactionCount: contactMap.get(studio.id) ?? 0,
     };
   });
 

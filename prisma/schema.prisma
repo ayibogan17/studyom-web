@@ -51,6 +51,10 @@ model User {
   teacherStudioLinks             TeacherStudioLink[]
   teacherThreadsAsStudent        TeacherThread[]            @relation("TeacherThreadStudent")
   teacherThreadsAsTeacher        TeacherThread[]            @relation("TeacherThreadTeacher")
+  openJamJams                    OpenJam[]
+  openJamParticipants            OpenJamParticipant[]
+  openJamMessages                OpenJamMessage[]
+  openJamMemories                OpenJamMemory[]
 }
 
 model Account {
@@ -133,6 +137,7 @@ model Studio {
   reservationRequests             StudioReservationRequest[]
   studioThreads                   StudioThread[]
   teacherStudioLinks              TeacherStudioLink[]
+  openJamJams                     OpenJam[]
 }
 
 model Room {
@@ -520,6 +525,89 @@ model StudioContactEvent {
 
   @@index([studioId, createdAt])
   @@index([userId, createdAt])
+}
+
+model OpenJam {
+  id                String              @id @default(cuid())
+  createdByUserId   String
+  studioId          String
+  title             String
+  note              String?
+  genre             String?
+  playlistLink      String?
+  creatorLevel      String?
+  startAt           DateTime
+  durationMinutes   Int
+  neededInstruments String[]
+  city              String
+  district          String?
+  capacity          Int                 @default(5)
+  status            String              @default("active")
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdByUser     User                @relation(fields: [createdByUserId], references: [id])
+  studio            Studio              @relation(fields: [studioId], references: [id])
+  participants      OpenJamParticipant[]
+  messages          OpenJamMessage[]
+  memories          OpenJamMemory[]
+
+  @@index([studioId])
+  @@index([city])
+  @@index([startAt])
+}
+
+model OpenJamParticipant {
+  id         String   @id @default(cuid())
+  jamId      String
+  userId     String
+  instrument String?
+  level      String?
+  status     String   @default("joined")
+  createdAt  DateTime @default(now())
+  jam        OpenJam  @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jamId, userId])
+  @@index([jamId])
+}
+
+model OpenJamMessage {
+  id        String   @id @default(cuid())
+  jamId     String
+  userId    String
+  message   String
+  createdAt DateTime @default(now())
+  jam       OpenJam  @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([jamId, createdAt])
+}
+
+model OpenJamMemory {
+  id        String   @id @default(cuid())
+  jamId     String
+  userId    String
+  text      String
+  photoUrl  String?
+  createdAt DateTime @default(now())
+  jam       OpenJam  @relation(fields: [jamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  galleryImages OpenJamGalleryImage[]
+
+  @@unique([jamId, userId])
+  @@index([jamId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model OpenJamGalleryImage {
+  id        String   @id @default(cuid())
+  memoryId  String?
+  photoUrl  String
+  createdAt DateTime @default(now())
+  memory    OpenJamMemory? @relation(fields: [memoryId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([memoryId])
 }
 
 model AdminAuditLog {

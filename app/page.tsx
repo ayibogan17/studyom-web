@@ -3,7 +3,6 @@
 import { Hero } from "@/components/design-system/components/shared/hero";
 import { Section } from "@/components/design-system/components/shared/section";
 import { StudioCard } from "@/components/design-system/components/shared/studio-card";
-import { BookingCalendar } from "@/components/design-system/components/shared/booking-calendar";
 import { Badge } from "@/components/design-system/components/ui/badge";
 
 const featured = Array.from({ length: 8 }).map((_, i) => ({
@@ -36,12 +35,6 @@ export default function Home() {
         </div>
       </Section>
 
-      <Section className="bg-[var(--color-secondary)]">
-        <div className="space-y-4">
-          <p className="text-sm font-semibold text-[var(--color-primary)]">Takvim</p>
-          <BookingCalendar />
-        </div>
-      </Section>
     </main>
   );
 }

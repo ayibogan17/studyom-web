@@ -147,36 +147,13 @@ export function AppHeader() {
           <Button asChild size="sm" className="shrink-0">
             <Link href="/studyo" prefetch={false}>Stüdyo Bul</Link>
           </Button>
-          <div className="relative" onMouseEnter={handleProdOpen} onMouseLeave={handleProdClose}>
-            <Link
-              href="/uretim"
-              prefetch={false}
-              className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
-              aria-haspopup="true"
-              aria-expanded={showProd}
-              onFocus={handleProdOpen}
-              onBlur={handleProdClose}
-            >
-              Üretim
-              <span className="text-[10px] text-[var(--color-muted)]">▼</span>
-            </Link>
-            {showProd && (
-              <div
-                className="absolute right-0 top-12 z-20 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-lg"
-                onMouseEnter={handleProdOpen}
-                onMouseLeave={handleProdClose}
-              >
-                <div className="space-y-3 text-left">
-                  {productionItems.map((item) => (
-                    <div key={item.title} className="rounded-xl bg-[var(--color-secondary)] p-3">
-                      <p className="text-sm font-semibold text-[var(--color-primary)]">{item.title}</p>
-                      <p className="text-xs text-[var(--color-muted)]">{item.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          <Link
+            href="/uretim"
+            prefetch={false}
+            className="flex items-center gap-1 rounded-xl px-3 py-2 transition hover:bg-[var(--color-secondary)]"
+          >
+            Üretim
+          </Link>
           {links.map((link) => (
             <div key={`${link.href}-${link.label}`} className="flex items-center gap-2">
               <Link

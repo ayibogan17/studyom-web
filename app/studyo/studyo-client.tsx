@@ -36,6 +36,7 @@ export type ServerStudio = {
   pricePerHour?: number;
   badges?: string[];
   imageUrl?: string;
+  interactionCount?: number;
 };
 
 type StudioRoom = {
@@ -64,6 +65,7 @@ type Studio = {
   badges?: string[];
   imageUrl?: string;
   happyHourEnabled?: boolean;
+  interactionCount?: number;
 };
 
 const roomTypeAliases: Record<string, string> = {
@@ -350,6 +352,7 @@ function buildMockStudios(geo: TRGeo): Studio[] {
         badges: studio.badges,
         imageUrl: studio.imageUrl,
         happyHourEnabled: false,
+        interactionCount: 0,
       } satisfies Studio;
     })
     .filter(Boolean) as Studio[];
@@ -400,6 +403,7 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
           badges: studio.badges,
           imageUrl: studio.imageUrl,
           happyHourEnabled: studio.happyHourEnabled ?? false,
+          interactionCount: studio.interactionCount ?? 0,
         } satisfies Studio;
       })
       .filter(Boolean) as Studio[];
@@ -664,8 +668,16 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
   }, [availableStudioIds, availabilitySet, filters, hasAdvancedFilters, hasAvailabilityFilter, studios]);
 
   const sortedStudios = useMemo(() => {
-    if (!filters.sort) return filteredStudios;
-    return [...filteredStudios].sort((a, b) => {
+    const list = [...filteredStudios];
+    list.sort((a, b) => {
+      const aInteractions = a.interactionCount ?? 0;
+      const bInteractions = b.interactionCount ?? 0;
+      if (aInteractions !== bInteractions) return bInteractions - aInteractions;
+
+      if (!filters.sort) {
+        return a.name.localeCompare(b.name, "tr");
+      }
+
       const aVal = a.pricePerHour;
       const bVal = b.pricePerHour;
       if (aVal == null && bVal == null) return 0;
@@ -673,6 +685,7 @@ export function StudyoClientPage({ serverStudios = [] }: { serverStudios?: Serve
       if (bVal == null) return -1;
       return filters.sort === "price-asc" ? aVal - bVal : bVal - aVal;
     });
+    return list;
   }, [filteredStudios, filters.sort]);
 
   const showPrompt =
