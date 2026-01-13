@@ -21,7 +21,7 @@ export async function ProducerStudioLinksSection({ userId }: { userId: string })
       title="Stüdyo bağlantıları"
       description="Birlikte çalıştığın stüdyolarla bağlantılarını buradan yönetebilirsin."
     >
-      <ProducerStudioLinksClient studioLinks={studioLinkItems} />
+      <ProducerStudioLinksClient initialLinks={studioLinkItems} />
     </TeacherPanelSection>
   );
 }
