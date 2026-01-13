@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { unstable_cache } from "next/cache";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ProfileClient } from "./profile-client";
@@ -31,31 +32,10 @@ export default async function ProfilePage() {
 
   const userId = dbUser?.id;
   const userEmail = (dbUser?.email ?? sessionUser.email)?.toLowerCase() ?? null;
-  const [teacherApp, producerApp, googleAccount] = userId
-    ? await Promise.all([
-        prisma.teacherApplication.findFirst({
-          where: { userId },
-          orderBy: { createdAt: "desc" },
-          select: { status: true },
-        }),
-        getProducerApplicationStatus(userId),
-        prisma.account.findFirst({
-          where: { userId, provider: "google" },
-          select: { id: true },
-        }),
-      ])
-    : [null, null, null];
-
-  const [studioCount, studioActiveCount] = userEmail
-    ? await Promise.all([
-        prisma.studio.count({
-          where: { ownerEmail: { equals: userEmail, mode: "insensitive" } },
-        }),
-        prisma.studio.count({
-          where: { ownerEmail: { equals: userEmail, mode: "insensitive" }, isActive: true },
-        }),
-      ])
-    : [0, 0];
+  const [teacherApp, producerApp, googleAccount, studioCount, studioActiveCount] =
+    userId && userEmail
+      ? await getProfileStats(userId, userEmail)
+      : [null, null, null, 0, 0];
 
   const mapStatus = (status?: string | null) => {
     if (status === "approved") return "approved" as const;
@@ -91,17 +71,33 @@ export default async function ProfilePage() {
   );
 }
 
-async function getProducerApplicationStatus(userId: string): Promise<{ status: string } | null> {
-  try {
-    const rows = await prisma.$queryRaw<{ status: string }[]>`
-      SELECT status FROM "ProducerApplication"
-      WHERE "userId" = ${userId}
-      ORDER BY "createdAt" DESC
-      LIMIT 1
-    `;
-    return rows[0] ?? null;
-  } catch (err) {
-    console.error("producer application lookup failed", err);
-    return null;
-  }
-}
+const getProfileStats = unstable_cache(
+  async (userId: string, userEmail: string) => {
+    const [teacherApp, producerApp, googleAccount, studioCount, studioActiveCount] =
+      await prisma.$transaction([
+        prisma.teacherApplication.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          select: { status: true },
+        }),
+        prisma.producerApplication.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+          select: { status: true },
+        }),
+        prisma.account.findFirst({
+          where: { userId, provider: "google" },
+          select: { id: true },
+        }),
+        prisma.studio.count({
+          where: { ownerEmail: { equals: userEmail, mode: "insensitive" } },
+        }),
+        prisma.studio.count({
+          where: { ownerEmail: { equals: userEmail, mode: "insensitive" }, isActive: true },
+        }),
+      ]);
+    return [teacherApp, producerApp, googleAccount, studioCount, studioActiveCount] as const;
+  },
+  ["profile-stats"],
+  { revalidate: 60 },
+);
