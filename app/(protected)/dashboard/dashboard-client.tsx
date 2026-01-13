@@ -814,7 +814,14 @@ export function DashboardClient({
     const loadStudio = async () => {
       try {
         const res = await fetch("/api/studio?scope=calendar");
-        if (!res.ok) return;
+        if (!res.ok) {
+          if (res.status === 401) {
+            router.push("/login");
+          } else if (res.status === 404) {
+            router.push("/studio/new");
+          }
+          return;
+        }
         const json = (await res.json().catch(() => null)) as { studio?: Studio | null } | null;
         if (!cancelled && json?.studio) {
           setStudio(normalizeStudio(json.studio));

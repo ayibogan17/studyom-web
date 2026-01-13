@@ -10,7 +10,7 @@ import { Button } from "@/components/design-system/components/ui/button";
 import { ProducerRequestsClient, type ProducerMessageRequestItem } from "./requests-client";
 import { ProducerProfileEditor } from "./producer-profile-editor";
 import { ProducerGalleryClient } from "./producer-gallery-client";
-import { TeacherPanelSection } from "@/app/teacher-panel/teacher-panel-section";
+import { TeacherPanelSection } from "@/app/(protected)/teacher-panel/teacher-panel-section";
 import { ProducerWhatsAppSettings } from "./producer-whatsapp-settings";
 import { ProducerStudioLinksClient } from "./producer-studio-links-client";
 
