@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { authOptions } from "@/auth";
@@ -342,41 +343,48 @@ export async function GET(req: Request) {
   });
 
   const scope = new URL(req.url).searchParams.get("scope");
+  const getCalendarStudio = unstable_cache(
+    async (ownerEmail: string) =>
+      (await prisma.studio.findFirst({
+        where: { ownerEmail: { equals: ownerEmail, mode: "insensitive" } },
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          district: true,
+          address: true,
+          coverImageUrl: true,
+          ownerEmail: true,
+          phone: true,
+          openingHours: true,
+          rooms: {
+            orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              color: true,
+              order: true,
+              createdAt: true,
+              pricingModel: true,
+              flatRate: true,
+              minRate: true,
+              dailyRate: true,
+              hourlyRate: true,
+              happyHourRate: true,
+            },
+          },
+          notifications: { select: { message: true } },
+          ratings: { select: { value: true } },
+        },
+      })) as StudioCalendarResponse | null,
+    [`studio-calendar-${email}`],
+    { revalidate: 60 },
+  );
+
   const studio =
     scope === "calendar"
-      ? ((await prisma.studio.findFirst({
-          where: { ownerEmail: { equals: email, mode: "insensitive" } },
-          select: {
-            id: true,
-            name: true,
-            city: true,
-            district: true,
-            address: true,
-            coverImageUrl: true,
-            ownerEmail: true,
-            phone: true,
-            openingHours: true,
-            rooms: {
-              orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-              select: {
-                id: true,
-                name: true,
-                type: true,
-                color: true,
-                order: true,
-                createdAt: true,
-                pricingModel: true,
-                flatRate: true,
-                minRate: true,
-                dailyRate: true,
-                hourlyRate: true,
-                happyHourRate: true,
-              },
-            },
-            notifications: { select: { message: true } },
-            ratings: { select: { value: true } },
-          },
-        })) as StudioCalendarResponse | null)
+      ? await getCalendarStudio(email)
       : ((await prisma.studio.findFirst({
           where: { ownerEmail: { equals: email, mode: "insensitive" } },
           include: {
