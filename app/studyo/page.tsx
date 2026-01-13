@@ -1,10 +1,9 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { StudyoClientPage } from "./studyo-client";
 import { getStudyoServerStudios } from "./studyo-server";
-
-export const dynamic = "force-dynamic";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -37,7 +36,12 @@ export function generateMetadata({ searchParams }: { searchParams?: SearchParams
 }
 
 export default async function StudioListPage() {
-  const session = await getServerSession(authOptions);
+  const cookieStore = cookies();
+  const hasSessionCookie =
+    cookieStore.has("__Secure-next-auth.session-token") ||
+    cookieStore.has("__Host-next-auth.session-token") ||
+    cookieStore.has("next-auth.session-token");
+  const session = hasSessionCookie ? await getServerSession(authOptions) : null;
   const userEmail = session?.user?.email ?? null;
   const serverStudios = await getStudyoServerStudios(userEmail);
 
