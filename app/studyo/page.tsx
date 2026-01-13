@@ -36,7 +36,7 @@ export function generateMetadata({ searchParams }: { searchParams?: SearchParams
 }
 
 export default async function StudioListPage() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const hasSessionCookie =
     cookieStore.has("__Secure-next-auth.session-token") ||
     cookieStore.has("__Host-next-auth.session-token") ||
