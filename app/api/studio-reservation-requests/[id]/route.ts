@@ -168,8 +168,8 @@ Studyom ekibi
   );
   const cutoffHour = request.studio.calendarSettings?.dayCutoffHour ?? 4;
   const timeZone = request.studio.calendarSettings?.timezone ?? "Europe/Istanbul";
-  const startAtLocal = new Date(request.startAt.toLocaleString("en-US", { timeZone }));
-  const endAtLocal = new Date(request.endAt.toLocaleString("en-US", { timeZone }));
+  const startAtLocal = request.startAt;
+  const endAtLocal = request.endAt;
   if (!isWithinOpeningHoursZoned(startAtLocal, endAtLocal, openingHours, cutoffHour, timeZone)) {
     return NextResponse.json({ error: "Rezervasyon saatleri açık saatler dışında." }, { status: 400 });
   }

@@ -160,8 +160,8 @@ export async function POST(req: Request) {
     }
 
     const timeZone = studio.calendarSettings?.timezone ?? "Europe/Istanbul";
-    const startAtLocal = new Date(startAt.toLocaleString("en-US", { timeZone }));
-    const endAtLocal = new Date(endAt.toLocaleString("en-US", { timeZone }));
+    const startAtLocal = startAt;
+    const endAtLocal = endAt;
     if (startAtLocal.getMinutes() % 60 !== 0 || startAtLocal.getSeconds() !== 0) {
       return NextResponse.json({ error: "Saat başlangıcı tam olmalı." }, { status: 400 });
     }
