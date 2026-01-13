@@ -593,8 +593,8 @@ export function StudioRoomDetails({
     return map;
   }, [calendarPayload]);
 
-  const getRoomCalendar = (room: RoomDetail) => {
-    const calendar = getRoomCalendar(room);
+  const getRoomCalendar = (room: RoomDetail): RoomCalendarSummary | null | undefined => {
+    const calendar = room.calendar;
     if (!calendar) return calendar;
     return {
       ...calendar,
