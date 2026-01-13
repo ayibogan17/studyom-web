@@ -1041,7 +1041,6 @@ export function DashboardClient({
   const [happyHourSaving, setHappyHourSaving] = useState(false);
   const [happyHourStatus, setHappyHourStatus] = useState<string | null>(null);
   const [happyHourScheduleVersion, setHappyHourScheduleVersion] = useState(0);
-  const calendarSettingsLoaded = useRef(false);
   const [calendarSummary, setCalendarSummary] = useState<{
     weekOccupancy: number;
     monthOccupancy: number;
@@ -1384,7 +1383,6 @@ export function DashboardClient({
 
   useEffect(() => {
     if (activeTab !== "calendar") return;
-    if (!happyHourOpen) return;
     if (!orderedRooms.length || orderedRooms.length === 1) return;
     if (happyHourSelectionLoaded || happyHourSelectionTouched) return;
     let active = true;
@@ -1416,27 +1414,10 @@ export function DashboardClient({
     return () => {
       active = false;
     };
-  }, [activeTab, happyHourOpen, orderedRooms, happyHourSelectionLoaded, happyHourSelectionTouched]);
-
-  useEffect(() => {
-    if (!orderedRooms.length || orderedRooms.length === 1) return;
-    if (!happyHourActive) return;
-    if (happyHourSelectionTouched || happyHourSelectionLoaded) return;
-    if (Object.keys(happyHourRoomSelection).length) return;
-    setHappyHourRoomSelection({ [selectedRoomId]: true });
-  }, [
-    orderedRooms.length,
-    happyHourActive,
-    happyHourSelectionTouched,
-    happyHourSelectionLoaded,
-    happyHourRoomSelection,
-    selectedRoomId,
-  ]);
+  }, [activeTab, orderedRooms, happyHourSelectionLoaded, happyHourSelectionTouched]);
 
   useEffect(() => {
     if (!studio) return;
-    if (activeTab !== "calendar" && activeTab !== "panel") return;
-    if (calendarSettingsLoaded.current) return;
     let active = true;
     const loadSettings = async () => {
       try {
@@ -1447,7 +1428,6 @@ export function DashboardClient({
           setCalendarSettings(json.settings as CalendarSettings);
           setCalendarDraft(json.settings as CalendarSettings);
           setHappyHourActive(!!json.settings.happyHourEnabled);
-          calendarSettingsLoaded.current = true;
         } else {
           const fallback: CalendarSettings = {
             slotStepMinutes: 60,
@@ -1462,7 +1442,6 @@ export function DashboardClient({
           setCalendarSettings(fallback);
           setCalendarDraft(fallback);
           setHappyHourActive(false);
-          calendarSettingsLoaded.current = true;
         }
       } catch (err) {
         console.error(err);
@@ -1472,11 +1451,10 @@ export function DashboardClient({
     return () => {
       active = false;
     };
-  }, [studio?.id, activeTab, hoursDraft]);
+  }, [studio?.id]);
 
   useEffect(() => {
     if (activeTab !== "calendar") return;
-    if (!happyHourOpen) return;
     const scheduleRoomId = happyHourScheduleRoomId;
     const fallback = normalizeOpeningHours(
       calendarSettings?.weeklyHours ?? studio?.openingHours ?? null,
@@ -1538,7 +1516,7 @@ export function DashboardClient({
     return () => {
       active = false;
     };
-  }, [activeTab, happyHourOpen, happyHourScheduleRoomId, calendarSettings?.weeklyHours, studio?.openingHours]);
+  }, [activeTab, happyHourScheduleRoomId, calendarSettings?.weeklyHours, studio?.openingHours]);
 
   useEffect(() => {
     if (!studio || basicTouched) return;
