@@ -744,12 +744,13 @@ export function StudioRoomDetails({
 
   const reservationPrice = useMemo(() => {
     const calendar = reservationRoom ? getRoomCalendar(reservationRoom) : null;
-    if (!calendar || !reservationStart) return null;
+    if (!calendar || !reservationStart || !reservationRoom) return null;
+    const room = reservationRoom;
     const baseRate =
-      parsePriceValue(reservationRoom.pricing.hourlyRate) ??
-      parsePriceValue(reservationRoom.pricing.minRate) ??
-      parsePriceValue(reservationRoom.pricing.flatRate);
-    const happyRate = parsePriceValue(reservationRoom.pricing.happyHourRate) ?? baseRate;
+      parsePriceValue(room.pricing.hourlyRate) ??
+      parsePriceValue(room.pricing.minRate) ??
+      parsePriceValue(room.pricing.flatRate);
+    const happyRate = parsePriceValue(room.pricing.happyHourRate) ?? baseRate;
     let total = 0;
     let happyHours = 0;
     let normalHours = 0;
