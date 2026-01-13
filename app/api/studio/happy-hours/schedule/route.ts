@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
@@ -122,98 +121,46 @@ export async function GET(req: Request) {
   );
 
   if (roomIdsParam) {
-    const getRoomsPayload = unstable_cache(
-      async () => {
-        const roomIds = roomIdsParam
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean);
-        if (!roomIds.length) {
-          return { error: "roomIds required", status: 400 as const };
-        }
-        const rooms = await prisma.room.findMany({
-          where: { id: { in: roomIds }, studioId: studio.id },
-          select: { id: true },
-        });
-        const validRoomIds = rooms.map((room) => room.id);
-        if (!validRoomIds.length) {
-          return { error: "Room not found", status: 404 as const };
-        }
-        const slots = await prisma.studioHappyHourSlot.findMany({
-          where: { studioId: studio.id, roomId: { in: validRoomIds } },
-          select: { startAt: true, endAt: true, roomId: true },
-        });
-        const byRoomWeekday = new Map<string, Map<number, number>>();
-        slots.forEach((slot) => {
-          const businessStart = getBusinessDayStartZoned(slot.startAt, dayCutoffHour, timeZone);
-          const weekday = weekdayIndexFromZonedDate(businessStart, timeZone);
-          const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
-          let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
-          if (endMinutes <= startMinutes) endMinutes += 24 * 60;
-          let map = byRoomWeekday.get(slot.roomId);
-          if (!map) {
-            map = new Map<number, number>();
-            byRoomWeekday.set(slot.roomId, map);
-          }
-          const current = map.get(weekday);
-          if (current === undefined || endMinutes > current) {
-            map.set(weekday, endMinutes);
-          }
-        });
-        const roomsPayload: Record<string, { weekday: number; enabled: boolean; endTime: string }[]> = {};
-        validRoomIds.forEach((id) => {
-          const byWeekday = byRoomWeekday.get(id) ?? new Map<number, number>();
-          roomsPayload[id] = Array.from({ length: 7 }, (_, idx) => {
-            const info = openingHours[idx];
-            const fallback = info?.closeTime ?? "22:00";
-            const endMinutes = byWeekday.get(idx);
-            return {
-              weekday: idx,
-              enabled: endMinutes !== undefined,
-              endTime: endMinutes !== undefined ? minutesToTime(endMinutes) : fallback,
-            };
-          });
-        });
-        return { rooms: roomsPayload };
-      },
-      [`happy-hours-rooms-${studio.id}-${roomIdsParam}`],
-      { revalidate: 60 },
-    );
-    const payload = await getRoomsPayload();
-    if ("status" in payload) {
-      return NextResponse.json({ error: payload.error }, { status: payload.status });
+    const roomIds = roomIdsParam
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (!roomIds.length) {
+      return NextResponse.json({ error: "roomIds required" }, { status: 400 });
     }
-    return NextResponse.json(payload);
-  }
-
-  if (!roomId) return NextResponse.json({ error: "roomId required" }, { status: 400 });
-  const room = await prisma.room.findFirst({
-    where: { id: roomId, studioId: studio.id },
-    select: { id: true },
-  });
-  if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
-
-  const getRoomSchedule = unstable_cache(
-    async () => {
-      const slots = await prisma.studioHappyHourSlot.findMany({
-        where: { studioId: studio.id, roomId },
-        select: { startAt: true, endAt: true },
-      });
-      const byWeekday = new Map<number, number>();
-      const slotList = slots.map((slot) => ({ roomId, startAt: slot.startAt, endAt: slot.endAt })) as HappyHourSlot[];
-      slotList.forEach((slot) => {
-        const businessStart = getBusinessDayStartZoned(slot.startAt, dayCutoffHour, timeZone);
-        const weekday = weekdayIndexFromZonedDate(businessStart, timeZone);
-        const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
-        let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
-        if (endMinutes <= startMinutes) endMinutes += 24 * 60;
-        const current = byWeekday.get(weekday);
-        if (current === undefined || endMinutes > current) {
-          byWeekday.set(weekday, endMinutes);
-        }
-      });
-
-      const days = Array.from({ length: 7 }, (_, idx) => {
+    const rooms = await prisma.room.findMany({
+      where: { id: { in: roomIds }, studioId: studio.id },
+      select: { id: true },
+    });
+    const validRoomIds = rooms.map((room) => room.id);
+    if (!validRoomIds.length) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    }
+    const slots = await prisma.studioHappyHourSlot.findMany({
+      where: { studioId: studio.id, roomId: { in: validRoomIds } },
+      select: { startAt: true, endAt: true, roomId: true },
+    });
+    const byRoomWeekday = new Map<string, Map<number, number>>();
+    slots.forEach((slot) => {
+      const businessStart = getBusinessDayStartZoned(slot.startAt, dayCutoffHour, timeZone);
+      const weekday = weekdayIndexFromZonedDate(businessStart, timeZone);
+      const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
+      let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
+      if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+      let map = byRoomWeekday.get(slot.roomId);
+      if (!map) {
+        map = new Map<number, number>();
+        byRoomWeekday.set(slot.roomId, map);
+      }
+      const current = map.get(weekday);
+      if (current === undefined || endMinutes > current) {
+        map.set(weekday, endMinutes);
+      }
+    });
+    const roomsPayload: Record<string, { weekday: number; enabled: boolean; endTime: string }[]> = {};
+    validRoomIds.forEach((id) => {
+      const byWeekday = byRoomWeekday.get(id) ?? new Map<number, number>();
+      roomsPayload[id] = Array.from({ length: 7 }, (_, idx) => {
         const info = openingHours[idx];
         const fallback = info?.closeTime ?? "22:00";
         const endMinutes = byWeekday.get(idx);
@@ -223,15 +170,47 @@ export async function GET(req: Request) {
           endTime: endMinutes !== undefined ? minutesToTime(endMinutes) : fallback,
         };
       });
+    });
+    return NextResponse.json({ rooms: roomsPayload });
+  }
 
-      return { days };
-    },
-    [`happy-hours-room-${studio.id}-${roomId}`],
-    { revalidate: 60 },
-  );
+  if (!roomId) return NextResponse.json({ error: "roomId required" }, { status: 400 });
+  const room = await prisma.room.findFirst({
+    where: { id: roomId, studioId: studio.id },
+    select: { id: true },
+  });
+  if (!room) return NextResponse.json({ error: "Room not found" }, { status: 404 });
 
-  const roomPayload = await getRoomSchedule();
-  return NextResponse.json(roomPayload);
+  const slots = await prisma.studioHappyHourSlot.findMany({
+    where: { studioId: studio.id, roomId },
+    select: { startAt: true, endAt: true },
+  });
+  const byWeekday = new Map<number, number>();
+  const slotList = slots.map((slot) => ({ roomId, startAt: slot.startAt, endAt: slot.endAt })) as HappyHourSlot[];
+  slotList.forEach((slot) => {
+    const businessStart = getBusinessDayStartZoned(slot.startAt, dayCutoffHour, timeZone);
+    const weekday = weekdayIndexFromZonedDate(businessStart, timeZone);
+    const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
+    let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
+    if (endMinutes <= startMinutes) endMinutes += 24 * 60;
+    const current = byWeekday.get(weekday);
+    if (current === undefined || endMinutes > current) {
+      byWeekday.set(weekday, endMinutes);
+    }
+  });
+
+  const days = Array.from({ length: 7 }, (_, idx) => {
+    const info = openingHours[idx];
+    const fallback = info?.closeTime ?? "22:00";
+    const endMinutes = byWeekday.get(idx);
+    return {
+      weekday: idx,
+      enabled: endMinutes !== undefined,
+      endTime: endMinutes !== undefined ? minutesToTime(endMinutes) : fallback,
+    };
+  });
+
+  return NextResponse.json({ days });
 }
 
 export async function POST(req: Request) {
