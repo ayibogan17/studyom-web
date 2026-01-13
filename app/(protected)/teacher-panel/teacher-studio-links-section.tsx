@@ -21,7 +21,7 @@ export async function TeacherStudioLinksSection({ userId }: { userId: string }) 
       title="Stüdyo bağlantıları"
       description="Stüdyolarla paylaştığın bağlantıları buradan yönetebilirsin."
     >
-      <TeacherStudioLinksClient studioLinks={studioLinkItems} />
+      <TeacherStudioLinksClient initialLinks={studioLinkItems} />
     </TeacherPanelSection>
   );
 }
