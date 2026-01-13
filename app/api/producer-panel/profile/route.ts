@@ -99,5 +99,11 @@ export async function GET() {
     links,
     galleryUrls,
     whatsapp: { number: whatsappNumber, enabled: whatsappEnabled },
+    user: {
+      fullName: dbUser.fullName,
+      name: dbUser.name,
+      email: dbUser.email,
+      image: dbUser.image,
+    },
   });
 }
