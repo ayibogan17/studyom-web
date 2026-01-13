@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -7,13 +6,10 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Section } from "@/components/design-system/components/shared/section";
 import { Badge } from "@/components/design-system/components/ui/badge";
-import { Button } from "@/components/design-system/components/ui/button";
-import { ProducerProfileEditor } from "./producer-profile-editor";
-import { ProducerGalleryClient } from "./producer-gallery-client";
 import { TeacherPanelSection } from "@/app/(protected)/teacher-panel/teacher-panel-section";
-import { ProducerWhatsAppSettings } from "./producer-whatsapp-settings";
 import { ProducerMessageSection } from "./producer-message-section";
 import { ProducerStudioLinksSection } from "./producer-studio-links-section";
+import { ProducerProfileSectionsClient } from "./producer-profile-sections-client";
 
 export const metadata: Metadata = {
   title: "Üretici Paneli | Studyom",
@@ -21,54 +17,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type ProducerApplicationData = {
-  areas?: string[];
-  workTypes?: string[];
-  modes?: string[];
-  city?: string | null;
-  genres?: string[];
-  statement?: string | null;
-  bio?: string | null;
-  links?: string[];
-  galleryUrls?: string[];
-  projects?: string | null;
-  years?: string | null;
-  price?: string | null;
-  whatsappNumber?: string | null;
-  whatsappEnabled?: boolean | null;
-};
-
 function formatDate(value?: Date | string | null) {
   if (!value) return "—";
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric" });
-}
-
-function normalizeArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-}
-
-function parseData(value: unknown): ProducerApplicationData {
-  if (value && typeof value === "object") return value as ProducerApplicationData;
-  if (typeof value === "string") {
-    try {
-      return JSON.parse(value) as ProducerApplicationData;
-    } catch {
-      return {};
-    }
-  }
-  return {};
-}
-
-function isHttpUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 export default async function ProducerPanelPage() {
@@ -89,10 +42,8 @@ export default async function ProducerPanelPage() {
     redirect("/login");
   }
 
-  const rows = await prisma.$queryRaw<
-    { id: number; data: unknown; status: string; createdAt: Date | string }[]
-  >`
-    SELECT id, data, status, "createdAt"
+  const rows = await prisma.$queryRaw<{ id: number; status: string; createdAt: Date | string }[]>`
+    SELECT id, status, "createdAt"
     FROM "ProducerApplication"
     WHERE "userId" = ${dbUser.id} AND status IN ('approved', 'pending')
     ORDER BY "createdAt" DESC
@@ -105,24 +56,6 @@ export default async function ProducerPanelPage() {
   }
 
   const isApproved = application.status === "approved";
-
-  const data = parseData(application.data);
-  const areas = normalizeArray(data.areas);
-  const workTypes = normalizeArray(data.workTypes);
-  const modes = normalizeArray(data.modes);
-  const genres = normalizeArray(data.genres);
-  const links = normalizeArray(data.links).filter(isHttpUrl);
-  const galleryUrls = normalizeArray(data.galleryUrls).filter(isHttpUrl).slice(0, 5);
-  const city = typeof data.city === "string" ? data.city : dbUser.city || null;
-  const price = typeof data.price === "string" && data.price.trim() ? data.price : "Belirtilmedi";
-  const statement =
-    typeof data.statement === "string" && data.statement.trim() ? data.statement.trim() : "Belirtilmedi";
-  const bio = typeof data.bio === "string" && data.bio.trim() ? data.bio.trim() : "";
-  const years = typeof data.years === "string" && data.years.trim() ? data.years : "Belirtilmedi";
-  const projects =
-    typeof data.projects === "string" && data.projects.trim() ? data.projects : "Belirtilmedi";
-  const whatsappNumber = typeof data.whatsappNumber === "string" ? data.whatsappNumber : "";
-  const whatsappEnabled = Boolean(data.whatsappEnabled);
 
   return (
     <main className="bg-[var(--color-secondary)] pb-16 pt-10">
@@ -176,68 +109,15 @@ export default async function ProducerPanelPage() {
           </div>
         </TeacherPanelSection>
 
-        <TeacherPanelSection title="Üretim bilgileri" defaultOpen>
-          <ProducerProfileEditor
-            initial={{
-              areas,
-              workTypes,
-              modes,
-              city: city || "",
-              genres,
-              price: price === "Belirtilmedi" ? "" : price,
-              years: years === "Belirtilmedi" ? "" : years,
-              projects: projects === "Belirtilmedi" ? "" : projects,
-              statement: statement === "Belirtilmedi" ? "" : statement,
-              bio,
-            }}
-          />
-        </TeacherPanelSection>
-
         <Suspense
           fallback={
             <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-sm text-[var(--color-muted)]">
-              Çalıştığı stüdyolar yükleniyor...
+              Profil bilgileri yükleniyor...
             </div>
           }
         >
-          <ProducerStudioLinksSection />
+          <ProducerProfileSectionsClient />
         </Suspense>
-
-        <TeacherPanelSection
-          title="WhatsApp ayarları"
-          description="Kullanıcılarla WhatsApp üzerinden devam etmeyi burada açıp kapatabilirsin."
-        >
-          <ProducerWhatsAppSettings initialNumber={whatsappNumber} initialEnabled={whatsappEnabled} />
-        </TeacherPanelSection>
-
-        <TeacherPanelSection title="Görseller" defaultOpen>
-          <ProducerGalleryClient initialUrls={galleryUrls} />
-        </TeacherPanelSection>
-
-        <TeacherPanelSection title="Bağlantılar" defaultOpen>
-          <div className="flex items-center justify-between gap-2">
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/profile">Profilime dön</Link>
-            </Button>
-          </div>
-          {links.length ? (
-            <div className="space-y-2">
-              {links.map((link) => (
-                <a
-                  key={link}
-                  href={link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-primary)] hover:border-[var(--color-accent)]"
-                >
-                  {link}
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--color-muted)]">Belirtilmedi</p>
-          )}
-        </TeacherPanelSection>
       </Section>
     </main>
   );
