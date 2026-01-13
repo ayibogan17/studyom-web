@@ -124,6 +124,21 @@ type AvailabilityInfo = {
   statusByRoomId: Record<string, boolean>;
 };
 
+type PublicCalendarPayload = {
+  blocks: Array<{
+    roomId: string;
+    startAt: string;
+    endAt: string;
+    type?: string | null;
+    status?: string | null;
+  }>;
+  happyHours: Array<{
+    roomId: string;
+    startAt: string;
+    endAt: string;
+  }>;
+};
+
 type Props = {
   rooms: RoomDetail[];
   availability?: AvailabilityInfo | null;
@@ -531,6 +546,62 @@ export function StudioRoomDetails({
   const [calendarPreviewOpen, setCalendarPreviewOpen] = useState(false);
   const [calendarPreviewRoomId, setCalendarPreviewRoomId] = useState<string | null>(null);
   const calendarRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [calendarPayload, setCalendarPayload] = useState<PublicCalendarPayload | null>(null);
+  const [availabilityState, setAvailabilityState] = useState<AvailabilityInfo | null>(availability ?? null);
+
+  useEffect(() => {
+    if (!studioId || !rooms.length) return;
+    const baseDate = parseDateKey(rooms[0]?.calendar?.startDate ?? "");
+    if (!baseDate) return;
+    const startAt = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+    const endAt = new Date(startAt.getFullYear(), startAt.getMonth(), startAt.getDate() + 14);
+    let alive = true;
+    fetch(
+      `/api/public/studyo/calendar?studioId=${studioId}&start=${startAt.toISOString()}&end=${endAt.toISOString()}`,
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!alive || !json) return;
+        setCalendarPayload(json as PublicCalendarPayload);
+      })
+      .catch((err) => {
+        console.error(err);
+      })
+      .finally(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [studioId, rooms]);
+
+  const calendarBlocksByRoom = useMemo(() => {
+    const map = new Map<string, PublicCalendarPayload["blocks"]>();
+    calendarPayload?.blocks?.forEach((block) => {
+      const list = map.get(block.roomId) ?? [];
+      list.push(block);
+      map.set(block.roomId, list);
+    });
+    return map;
+  }, [calendarPayload]);
+
+  const happyHoursByRoom = useMemo(() => {
+    const map = new Map<string, PublicCalendarPayload["happyHours"]>();
+    calendarPayload?.happyHours?.forEach((slot) => {
+      const list = map.get(slot.roomId) ?? [];
+      list.push(slot);
+      map.set(slot.roomId, list);
+    });
+    return map;
+  }, [calendarPayload]);
+
+  const getRoomCalendar = (room: RoomDetail) => {
+    const calendar = getRoomCalendar(room);
+    if (!calendar) return calendar;
+    return {
+      ...calendar,
+      blocks: calendarBlocksByRoom.get(room.id) ?? calendar.blocks ?? [],
+      happyHours: happyHoursByRoom.get(room.id) ?? calendar.happyHours ?? [],
+    };
+  };
 
   if (!rooms.length) {
     return (
@@ -540,7 +611,8 @@ export function StudioRoomDetails({
     );
   }
 
-  const hasAvailability = Boolean(availability?.date && availability?.time);
+  const effectiveAvailability = availabilityState ?? availability;
+  const hasAvailability = Boolean(effectiveAvailability?.date && effectiveAvailability?.time);
   const phoneDigits = studioPhone ? studioPhone.replace(/\D/g, "") : "";
   const trimmedPhone = phoneDigits.startsWith("0") ? phoneDigits.slice(1) : phoneDigits;
   const phoneNormalized = trimmedPhone
@@ -558,6 +630,46 @@ export function StudioRoomDetails({
         | undefined,
     [session?.user],
   );
+
+  useEffect(() => {
+    const dateParam = searchParams?.get("date");
+    const timeParam = searchParams?.get("time");
+    if (!dateParam || !timeParam) {
+      setAvailabilityState(null);
+      return;
+    }
+    const durationParam = searchParams?.get("duration");
+    const minutes = durationParam ? Number.parseInt(durationParam, 10) : 60;
+    const startAt = new Date(`${dateParam}T${timeParam}:00+03:00`);
+    if (Number.isNaN(startAt.getTime())) {
+      setAvailabilityState(null);
+      return;
+    }
+    const duration = Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
+    const endAt = new Date(startAt.getTime() + duration * 60000);
+    const statusByRoomId = Object.fromEntries(
+      rooms.map((room) => {
+        const calendar = getRoomCalendar(room);
+        if (!calendar) return [room.id, false];
+        const cutoff = calendar.dayCutoffHour ?? 4;
+        const businessStart = getBusinessDayStartForTime(startAt, cutoff);
+        const range = getOpenRange(businessStart, calendar.openingHours, cutoff);
+        if (!range) return [room.id, false];
+        const startMinutes = (startAt.getTime() - businessStart.getTime()) / 60000;
+        const endMinutes = (endAt.getTime() - businessStart.getTime()) / 60000;
+        const within = startMinutes >= range.start && endMinutes <= range.end;
+        if (!within) return [room.id, false];
+        const blocked = (calendar.blocks ?? []).some((block) => {
+          if (!isBlocking(block)) return false;
+          const blockStart = new Date(block.startAt);
+          const blockEnd = new Date(block.endAt);
+          return blockStart < endAt && blockEnd > startAt;
+        });
+        return [room.id, !blocked];
+      }),
+    );
+    setAvailabilityState({ date: dateParam, time: timeParam, duration, statusByRoomId });
+  }, [rooms, searchParams, calendarBlocksByRoom, happyHoursByRoom]);
 
   const getAnonymousId = () => {
     if (typeof window === "undefined") return "";
@@ -599,8 +711,8 @@ export function StudioRoomDetails({
   };
 
   const reservationMaxHours = useMemo(() => {
-    if (!reservationRoom?.calendar || !reservationStart) return 0;
-    const calendar = reservationRoom.calendar;
+    const calendar = reservationRoom ? getRoomCalendar(reservationRoom) : null;
+    if (!calendar || !reservationStart) return 0;
     const dayCutoffHour = calendar.dayCutoffHour ?? 4;
     const businessStart = getBusinessDayStartForTime(reservationStart, dayCutoffHour);
     const range = getOpenRange(businessStart, calendar.openingHours, dayCutoffHour);
@@ -631,7 +743,8 @@ export function StudioRoomDetails({
   }, [reservationOpen, reservationMaxHours]);
 
   const reservationPrice = useMemo(() => {
-    if (!reservationRoom?.calendar || !reservationStart) return null;
+    const calendar = reservationRoom ? getRoomCalendar(reservationRoom) : null;
+    if (!calendar || !reservationStart) return null;
     const baseRate =
       parsePriceValue(reservationRoom.pricing.hourlyRate) ??
       parsePriceValue(reservationRoom.pricing.minRate) ??
@@ -641,7 +754,7 @@ export function StudioRoomDetails({
     let happyHours = 0;
     let normalHours = 0;
     let missingRate = false;
-    const happySlots = reservationRoom.calendar.happyHours ?? [];
+    const happySlots = calendar.happyHours ?? [];
     for (let i = 0; i < reservationHours; i += 1) {
       const slotStart = new Date(reservationStart.getTime() + i * 60 * 60 * 1000);
       const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
@@ -942,9 +1055,9 @@ export function StudioRoomDetails({
       {rooms.map((room) => {
         const isOpen = openRooms[room.id] ?? false;
         const isAvailable = hasAvailability
-          ? availability?.statusByRoomId?.[room.id] ?? false
+          ? effectiveAvailability?.statusByRoomId?.[room.id] ?? false
           : null;
-        const hasHappyHour = (room.calendar?.happyHours?.length ?? 0) > 0;
+        const hasHappyHour = (getRoomCalendar(room)?.happyHours?.length ?? 0) > 0;
         const happyHourRate = formatPriceValue(room.pricing?.happyHourRate);
         const happyHourLabel = happyHourRate
           ? happyHourRate.includes("/") || happyHourRate.includes("saat")
@@ -1498,7 +1611,10 @@ export function StudioRoomDetails({
                     }}
                     className="overflow-x-auto"
                   >
-                    <RoomCalendarPreview calendar={room.calendar} onSlotSelect={(startAt) => openReservation(room, startAt)} />
+                    <RoomCalendarPreview
+                      calendar={getRoomCalendar(room)}
+                      onSlotSelect={(startAt) => openReservation(room, startAt)}
+                    />
                   </div>
                 </div>
                 {showDrumCollapsible ? (
@@ -1676,7 +1792,7 @@ export function StudioRoomDetails({
             </div>
             <div className="mt-4 overflow-x-auto">
               <RoomCalendarPreview
-                calendar={calendarPreviewRoom.calendar}
+                calendar={getRoomCalendar(calendarPreviewRoom)}
                 onSlotSelect={(startAt) => {
                   setCalendarPreviewOpen(false);
                   openReservation(calendarPreviewRoom, startAt);

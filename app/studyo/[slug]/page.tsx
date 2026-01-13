@@ -5,12 +5,14 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/geo";
 import { parseStudioIdFromSlug } from "@/lib/studio-slug";
-import { isBlockingBlock, isWithinOpeningHours, normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
+import { normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
 import { Section } from "@/components/design-system/components/shared/section";
 import { Card } from "@/components/design-system/components/ui/card";
 import type { Equipment, Extras, Features } from "@/types/panel";
 import { StudioRoomDetails } from "./room-details-client";
 import { StudioGalleryCarousel } from "./gallery-carousel";
+
+export const revalidate = 300;
 
 type PageProps = {
   params: { slug: string } | Promise<{ slug: string }>;
@@ -31,9 +33,6 @@ const normalizeRoomType = (value: string) => {
   const slug = slugify(value);
   return roomTypeLabels[slug] ?? value;
 };
-
-const weekdayIndex = (d: Date) => (d.getDay() + 6) % 7;
-const addMinutes = (date: Date, minutes: number) => new Date(date.getTime() + minutes * 60000);
 
 const parseJson = <T,>(value: unknown, fallback: T): T => {
   if (value && typeof value === "object") return value as T;
@@ -224,154 +223,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function StudioDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const search = searchParams ? await searchParams : undefined;
   const studio = await getStudioBySlug(slug);
   if (!studio) notFound();
-
-  const session = await getServerSession(authOptions);
-  const userEmail = session?.user?.email?.toLowerCase();
-  if (!studio.isActive && userEmail !== studio.ownerEmail.toLowerCase()) {
-    notFound();
+  if (!studio.isActive) {
+    const session = await getServerSession(authOptions);
+    const userEmail = session?.user?.email?.toLowerCase();
+    if (userEmail !== studio.ownerEmail.toLowerCase()) {
+      notFound();
+    }
   }
-
-  const dateParam =
-    typeof search?.date === "string" ? search.date : Array.isArray(search?.date) ? search.date[0] : null;
-  const timeParam =
-    typeof search?.time === "string" ? search.time : Array.isArray(search?.time) ? search.time[0] : null;
-  const durationParam =
-    typeof search?.duration === "string"
-      ? search.duration
-      : Array.isArray(search?.duration)
-        ? search.duration[0]
-        : null;
-  const durationMinutes = durationParam ? Number.parseInt(durationParam, 10) : 60;
-
-  let availability: { date: string; time: string; duration: number; statusByRoomId: Record<string, boolean> } | null =
-    null;
 
   const pad = (value: number) => value.toString().padStart(2, "0");
   const now = new Date();
   const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const rangeEnd = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + 14);
   const rangeStartKey = `${rangeStart.getFullYear()}-${pad(rangeStart.getMonth() + 1)}-${pad(rangeStart.getDate())}`;
   const dayCutoffHour = studio.calendarSettings?.dayCutoffHour ?? 4;
   const openingHours = normalizeOpeningHours(
     (studio.calendarSettings?.weeklyHours as OpeningHours[] | null | undefined) ??
       (studio.openingHours as OpeningHours[] | null | undefined),
   );
-
-  const roomCalendarBlocks = await prisma.studioCalendarBlock.findMany({
-    where: {
-      studioId: studio.id,
-      startAt: { lt: rangeEnd },
-      endAt: { gt: rangeStart },
-    },
-    select: { roomId: true, startAt: true, endAt: true, type: true, status: true },
-  });
-
-  const calendarBlocksByRoom = new Map<
-    string,
-    Array<{ startAt: string; endAt: string; type?: string | null; status?: string | null }>
-  >();
-  roomCalendarBlocks.forEach((block) => {
-    const list = calendarBlocksByRoom.get(block.roomId) ?? [];
-    list.push({
-      startAt: block.startAt.toISOString(),
-      endAt: block.endAt.toISOString(),
-      type: block.type,
-      status: block.status ?? null,
-    });
-    calendarBlocksByRoom.set(block.roomId, list);
-  });
-
-  const happyHourEnabled = studio.calendarSettings?.happyHourEnabled ?? false;
-  const happyHourSlots = happyHourEnabled
-    ? await prisma.studioHappyHourSlot.findMany({
-        where: { studioId: studio.id },
-        select: { roomId: true, startAt: true, endAt: true },
-        orderBy: { startAt: "asc" },
-      })
-    : [];
-
-  const happyHoursByRoom = new Map<string, Array<{ startAt: string; endAt: string }>>();
-  if (happyHourEnabled && happyHourSlots.length) {
-    const templateMap = new Map<
-      string,
-      Array<{ weekday: number; startMinutes: number; endMinutes: number }>
-    >();
-    happyHourSlots.forEach((slot) => {
-      const businessStart = new Date(slot.startAt);
-      if (businessStart.getHours() < dayCutoffHour) {
-        businessStart.setDate(businessStart.getDate() - 1);
-      }
-      businessStart.setHours(0, 0, 0, 0);
-      const weekday = weekdayIndex(businessStart);
-      const startMinutes = Math.round((slot.startAt.getTime() - businessStart.getTime()) / 60000);
-      let endMinutes = Math.round((slot.endAt.getTime() - businessStart.getTime()) / 60000);
-      if (endMinutes <= startMinutes) endMinutes += 24 * 60;
-      const list = templateMap.get(slot.roomId) ?? [];
-      const existing = list.find(
-        (tpl) => tpl.weekday === weekday && tpl.startMinutes === startMinutes,
-      );
-      if (!existing || endMinutes > existing.endMinutes) {
-        const next = list.filter(
-          (tpl) => !(tpl.weekday === weekday && tpl.startMinutes === startMinutes),
-        );
-        next.push({ weekday, startMinutes, endMinutes });
-        templateMap.set(slot.roomId, next);
-      } else {
-        templateMap.set(slot.roomId, list);
-      }
-    });
-
-    const maxDisplayDate = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + 13);
-    const cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
-    for (let d = new Date(cursor); d <= maxDisplayDate; d.setDate(d.getDate() + 1)) {
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const dayWeekday = weekdayIndex(dayStart);
-      templateMap.forEach((templates, roomId) => {
-        templates.forEach((tpl) => {
-          if (tpl.weekday !== dayWeekday) return;
-          const slotStart = addMinutes(dayStart, tpl.startMinutes);
-          const slotEnd = addMinutes(dayStart, tpl.endMinutes);
-          const list = happyHoursByRoom.get(roomId) ?? [];
-          list.push({ startAt: slotStart.toISOString(), endAt: slotEnd.toISOString() });
-          happyHoursByRoom.set(roomId, list);
-        });
-      });
-    }
-  }
-
-  if (dateParam && timeParam) {
-    const startAt = new Date(`${dateParam}T${timeParam}:00+03:00`);
-    if (!Number.isNaN(startAt.getTime())) {
-      const minutes = Number.isFinite(durationMinutes) && durationMinutes > 0 ? durationMinutes : 60;
-      const endAt = new Date(startAt.getTime() + minutes * 60000);
-      const cutoff = studio.calendarSettings?.dayCutoffHour ?? 4;
-      const withinHours = isWithinOpeningHours(startAt, endAt, openingHours, cutoff);
-      const roomIds = studio.rooms.map((room) => room.id);
-      let blockedRoomIds = new Set<string>();
-      if (withinHours && roomIds.length) {
-        const blocks = await prisma.studioCalendarBlock.findMany({
-          where: {
-            roomId: { in: roomIds },
-            startAt: { lt: endAt },
-            endAt: { gt: startAt },
-          },
-          select: { roomId: true, type: true, status: true },
-        });
-        blockedRoomIds = new Set(blocks.filter(isBlockingBlock).map((block) => block.roomId));
-      }
-      availability = {
-        date: dateParam,
-        time: timeParam,
-        duration: minutes,
-        statusByRoomId: Object.fromEntries(
-          roomIds.map((roomId) => [roomId, withinHours && !blockedRoomIds.has(roomId)]),
-        ),
-      };
-    }
-  }
 
   const priceRange = buildPriceRange(studio.rooms ?? []);
   const addressParts = [studio.address, studio.district, studio.city].filter(Boolean).join(", ");
@@ -447,8 +317,8 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
         startDate: rangeStartKey,
         dayCutoffHour,
         openingHours,
-        blocks: calendarBlocksByRoom.get(room.id) ?? [],
-        happyHours: happyHoursByRoom.get(room.id) ?? [],
+        blocks: [],
+        happyHours: [],
       },
     };
   });
@@ -586,7 +456,7 @@ export default async function StudioDetailPage({ params, searchParams }: PagePro
 
             <StudioRoomDetails
               rooms={roomsForClient}
-              availability={availability}
+              availability={null}
               studioId={studio.id}
               studioName={studio.name}
               studioSlug={slug}
