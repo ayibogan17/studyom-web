@@ -1396,11 +1396,7 @@ export function DashboardClient({
     const loadSelection = async () => {
       try {
         const roomIds = orderedRooms.map((room) => room.id);
-        const startAt = new Date();
-        const endAt = new Date(startAt.getFullYear(), startAt.getMonth(), startAt.getDate() + 7);
-        const res = await fetch(
-          `/api/studio/calendar-bundle?roomIds=${roomIds.join(",")}&start=${startAt.toISOString()}&end=${endAt.toISOString()}&includeSchedule=1`,
-        );
+        const res = await fetch(`/api/studio/happy-hours/schedule?roomIds=${roomIds.join(",")}`);
         const json = await res.json().catch(() => ({}));
         if (!active) return;
         const rooms = (json.rooms ?? {}) as Record<string, { enabled?: boolean }[]>;
@@ -1485,11 +1481,7 @@ export function DashboardClient({
     setHappyHourScheduleLoading(true);
     const loadSchedule = async () => {
       try {
-        const startAt = new Date();
-        const endAt = new Date(startAt.getFullYear(), startAt.getMonth(), startAt.getDate() + 7);
-        const res = await fetch(
-          `/api/studio/calendar-bundle?roomId=${scheduleRoomId}&start=${startAt.toISOString()}&end=${endAt.toISOString()}&includeSchedule=1`,
-        );
+        const res = await fetch(`/api/studio/happy-hours/schedule?roomId=${scheduleRoomId}`);
         const json = await res.json().catch(() => ({}));
         if (!active) return;
         if (res.ok && Array.isArray(json.days)) {
