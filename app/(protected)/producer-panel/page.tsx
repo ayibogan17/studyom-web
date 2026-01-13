@@ -144,7 +144,7 @@ export default async function ProducerPanelPage() {
             </div>
           }
         >
-          <ProducerMessageSection userId={dbUser.id} />
+          <ProducerMessageSection />
         </Suspense>
 
         <TeacherPanelSection title="Başvuru bilgileri" defaultOpen>
@@ -200,7 +200,7 @@ export default async function ProducerPanelPage() {
             </div>
           }
         >
-          <ProducerStudioLinksSection userId={dbUser.id} />
+          <ProducerStudioLinksSection />
         </Suspense>
 
         <TeacherPanelSection

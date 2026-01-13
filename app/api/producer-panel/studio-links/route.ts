@@ -63,3 +63,26 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ link });
 }
+
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const studioLinks = await prisma.producerStudioLink.findMany({
+    where: { producerUserId: userId },
+    include: { studio: { select: { id: true, name: true, city: true, district: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const items = studioLinks.map((link) => ({
+    id: link.id,
+    status: link.status,
+    createdAt: link.createdAt.toISOString(),
+    studio: link.studio,
+  }));
+
+  return NextResponse.json({ links: items });
+}
