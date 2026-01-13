@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Section } from "@/components/design-system/components/shared/section";
 import { TeacherMessageThread } from "@/components/design-system/components/teachers/teacher-message-thread";
@@ -69,47 +70,51 @@ export default async function TeacherDetailPage({
   if (!teacher) return notFound();
   const identity = await getTeacherIdentityBySlug(teacher.slug);
   const appId = parseTeacherApplicationIdFromSlug(teacher.slug);
-  const studentBadges = appId
-    ? await (async () => {
-        const normalize = (value: unknown) => {
-          if (!Array.isArray(value)) return [];
-          return value
-            .map((item) => {
-              if (!item || typeof item !== "object") return null;
-              const record = item as { id?: unknown; name?: unknown; image?: unknown };
-              const id = typeof record.id === "string" && record.id.trim() ? record.id.trim() : null;
-              const name = typeof record.name === "string" && record.name.trim() ? record.name.trim() : null;
-              const image = typeof record.image === "string" && record.image.trim() ? record.image.trim() : null;
-              if (!name) return null;
-              return { id, name, image };
+  const getStudentBadges = unstable_cache(
+    async (applicationId: number) => {
+      const normalize = (value: unknown) => {
+        if (!Array.isArray(value)) return [];
+        return value
+          .map((item) => {
+            if (!item || typeof item !== "object") return null;
+            const record = item as { id?: unknown; name?: unknown; image?: unknown };
+            const id = typeof record.id === "string" && record.id.trim() ? record.id.trim() : null;
+            const name = typeof record.name === "string" && record.name.trim() ? record.name.trim() : null;
+            const image = typeof record.image === "string" && record.image.trim() ? record.image.trim() : null;
+            if (!name) return null;
+            return { id, name, image };
+          })
+          .filter((item): item is { id: string | null; name: string; image: string | null } => Boolean(item?.name));
+      };
+      try {
+        const app = await prisma.teacherApplication.findUnique({
+          where: { id: applicationId },
+          select: { data: true },
+        });
+        const data = (app?.data || {}) as { studyomStudents?: unknown };
+        const students = normalize(data.studyomStudents);
+        if (students.length === 0) return [];
+        const studentIds = students.map((student) => student.id).filter((id): id is string => Boolean(id));
+        const dbStudents = studentIds.length
+          ? await prisma.user.findMany({
+              where: { id: { in: studentIds } },
+              select: { id: true, image: true },
             })
-            .filter((item): item is { id: string | null; name: string; image: string | null } => Boolean(item?.name));
-        };
-        try {
-          const app = await prisma.teacherApplication.findUnique({
-            where: { id: appId },
-            select: { data: true },
-          });
-          const data = (app?.data || {}) as { studyomStudents?: unknown };
-          const students = normalize(data.studyomStudents);
-          if (students.length === 0) return [];
-          const studentIds = students.map((student) => student.id).filter((id): id is string => Boolean(id));
-          const dbStudents = studentIds.length
-            ? await prisma.user.findMany({
-                where: { id: { in: studentIds } },
-                select: { id: true, image: true },
-              })
-            : [];
-          const imageMap = new Map(dbStudents.map((user) => [user.id, user.image ?? null]));
-          return students.map((student) => ({
-            initials: getInitials(student.name),
-            image: imageMap.get(student.id || "") || student.image,
-          }));
-        } catch {
-          return [];
-        }
-      })()
-    : [];
+          : [];
+        const imageMap = new Map(dbStudents.map((user) => [user.id, user.image ?? null]));
+        return students.map((student) => ({
+          initials: getInitials(student.name),
+          image: imageMap.get(student.id || "") || student.image,
+        }));
+      } catch {
+        return [];
+      }
+    },
+    ["teacher-student-badges"],
+    { revalidate: 300 },
+  );
+
+  const studentBadges = appId ? await getStudentBadges(appId) : [];
   const portfolioLinks = teacher.portfolioUrls
     .map((raw) => raw.trim())
     .filter(Boolean)

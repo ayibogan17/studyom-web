@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/geo";
 import type { ProducerProfile, ProducerStatus } from "@/lib/producers";
@@ -299,110 +300,126 @@ function buildMockProducers(): ProducerProfile[] {
   ];
 }
 
-export async function getProducerListings(): Promise<ProducerProfile[]> {
-  const applications = await prisma.producerApplication.findMany({
+const getProducerListingsCached = unstable_cache(
+  async (): Promise<ProducerProfile[]> => {
+    const applications = await prisma.producerApplication.findMany({
     where: { status: "approved", visibilityStatus: "published" },
     orderBy: { createdAt: "desc" },
-  });
+    });
 
-  const seen = new Set<string>();
-  const latest = applications.filter((app) => {
-    if (seen.has(app.userId)) return false;
-    seen.add(app.userId);
-    return true;
-  });
+    const seen = new Set<string>();
+    const latest = applications.filter((app) => {
+      if (seen.has(app.userId)) return false;
+      seen.add(app.userId);
+      return true;
+    });
 
-  const userIds = latest.map((app) => app.userId);
-  const users = userIds.length
-    ? await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, email: true, fullName: true, name: true, city: true, image: true },
-    })
-    : [];
-  const userMap = new Map(users.map((u) => [u.id, u]));
-  const studioLinks = userIds.length
-    ? await prisma.producerStudioLink.findMany({
+    const userIds = latest.map((app) => app.userId);
+    const users = userIds.length
+      ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, email: true, fullName: true, name: true, city: true, image: true },
+      })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const studioLinks = userIds.length
+      ? await prisma.producerStudioLink.findMany({
         where: { producerUserId: { in: userIds }, status: "approved" },
         include: { studio: { select: { name: true } } },
       })
-    : [];
-  const studiosMap = new Map<string, string[]>();
-  for (const link of studioLinks) {
-    if (!link.studio?.name) continue;
-    const existing = studiosMap.get(link.producerUserId) ?? [];
-    studiosMap.set(link.producerUserId, [...existing, link.studio.name]);
-  }
+      : [];
+    const studiosMap = new Map<string, string[]>();
+    for (const link of studioLinks) {
+      if (!link.studio?.name) continue;
+      const existing = studiosMap.get(link.producerUserId) ?? [];
+      studiosMap.set(link.producerUserId, [...existing, link.studio.name]);
+    }
 
-  const fromDb = latest.map((app) =>
-    mapApplicationToProfile(app, userMap.get(app.userId), studiosMap.get(app.userId) ?? []),
-  );
-  if (fromDb.length === 0) {
-    return buildMockProducers();
-  }
-  if (fromDb.length < 5) {
-    const mock = buildMockProducers();
-    return [...fromDb, ...mock.slice(0, 5 - fromDb.length)];
-  }
-  return fromDb;
+    const fromDb = latest.map((app) =>
+      mapApplicationToProfile(app, userMap.get(app.userId), studiosMap.get(app.userId) ?? []),
+    );
+    if (fromDb.length === 0) {
+      return buildMockProducers();
+    }
+    if (fromDb.length < 5) {
+      const mock = buildMockProducers();
+      return [...fromDb, ...mock.slice(0, 5 - fromDb.length)];
+    }
+    return fromDb;
+  },
+  ["producer-listings"],
+  { revalidate: 300 },
+);
+
+export async function getProducerListings(): Promise<ProducerProfile[]> {
+  return getProducerListingsCached();
 }
 
-export async function getProducerBySlug(slug?: string | null): Promise<ProducerProfile | null> {
-  if (!slug) return null;
-  const list = await getProducerListings();
-  const direct = list.find((producer) => producer.slug === slug);
-  if (direct) return direct;
+const getProducerBySlugCached = unstable_cache(
+  async (slug?: string | null): Promise<ProducerProfile | null> => {
+    if (!slug) return null;
+    const list = await getProducerListingsCached();
+    const direct = list.find((producer) => producer.slug === slug);
+    if (direct) return direct;
 
-  const baseSlug = slug.replace(/-\d+$/, "");
-  const baseMatch = list.find((producer) => producer.slug.replace(/-\d+$/, "") === baseSlug);
-  if (baseMatch) return baseMatch;
+    const baseSlug = slug.replace(/-\d+$/, "");
+    const baseMatch = list.find((producer) => producer.slug.replace(/-\d+$/, "") === baseSlug);
+    if (baseMatch) return baseMatch;
 
-  const appId = parseProducerApplicationIdFromSlug(slug);
-  if (!appId) return null;
-  const app = await prisma.producerApplication.findUnique({ where: { id: appId } });
-  if (!app || (app.status !== "approved" && app.status !== "pending")) return null;
-  const user = await prisma.user.findUnique({
-    where: { id: app.userId },
-    select: { id: true, email: true, fullName: true, name: true, city: true, image: true },
-  });
-  if (user) {
+    const appId = parseProducerApplicationIdFromSlug(slug);
+    if (!appId) return null;
+    const app = await prisma.producerApplication.findUnique({ where: { id: appId } });
+    if (!app || (app.status !== "approved" && app.status !== "pending")) return null;
+    const user = await prisma.user.findUnique({
+      where: { id: app.userId },
+      select: { id: true, email: true, fullName: true, name: true, city: true, image: true },
+    });
+    if (user) {
+      const studioLinks = await prisma.producerStudioLink.findMany({
+        where: { producerUserId: app.userId, status: "approved" },
+        include: { studio: { select: { name: true } } },
+      });
+      const studiosUsed = studioLinks
+        .map((link) => link.studio?.name)
+        .filter((name): name is string => Boolean(name));
+      return mapApplicationToProfile(app, user, studiosUsed);
+    }
+
+    const candidates = await prisma.producerApplication.findMany({
+      where: { status: { in: ["approved", "pending"] } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    const candidateUserIds = Array.from(new Set(candidates.map((row) => row.userId)));
+    const candidateUsers = candidateUserIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: candidateUserIds } },
+          select: { id: true, email: true, fullName: true, name: true, city: true, image: true },
+        })
+      : [];
+    const candidateMap = new Map(candidateUsers.map((row) => [row.id, row]));
+    const matched = candidates.find((row) => {
+      const display =
+        candidateMap.get(row.userId)?.fullName ||
+        candidateMap.get(row.userId)?.name ||
+        candidateMap.get(row.userId)?.email ||
+        "Üretici";
+      return slugify(display) === baseSlug;
+    });
+    if (!matched) return null;
     const studioLinks = await prisma.producerStudioLink.findMany({
-      where: { producerUserId: app.userId, status: "approved" },
+      where: { producerUserId: matched.userId, status: "approved" },
       include: { studio: { select: { name: true } } },
     });
     const studiosUsed = studioLinks
       .map((link) => link.studio?.name)
       .filter((name): name is string => Boolean(name));
-    return mapApplicationToProfile(app, user, studiosUsed);
-  }
+    return mapApplicationToProfile(matched, candidateMap.get(matched.userId), studiosUsed);
+  },
+  ["producer-by-slug"],
+  { revalidate: 300 },
+);
 
-  const candidates = await prisma.producerApplication.findMany({
-    where: { status: { in: ["approved", "pending"] } },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
-  const candidateUserIds = Array.from(new Set(candidates.map((row) => row.userId)));
-  const candidateUsers = candidateUserIds.length
-    ? await prisma.user.findMany({
-        where: { id: { in: candidateUserIds } },
-        select: { id: true, email: true, fullName: true, name: true, city: true, image: true },
-      })
-    : [];
-  const candidateMap = new Map(candidateUsers.map((row) => [row.id, row]));
-  const matched = candidates.find((row) => {
-    const display =
-      candidateMap.get(row.userId)?.fullName ||
-      candidateMap.get(row.userId)?.name ||
-      candidateMap.get(row.userId)?.email ||
-      "Üretici";
-    return slugify(display) === baseSlug;
-  });
-  if (!matched) return null;
-  const studioLinks = await prisma.producerStudioLink.findMany({
-    where: { producerUserId: matched.userId, status: "approved" },
-    include: { studio: { select: { name: true } } },
-  });
-  const studiosUsed = studioLinks
-    .map((link) => link.studio?.name)
-    .filter((name): name is string => Boolean(name));
-  return mapApplicationToProfile(matched, candidateMap.get(matched.userId), studiosUsed);
+export async function getProducerBySlug(slug?: string | null): Promise<ProducerProfile | null> {
+  return getProducerBySlugCached(slug);
 }

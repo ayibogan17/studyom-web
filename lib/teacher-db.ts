@@ -1,5 +1,6 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/geo";
 import type { LessonType, Teacher } from "@/data/teachers";
@@ -85,7 +86,8 @@ export function parseTeacherApplicationIdFromSlug(slug?: string | null): number 
   return Number.isFinite(value) ? value : null;
 }
 
-export async function getTeacherIdentityBySlug(slug: string): Promise<{
+const getTeacherIdentityBySlugCached = unstable_cache(
+  async (slug: string): Promise<{
   slug: string;
   displayName: string;
   status: string;
@@ -93,7 +95,7 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
   userEmail: string | null;
   whatsappNumber: string | null;
   whatsappEnabled: boolean;
-} | null> {
+} | null> => {
   try {
     const appId = parseTeacherApplicationIdFromSlug(slug);
     if (!appId) return null;
@@ -123,71 +125,95 @@ export async function getTeacherIdentityBySlug(slug: string): Promise<{
     console.error("getTeacherIdentityBySlug failed", error);
     return null;
   }
+},
+  ["teacher-identity-by-slug"],
+  { revalidate: 300 },
+);
+
+export async function getTeacherIdentityBySlug(slug: string) {
+  if (!slug) return null;
+  return getTeacherIdentityBySlugCached(slug);
 }
 
-export async function getApprovedTeachers(): Promise<Teacher[]> {
-  try {
-    const apps = await prisma.teacherApplication.findMany({
+const getApprovedTeachersCached = unstable_cache(
+  async (): Promise<Teacher[]> => {
+    try {
+      const apps = await prisma.teacherApplication.findMany({
       where: { status: "approved", visibilityStatus: "published" },
       orderBy: { createdAt: "desc" },
-    });
-    const userIds = apps.map((a) => a.userId).filter(Boolean);
-    const studioLinks = userIds.length
-      ? await prisma.teacherStudioLink.findMany({
+      });
+      const userIds = apps.map((a) => a.userId).filter(Boolean);
+      const studioLinks = userIds.length
+        ? await prisma.teacherStudioLink.findMany({
           where: { teacherUserId: { in: userIds }, status: "approved" },
           include: { studio: { select: { name: true } } },
         })
-      : [];
-    const users = userIds.length
-      ? await prisma.user.findMany({
+        : [];
+      const users = userIds.length
+        ? await prisma.user.findMany({
           where: { id: { in: userIds } },
           select: { id: true, email: true, fullName: true, city: true, image: true },
         })
-      : [];
-    const userMap = new Map(users.map((u) => [u.id, u]));
-    const studiosMap = new Map<string, string[]>();
-    for (const link of studioLinks) {
-      if (!link.studio?.name) continue;
-      const existing = studiosMap.get(link.teacherUserId) ?? [];
-      studiosMap.set(link.teacherUserId, [...existing, link.studio.name]);
-    }
+        : [];
+      const userMap = new Map(users.map((u) => [u.id, u]));
+      const studiosMap = new Map<string, string[]>();
+      for (const link of studioLinks) {
+        if (!link.studio?.name) continue;
+        const existing = studiosMap.get(link.teacherUserId) ?? [];
+        studiosMap.set(link.teacherUserId, [...existing, link.studio.name]);
+      }
 
-    return apps.map((app) =>
-      mapApplicationToTeacher(app, userMap.get(app.userId), studiosMap.get(app.userId) ?? []),
-    );
-  } catch (error) {
-    console.error("getApprovedTeachers failed", error);
-    return [];
-  }
+      return apps.map((app) =>
+        mapApplicationToTeacher(app, userMap.get(app.userId), studiosMap.get(app.userId) ?? []),
+      );
+    } catch (error) {
+      console.error("getApprovedTeachers failed", error);
+      return [];
+    }
+  },
+  ["approved-teachers"],
+  { revalidate: 300 },
+);
+
+export async function getApprovedTeachers(): Promise<Teacher[]> {
+  return getApprovedTeachersCached();
 }
 
-export async function getApprovedTeacherBySlug(slug?: string | null): Promise<Teacher | null> {
-  try {
-    if (!slug) return null;
-    const appId = parseTeacherApplicationIdFromSlug(slug);
-    if (appId) {
-      const app = await prisma.teacherApplication.findUnique({
+const getApprovedTeacherBySlugCached = unstable_cache(
+  async (slug: string | null | undefined): Promise<Teacher | null> => {
+    try {
+      if (!slug) return null;
+      const appId = parseTeacherApplicationIdFromSlug(slug);
+      if (appId) {
+        const app = await prisma.teacherApplication.findUnique({
         where: { id: appId },
-      });
-      if (app && app.status === "approved" && app.visibilityStatus === "published") {
-        const studioLinks = await prisma.teacherStudioLink.findMany({
+        });
+        if (app && app.status === "approved" && app.visibilityStatus === "published") {
+          const studioLinks = await prisma.teacherStudioLink.findMany({
           where: { teacherUserId: app.userId, status: "approved" },
           include: { studio: { select: { name: true } } },
-        });
-        const user = await prisma.user.findUnique({
+          });
+          const user = await prisma.user.findUnique({
           where: { id: app.userId },
           select: { fullName: true, email: true, city: true, image: true },
-        });
-        const studiosUsed = studioLinks
-          .map((link) => link.studio?.name)
-          .filter((name): name is string => Boolean(name));
-        return mapApplicationToTeacher(app, user ?? undefined, studiosUsed);
+          });
+          const studiosUsed = studioLinks
+            .map((link) => link.studio?.name)
+            .filter((name): name is string => Boolean(name));
+          return mapApplicationToTeacher(app, user ?? undefined, studiosUsed);
+        }
       }
+      const teachers = await getApprovedTeachersCached();
+      return teachers.find((t) => t.slug === slug) ?? null;
+    } catch (error) {
+      console.error("getApprovedTeacherBySlug failed", error);
+      return null;
     }
-    const teachers = await getApprovedTeachers();
-    return teachers.find((t) => t.slug === slug) ?? null;
-  } catch (error) {
-    console.error("getApprovedTeacherBySlug failed", error);
-    return null;
-  }
+  },
+  ["approved-teacher-by-slug"],
+  { revalidate: 300 },
+);
+
+export async function getApprovedTeacherBySlug(slug?: string | null): Promise<Teacher | null> {
+  return getApprovedTeacherBySlugCached(slug);
 }
