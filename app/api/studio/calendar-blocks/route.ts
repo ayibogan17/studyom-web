@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { toTimeZoneDate } from "@/lib/studio-availability";
 
 const blockSchema = z.object({
   roomId: z.string().min(1),
@@ -184,7 +185,10 @@ export async function POST(req: Request) {
 
   if (parsed.data.type === "reservation") {
     const cutoff = settings?.dayCutoffHour ?? settingsDefaults.dayCutoffHour;
-    if (!isWithinOpeningHours(startAt, endAt, openingHours, cutoff)) {
+    const timeZone = settings?.timezone ?? settingsDefaults.timezone;
+    const startAtLocal = toTimeZoneDate(startAt, timeZone);
+    const endAtLocal = toTimeZoneDate(endAt, timeZone);
+    if (!isWithinOpeningHours(startAtLocal, endAtLocal, openingHours, cutoff)) {
       return NextResponse.json({ error: "Rezervasyon saatleri açık saatler dışında." }, { status: 400 });
     }
   }
