@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Lock, Unlock } from "lucide-react";
 import { Card } from "@/components/design-system/components/ui/card";
 import { Button } from "@/components/design-system/components/ui/button";
@@ -160,6 +160,20 @@ export function ProducerProfileEditor({ initial }: Props) {
   const [bio, setBio] = useState<string>(initial.bio);
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!locked) return;
+    setAreas(initial.areas);
+    setWorkTypesState(initial.workTypes);
+    setModes(initial.modes);
+    setCity(initial.city);
+    setGenres(initial.genres);
+    setPrice(initial.price);
+    setYears(initial.years);
+    setProjects(initial.projects);
+    setStatement(initial.statement);
+    setBio(initial.bio);
+  }, [initial, locked]);
 
   const selectedCount = useMemo(() => areas.length, [areas.length]);
   const showCity = modes.some((mode) => mode !== "Online");
