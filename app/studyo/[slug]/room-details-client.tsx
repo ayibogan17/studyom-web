@@ -811,6 +811,14 @@ export function StudioRoomDetails({
 
   const handleReservationSubmit = async () => {
     if (!reservationRoom || !reservationStart) return;
+    if (!isAuthed) {
+      const roomParam = reservationRoom?.id ? `&roomId=${reservationRoom.id}` : "";
+      const startParam = reservationStart ? `&start=${reservationStart.toISOString()}` : "";
+      router.push(
+        `/login?redirect=${encodeURIComponent(`/studyo/${studioSlug}?reserve=1${roomParam}${startParam}`)}`,
+      );
+      return;
+    }
     if (autoApproval && !isAuthed) {
       setReservationError("Otomatik onaylı rezervasyonlar sadece giriş yapan kullanıcılar için kullanılabilir.");
       return;
@@ -913,6 +921,7 @@ export function StudioRoomDetails({
   useEffect(() => {
     if (reservationAutoOpened) return;
     if (searchParams?.get("reserve") !== "1") return;
+    if (!isAuthed) return;
     const roomId = searchParams?.get("roomId") || "";
     const startParam = searchParams?.get("start") || "";
     const startDate = startParam ? new Date(startParam) : null;
