@@ -8,8 +8,9 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   isBlockingBlock,
-  isWithinOpeningHoursZoned,
+  isWithinOpeningHours,
   normalizeOpeningHours,
+  toTimeZoneDate,
 } from "@/lib/studio-availability";
 
 export const runtime = "nodejs";
@@ -160,8 +161,8 @@ export async function POST(req: Request) {
     }
 
     const timeZone = studio.calendarSettings?.timezone ?? "Europe/Istanbul";
-    const startAtLocal = startAt;
-    const endAtLocal = endAt;
+    const startAtLocal = toTimeZoneDate(startAt, timeZone);
+    const endAtLocal = toTimeZoneDate(endAt, timeZone);
     if (startAtLocal.getMinutes() % 60 !== 0 || startAtLocal.getSeconds() !== 0) {
       return NextResponse.json({ error: "Saat başlangıcı tam olmalı." }, { status: 400 });
     }
@@ -171,7 +172,7 @@ export async function POST(req: Request) {
         (studio.openingHours as { open: boolean; openTime: string; closeTime: string }[] | null | undefined),
     );
     const cutoffHour = studio.calendarSettings?.dayCutoffHour ?? 4;
-    if (!isWithinOpeningHoursZoned(startAtLocal, endAtLocal, openingHours, cutoffHour, timeZone)) {
+    if (!isWithinOpeningHours(startAtLocal, endAtLocal, openingHours, cutoffHour)) {
       return NextResponse.json({ error: "Seçilen saatler açık saatler dışında." }, { status: 400 });
     }
 

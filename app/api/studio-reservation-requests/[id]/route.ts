@@ -6,8 +6,9 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import {
   isBlockingBlock,
-  isWithinOpeningHoursZoned,
+  isWithinOpeningHours,
   normalizeOpeningHours,
+  toTimeZoneDate,
 } from "@/lib/studio-availability";
 
 export const runtime = "nodejs";
@@ -168,9 +169,9 @@ Studyom ekibi
   );
   const cutoffHour = request.studio.calendarSettings?.dayCutoffHour ?? 4;
   const timeZone = request.studio.calendarSettings?.timezone ?? "Europe/Istanbul";
-  const startAtLocal = request.startAt;
-  const endAtLocal = request.endAt;
-  if (!isWithinOpeningHoursZoned(startAtLocal, endAtLocal, openingHours, cutoffHour, timeZone)) {
+  const startAtLocal = toTimeZoneDate(request.startAt, timeZone);
+  const endAtLocal = toTimeZoneDate(request.endAt, timeZone);
+  if (!isWithinOpeningHours(startAtLocal, endAtLocal, openingHours, cutoffHour)) {
     return NextResponse.json({ error: "Rezervasyon saatleri açık saatler dışında." }, { status: 400 });
   }
 

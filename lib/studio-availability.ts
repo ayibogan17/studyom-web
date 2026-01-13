@@ -143,6 +143,11 @@ export const isWithinOpeningHoursZoned = (
   return startMinutes >= range.start && endMinutes <= range.end;
 };
 
+export const toTimeZoneDate = (date: Date, timeZone: string) => {
+  const offset = getTimeZoneOffsetMs(date, timeZone);
+  return new Date(date.getTime() + offset);
+};
+
 export const isBlockingBlock = (block: { type?: string | null; status?: string | null }) => {
   const type = (block.type ?? "").toLowerCase();
   if (type.includes("manual") || type.includes("manuel") || type.includes("blok") || type.includes("block")) {
