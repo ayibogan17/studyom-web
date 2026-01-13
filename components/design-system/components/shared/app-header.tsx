@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { Bell, LogOut, Menu, MessageSquare, X } from "lucide-react";
 import { Button } from "../../components/ui/button";
@@ -41,6 +42,7 @@ export function AppHeader() {
   });
   const profileRef = useRef<HTMLDivElement | null>(null);
   const { data: session } = useSession();
+  const pathname = usePathname();
   const handleProdOpen = () => setShowProd(true);
   const handleProdClose = () => setShowProd(false);
   type HeaderUser = {
@@ -97,6 +99,9 @@ export function AppHeader() {
         producerPanel: false,
         studioPanel: false,
       });
+      return;
+    }
+    if (pathname !== "/notifications") {
       return;
     }
     let active = true;
