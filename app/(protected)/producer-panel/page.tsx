@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
@@ -7,12 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { Section } from "@/components/design-system/components/shared/section";
 import { Badge } from "@/components/design-system/components/ui/badge";
 import { Button } from "@/components/design-system/components/ui/button";
-import { ProducerRequestsClient, type ProducerMessageRequestItem } from "./requests-client";
 import { ProducerProfileEditor } from "./producer-profile-editor";
 import { ProducerGalleryClient } from "./producer-gallery-client";
 import { TeacherPanelSection } from "@/app/(protected)/teacher-panel/teacher-panel-section";
 import { ProducerWhatsAppSettings } from "./producer-whatsapp-settings";
-import { ProducerStudioLinksClient } from "./producer-studio-links-client";
+import { ProducerMessageSection } from "./producer-message-section";
+import { ProducerStudioLinksSection } from "./producer-studio-links-section";
 
 export const metadata: Metadata = {
   title: "Üretici Paneli | Studyom",
@@ -105,41 +106,6 @@ export default async function ProducerPanelPage() {
 
   const isApproved = application.status === "approved";
 
-  const [messageRequests, totalRequestCount, activeThreadCount, studioLinks] = await Promise.all([
-    prisma.producerMessageRequest.findMany({
-      where: { producerUserId: dbUser.id, status: "pending" },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        message: true,
-        createdAt: true,
-        fromUser: { select: { fullName: true, email: true } },
-      },
-    }),
-    prisma.producerMessageRequest.count({ where: { producerUserId: dbUser.id } }),
-    prisma.producerThread.count({ where: { producerUserId: dbUser.id } }),
-    prisma.producerStudioLink.findMany({
-      where: { producerUserId: dbUser.id },
-      include: { studio: { select: { id: true, name: true, city: true, district: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
-
-  const requestItems: ProducerMessageRequestItem[] = messageRequests.map((row) => ({
-    id: row.id,
-    message: row.message,
-    createdAt: row.createdAt.toISOString(),
-    fromUser: row.fromUser || {},
-  }));
-
-  const studioLinkItems = studioLinks.map((link) => ({
-    id: link.id,
-    status: link.status as "pending" | "approved" | "rejected",
-    createdAt: link.createdAt.toISOString(),
-    studio: link.studio,
-  }));
-
   const data = parseData(application.data);
   const areas = normalizeArray(data.areas);
   const workTypes = normalizeArray(data.workTypes);
@@ -171,41 +137,15 @@ export default async function ProducerPanelPage() {
           </p>
         </header>
 
-        <TeacherPanelSection
-          title="Mesajlar"
-          description="Yeni mesaj taleplerini ve iletişimi buradan yönetebilirsin."
-          defaultOpen
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-sm text-[var(--color-muted)]">
+              Mesajlar yükleniyor...
+            </div>
+          }
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-[var(--color-muted)]">Sohbetleri görüntülemek için mesajlar sayfasına geç.</p>
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/producer-panel/messages">Mesajları aç</Link>
-            </Button>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Bekleyen talepler</p>
-              <p className="text-2xl font-semibold text-[var(--color-primary)]">{messageRequests.length}</p>
-              <p className="text-xs text-[var(--color-muted)]">Yanıtladığında sohbet açılır.</p>
-            </div>
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Aktif sohbetler</p>
-              <p className="text-2xl font-semibold text-[var(--color-primary)]">{activeThreadCount}</p>
-              <p className="text-xs text-[var(--color-muted)]">Konuşmaların açık olanları.</p>
-            </div>
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Toplam talepler</p>
-              <p className="text-2xl font-semibold text-[var(--color-primary)]">{totalRequestCount}</p>
-              <p className="text-xs text-[var(--color-muted)]">Geçmiş ve bekleyen istekler.</p>
-            </div>
-          </div>
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-            <p className="text-sm font-semibold text-[var(--color-primary)]">Mesaj talepleri</p>
-            <div className="mt-3">
-              <ProducerRequestsClient initial={requestItems} />
-            </div>
-          </div>
-        </TeacherPanelSection>
+          <ProducerMessageSection userId={dbUser.id} />
+        </Suspense>
 
         <TeacherPanelSection title="Başvuru bilgileri" defaultOpen>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -253,9 +193,15 @@ export default async function ProducerPanelPage() {
           />
         </TeacherPanelSection>
 
-        <TeacherPanelSection title="Çalıştığı stüdyolar" defaultOpen>
-          <ProducerStudioLinksClient initialLinks={studioLinkItems} />
-        </TeacherPanelSection>
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-sm text-[var(--color-muted)]">
+              Çalıştığı stüdyolar yükleniyor...
+            </div>
+          }
+        >
+          <ProducerStudioLinksSection userId={dbUser.id} />
+        </Suspense>
 
         <TeacherPanelSection
           title="WhatsApp ayarları"

@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Section } from "@/components/design-system/components/shared/section";
 import { Badge } from "@/components/design-system/components/ui/badge";
-import { Button } from "@/components/design-system/components/ui/button";
 import { TeacherGalleryClient } from "./teacher-gallery-client";
 import { TeacherProfileEditor } from "./teacher-profile-editor";
-import { TeacherStudioLinksClient } from "./teacher-studio-links-client";
 import { TeacherWhatsAppSettings } from "./teacher-whatsapp-settings";
 import { TeacherPanelSection } from "./teacher-panel-section";
+import { TeacherMessageSection } from "./teacher-message-section";
+import { TeacherStudioLinksSection } from "./teacher-studio-links-section";
 
 export const metadata: Metadata = {
   title: "Hoca Paneli | Studyom",
@@ -125,24 +125,6 @@ export default async function TeacherPanelPage() {
   const whatsappEnabled = Boolean(data.whatsappEnabled);
   const studyomStudents = normalizeStudents(data.studyomStudents);
 
-  const [studioLinks, pendingRequestCount, threadCount] = await Promise.all([
-    prisma.teacherStudioLink.findMany({
-      where: { teacherUserId: dbUser.id },
-      include: { studio: { select: { id: true, name: true, city: true, district: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.teacherMessageRequest.count({
-      where: { teacherUserId: dbUser.id, status: "pending" },
-    }),
-    prisma.teacherThread.count({ where: { teacherUserId: dbUser.id } }),
-  ]);
-  const studioLinkItems = studioLinks.map((link) => ({
-    id: link.id,
-    status: link.status as "pending" | "approved" | "rejected",
-    createdAt: link.createdAt.toISOString(),
-    studio: link.studio,
-  }));
-
   return (
     <main className="bg-[var(--color-secondary)] pb-16 pt-10">
       <Section containerClassName="max-w-5xl space-y-6">
@@ -157,29 +139,15 @@ export default async function TeacherPanelPage() {
           </p>
         </header>
 
-        <TeacherPanelSection
-          title="Mesajlar"
-          description="Öğrencilerden gelen yeni talepleri ve aktif sohbetleri buradan takip edebilirsin."
-          defaultOpen
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-sm text-[var(--color-muted)]">
+              Mesajlar yükleniyor...
+            </div>
+          }
         >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Bekleyen talepler</p>
-              <p className="text-2xl font-semibold text-[var(--color-primary)]">{pendingRequestCount}</p>
-              <p className="text-xs text-[var(--color-muted)]">Yanıtladığında sohbet açılır.</p>
-            </div>
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <p className="text-sm font-semibold text-[var(--color-primary)]">Aktif sohbetler</p>
-              <p className="text-2xl font-semibold text-[var(--color-primary)]">{threadCount}</p>
-              <p className="text-xs text-[var(--color-muted)]">Devam eden mesajlaşmalar.</p>
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/teacher-panel/messages">Mesajlara git</Link>
-            </Button>
-          </div>
-        </TeacherPanelSection>
+          <TeacherMessageSection userId={dbUser.id} />
+        </Suspense>
 
         <TeacherPanelSection title="Başvuru bilgileri" defaultOpen>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -236,12 +204,15 @@ export default async function TeacherPanelPage() {
           <TeacherWhatsAppSettings initialNumber={whatsappNumber} initialEnabled={whatsappEnabled} />
         </TeacherPanelSection>
 
-        <TeacherPanelSection
-          title="Bağlı stüdyolar"
-          description="Ders vermek istediğin stüdyolar için istek oluştur."
+        <Suspense
+          fallback={
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-sm text-[var(--color-muted)]">
+              Bağlı stüdyolar yükleniyor...
+            </div>
+          }
         >
-          <TeacherStudioLinksClient initialLinks={studioLinkItems} />
-        </TeacherPanelSection>
+          <TeacherStudioLinksSection userId={dbUser.id} />
+        </Suspense>
 
         <TeacherPanelSection
           title="Studyom Öğrencilerim"
