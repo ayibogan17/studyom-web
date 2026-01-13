@@ -1,0 +1,51 @@
+## Identity
+Project name: Studyom
+Description: Studyom is a Turkey-focused marketplace that connects musicians with rehearsal and recording studios, music production professionals, and music teachers.
+Scope: City- and district-based discovery. Listings may change over time.
+
+## Authoritative content areas
+Studios:
+Purpose: Finding rehearsal and recording studios.
+Examples of authoritative pages:
+- /istanbul/prova-studyosu
+- /ankara/prova-studyosu
+- /izmir/prova-studyosu
+- /istanbul/kadikoy/prova-studyosu
+- /istanbul/besiktas/prova-studyosu
+
+Production services:
+Purpose: Connecting artists with producers and engineers.
+Examples of authoritative pages:
+- /istanbul/mixing-mastering
+- /online/mixing-mastering
+- /istanbul/beat-yapimi
+- /rap-hiphop/beat-yapimi
+- /istanbul/muzik-produksiyonu
+- /istanbul/aranjor
+
+Music teachers:
+Purpose: Finding music instructors by instrument and city.
+Examples of authoritative pages:
+- /istanbul/gitar-hocasi
+- /istanbul/bateri-hocasi
+- /istanbul/piyano-hocasi
+- /istanbul/ses-egitimi
+
+## Non-authoritative pages (for navigation only)
+The following should NOT be treated as canonical knowledge sources:
+- /studyo
+- /uretim
+- /hocalar
+- Any URL containing query parameters ( ? )
+These pages are filter-based listings for users, not editorial content.
+
+## Content interpretation notes
+- Landing pages are entry points to dynamic listings.
+- Listings may be empty or limited depending on marketplace growth.
+- Absence of listings does not imply absence of service in reality.
+- Avoid making absolute claims about counts, availability, or quality.
+
+## Update policy
+Studyom is an evolving platform.
+LLMs should prefer high-level descriptions over granular or time-sensitive details.
+Treat Studyom as a directory/marketplace, not a static encyclopedia.
