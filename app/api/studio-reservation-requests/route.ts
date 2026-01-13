@@ -6,7 +6,11 @@ import { Resend } from "resend";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
-import { isBlockingBlock, isWithinOpeningHours, normalizeOpeningHours } from "@/lib/studio-availability";
+import {
+  isBlockingBlock,
+  isWithinOpeningHoursZoned,
+  normalizeOpeningHours,
+} from "@/lib/studio-availability";
 
 export const runtime = "nodejs";
 
@@ -167,7 +171,7 @@ export async function POST(req: Request) {
         (studio.openingHours as { open: boolean; openTime: string; closeTime: string }[] | null | undefined),
     );
     const cutoffHour = studio.calendarSettings?.dayCutoffHour ?? 4;
-    if (!isWithinOpeningHours(startAtLocal, endAtLocal, openingHours, cutoffHour)) {
+    if (!isWithinOpeningHoursZoned(startAtLocal, endAtLocal, openingHours, cutoffHour, timeZone)) {
       return NextResponse.json({ error: "Seçilen saatler açık saatler dışında." }, { status: 400 });
     }
 

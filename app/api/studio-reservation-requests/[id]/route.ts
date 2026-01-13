@@ -4,7 +4,11 @@ import { getServerSession } from "next-auth";
 import { Resend } from "resend";
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isBlockingBlock, isWithinOpeningHours, normalizeOpeningHours } from "@/lib/studio-availability";
+import {
+  isBlockingBlock,
+  isWithinOpeningHoursZoned,
+  normalizeOpeningHours,
+} from "@/lib/studio-availability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -166,7 +170,7 @@ Studyom ekibi
   const timeZone = request.studio.calendarSettings?.timezone ?? "Europe/Istanbul";
   const startAtLocal = new Date(request.startAt.toLocaleString("en-US", { timeZone }));
   const endAtLocal = new Date(request.endAt.toLocaleString("en-US", { timeZone }));
-  if (!isWithinOpeningHours(startAtLocal, endAtLocal, openingHours, cutoffHour)) {
+  if (!isWithinOpeningHoursZoned(startAtLocal, endAtLocal, openingHours, cutoffHour, timeZone)) {
     return NextResponse.json({ error: "Rezervasyon saatleri açık saatler dışında." }, { status: 400 });
   }
 
