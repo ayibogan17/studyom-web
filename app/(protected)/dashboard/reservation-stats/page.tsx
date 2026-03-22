@@ -390,7 +390,7 @@ export default async function ReservationStatsPage({
             </h1>
             <Link
               href={computeUrl}
-              className="inline-flex h-9 items-center justify-center rounded-full border border-orange-200 bg-white px-4 text-xs font-semibold text-orange-800 transition hover:border-orange-300 hover:text-orange-900"
+              className="inline-flex h-9 items-center justify-center rounded-full border border-orange-500 bg-orange-500 px-4 text-xs font-semibold text-white transition hover:border-orange-600 hover:bg-orange-600"
             >
               Hesapla
             </Link>
