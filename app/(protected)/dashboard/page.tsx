@@ -40,22 +40,21 @@ export default async function DashboardPage({
       id: true,
       calendarSettings: { select: { bookingApprovalMode: true } },
     },
+    orderBy: { updatedAt: "desc" },
   });
 
-  const reservationRequests = studio
-    ? await prisma.studioReservationRequest.findMany({
-        where: {
-          studioId: studio.id,
-          status: { in: ["pending", "approved"] },
-        },
-        include: {
-          room: { select: { name: true } },
-          studentUser: { select: { image: true } },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 200,
-      })
-    : [];
+  const reservationRequests = await prisma.studioReservationRequest.findMany({
+    where: {
+      studio: { ownerEmail: email },
+      status: { in: ["pending", "approved"] },
+    },
+    include: {
+      room: { select: { name: true } },
+      studentUser: { select: { image: true } },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
 
   const bookingApprovalMode = studio?.calendarSettings?.bookingApprovalMode ?? "manual";
   const linkedTeachers: Array<{ id: string; name: string; email: string | null; image: string | null; slug: string }> = [];
