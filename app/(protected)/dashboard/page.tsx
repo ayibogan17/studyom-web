@@ -56,7 +56,8 @@ export default async function DashboardPage({
     take: 200,
   });
 
-  const bookingApprovalMode = studio?.calendarSettings?.bookingApprovalMode ?? "manual";
+  const bookingApprovalMode =
+    studio?.calendarSettings?.bookingApprovalMode === "auto" ? "auto" : "manual";
   const linkedTeachers: Array<{ id: string; name: string; email: string | null; image: string | null; slug: string }> = [];
   const linkedProducers: Array<{ id: string; name: string; email: string | null; image: string | null; slug: string }> = [];
 
