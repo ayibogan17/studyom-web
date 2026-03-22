@@ -43,7 +43,7 @@ export default async function StudioListPage() {
     cookieStore.has("next-auth.session-token");
   const session = hasSessionCookie ? await getServerSession(authOptions) : null;
   const userEmail = session?.user?.email ?? null;
-  const serverStudios = await getStudyoServerStudios(userEmail);
+  const serverStudios = await getStudyoServerStudios({ userEmail, includeInteractionCounts: true });
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-[var(--color-secondary)]" />}>

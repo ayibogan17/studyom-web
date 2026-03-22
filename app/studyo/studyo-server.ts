@@ -30,19 +30,59 @@ export type ServerStudio = {
   interactionCount?: number;
 };
 
-const getPublicStudios = unstable_cache(
-  async () => {
-    const contactCounts = await prisma.contactEvent.groupBy({
-      by: ["entityId"],
-      where: { entityType: "studio" },
-      _count: { _all: true },
-    });
-    const approvedReservationCounts = await prisma.studioReservationRequest.groupBy({
-      by: ["studioId"],
-      where: { status: "approved" },
-      _count: { _all: true },
-    });
+type ContactCount = { entityId: string; _count: { _all: number } };
+type ReservationCount = { studioId: string; _count: { _all: number } };
 
+const getPublicStudiosWithCounts = unstable_cache(
+  async () => {
+    const [contactCounts, approvedReservationCounts, studios] = await Promise.all([
+      prisma.contactEvent.groupBy({
+        by: ["entityId"],
+        where: { entityType: "studio" },
+        _count: { _all: true },
+      }),
+      prisma.studioReservationRequest.groupBy({
+        by: ["studioId"],
+        where: { status: "approved" },
+        _count: { _all: true },
+      }),
+      prisma.studio.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          city: true,
+          district: true,
+          coverImageUrl: true,
+          openingHours: true,
+          calendarSettings: { select: { happyHourEnabled: true } },
+          rooms: {
+            orderBy: { order: "asc" },
+            select: {
+              name: true,
+              type: true,
+              pricingModel: true,
+              hourlyRate: true,
+              flatRate: true,
+              minRate: true,
+              dailyRate: true,
+              imagesJson: true,
+              extrasJson: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return { studios, contactCounts, approvedReservationCounts };
+  },
+  ["studyo-public-list", "with-counts"],
+  { revalidate: 300 },
+);
+
+const getPublicStudiosNoCounts = unstable_cache(
+  async () => {
     const studios = await prisma.studio.findMany({
       where: { isActive: true },
       select: {
@@ -71,10 +111,14 @@ const getPublicStudios = unstable_cache(
       },
     });
 
-    return { studios, contactCounts, approvedReservationCounts };
+    return {
+      studios,
+      contactCounts: [] as ContactCount[],
+      approvedReservationCounts: [] as ReservationCount[],
+    };
   },
-  ["studyo-public-list"],
-  { revalidate: 60 },
+  ["studyo-public-list", "no-counts"],
+  { revalidate: 300 },
 );
 
 const extractCoverImage = (value: unknown): string | null => {
@@ -99,8 +143,16 @@ const extractCoverImage = (value: unknown): string | null => {
   return null;
 };
 
-export async function getStudyoServerStudios(userEmail: string | null): Promise<ServerStudio[]> {
-  const publicData = await getPublicStudios();
+type StudyoServerOptions = {
+  userEmail: string | null;
+  includeInteractionCounts?: boolean;
+};
+
+export async function getStudyoServerStudios({
+  userEmail,
+  includeInteractionCounts = true,
+}: StudyoServerOptions): Promise<ServerStudio[]> {
+  const publicData = includeInteractionCounts ? await getPublicStudiosWithCounts() : await getPublicStudiosNoCounts();
   let studios = [...publicData.studios];
   const contactMap = new Map(publicData.contactCounts.map((row) => [row.entityId, row._count._all]));
   const approvedReservationMap = new Map(

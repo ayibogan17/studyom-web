@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 export default async function KonyaRecordingStudiosPage() {
-  const serverStudios = await getStudyoServerStudios(null);
+  const serverStudios = await getStudyoServerStudios({ userEmail: null, includeInteractionCounts: false });
 
   return (
     <div className="min-h-screen bg-[var(--color-secondary)]">
