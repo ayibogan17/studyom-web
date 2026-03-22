@@ -2470,7 +2470,7 @@ export function DashboardClient({
     }
   };
 
-  const loadCalendarSummary = async () => {
+  const loadCalendarSummary = useCallback(async () => {
     if (!studio) return;
     setSummaryLoading(true);
     try {
@@ -2490,7 +2490,13 @@ export function DashboardClient({
     } finally {
       setSummaryLoading(false);
     }
-  };
+  }, [studio]);
+
+  useEffect(() => {
+    if (activeTab !== "panel") return;
+    if (summaryLoading || calendarSummary) return;
+    loadCalendarSummary();
+  }, [activeTab, calendarSummary, loadCalendarSummary, summaryLoading]);
 
   const buildRoomsPayload = (rooms: Room[]) =>
     rooms.map((r) => ({
@@ -2678,14 +2684,6 @@ export function DashboardClient({
             <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-4 lg:col-span-1">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-blue-900">Rezervasyon özeti</p>
-                <button
-                  type="button"
-                  onClick={loadCalendarSummary}
-                  disabled={summaryLoading}
-                  className="rounded-full border border-blue-200 px-3 py-1 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:text-blue-800 disabled:opacity-60"
-                >
-                  {summaryLoading ? "Hesaplanıyor..." : "Hesapla"}
-                </button>
                 <Link
                   href="/dashboard/reservation-stats?as=studio"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#9A3412] text-[#9A3412] transition hover:border-[#7C2D12] hover:text-[#7C2D12]"
