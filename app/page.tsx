@@ -1,4 +1,4 @@
-import { Hero } from "@/components/design-system/components/shared/hero";
+import { Hero, type HeroSlide } from "@/components/design-system/components/shared/hero";
 import { Section } from "@/components/design-system/components/shared/section";
 import { StudioCard } from "@/components/design-system/components/shared/studio-card";
 import { Badge } from "@/components/design-system/components/ui/badge";
@@ -140,7 +140,7 @@ const getFeaturedStudios = unstable_cache(
 
 export default async function Home() {
   const featured = await getFeaturedStudios();
-  const heroSlides = [
+  const heroSlides: HeroSlide[] = [
     {
       title: "Şehrindeki prova ve kayıt stüdyoları tek platformda",
       subtitle:
