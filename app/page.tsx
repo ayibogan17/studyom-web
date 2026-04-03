@@ -140,13 +140,63 @@ const getFeaturedStudios = unstable_cache(
 
 export default async function Home() {
   const featured = await getFeaturedStudios();
+  const heroSlides = [
+    {
+      title: "Şehrindeki prova ve kayıt stüdyoları tek platformda",
+      subtitle:
+        "Güvenilir stüdyolar, şeffaf fiyatlar, hızlı iletişim. Prova, kayıt veya ders için ihtiyacına göre filtrele.",
+      ctaLabel: "Stüdyo Bul",
+      ctaHref: "/studyo",
+      imageSrc: "/home-banners/banner-1.png",
+    },
+    {
+      title: "Stüdyon mu var? Gel, şimdi Studyom'a kayıt olmak ücretsiz.",
+      subtitle: "Üye ol, stüdyonu ekle, sen de aramıza katıl.",
+      ctaLabel: "Üye Ol",
+      ctaHref: "/signup",
+      imageSrc: "/home-banners/banner-2.png",
+    },
+    {
+      title: "Beat mi lazım? Davul kaydı mı lazım? Mix/Mastering mi yaptıracaksın?",
+      subtitle: "Herkes içeride. Şimdi kendine uygun üreticiyi bul.",
+      ctaLabel: "Üretim",
+      ctaHref: "/uretim",
+      imageSrc: "/home-banners/banner-3.png",
+    },
+    {
+      title: "Bateri çalmayı öğrenmeyi hep istedin değil mi? Ya da başka bir enstrüman?",
+      subtitle: "Artık zamanı geldi. Studyom'da hocalara göz at.",
+      ctaLabel: "Hocalar",
+      ctaHref: "/hocalar",
+      imageSrc: "/home-banners/banner-4.png",
+    },
+    {
+      title: "Üretici misin? Müzisyenler seni bulsun, freelance sitelerine boşuna komisyon verme.",
+      subtitle: "Şimdi Studyom'a kayıt olmak ücretsiz. Üye ol, gerisi bizde.",
+      ctaLabel: "Üye Ol",
+      ctaHref: "/signup",
+      imageSrc: "/home-banners/banner-5.png",
+    },
+    {
+      title: "Hocam, gel aramıza katıl.",
+      subtitle: "Müzisyenler onlara eğitmenlik edecek hocalarını arıyor. Üye ol, sen de ders ver.",
+      ctaLabel: "Üye Ol",
+      ctaHref: "/signup",
+      imageSrc: "/home-banners/banner-6.png",
+    },
+    {
+      title: "Kendi kendine çalmayı bırak. Jam arkadaşların burada.",
+      subtitle: "Buluşun, çalın; bu kadar basit.",
+      ctaLabel: "OpenJam",
+      ctaHref: "/openjam",
+      theme: "openjam",
+      imageSrc: "/home-banners/banner-7.png",
+    },
+  ];
 
   return (
     <main className="bg-[var(--color-secondary)]">
-      <Hero
-        title="Şehrindeki prova ve kayıt stüdyoları tek platformda"
-        subtitle="Güvenilir stüdyolar, şeffaf fiyatlar, hızlı iletişim. Prova, kayıt veya ders için ihtiyacına göre filtrele."
-      />
+      <Hero slides={heroSlides} />
 
       <Section>
         <div className="flex flex-wrap items-center justify-between gap-4">
