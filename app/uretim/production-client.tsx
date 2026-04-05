@@ -264,6 +264,14 @@ export default function ProductionPageClient({
           </p>
           <h1 className="text-3xl font-semibold text-[var(--color-primary)]">{header?.title ?? "Üretim"}</h1>
           <p className="text-sm text-[var(--color-muted)]">{header?.description ?? "Şarkın için doğru üreticiyi bul."}</p>
+          {!header ? (
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <p className="text-sm text-[var(--color-muted)]">Üretici misin? Şimdi hemen üye ol, işe başla.</p>
+              <Button asChild size="sm">
+                <Link href="/signup">Üye Ol</Link>
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <ProductionFilterBar

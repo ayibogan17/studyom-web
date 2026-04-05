@@ -19,6 +19,9 @@ export function AppFooter() {
           <Link href="/gizlilik" className="hover:text-[var(--color-accent)]">
             Gizlilik
           </Link>
+          <Link href="/studyom-nasil-kullanilir" className="hover:text-[var(--color-accent)]">
+            Studyom nasıl kullanılır?
+          </Link>
         </div>
         <p className="text-[var(--color-muted)]">© {year} Studyom</p>
       </div>

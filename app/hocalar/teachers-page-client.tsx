@@ -58,6 +58,12 @@ export default function TeachersPageClient({
           <p className="text-sm text-[var(--color-muted)]">
             Studyom ders satmaz, stüdyo ayarlamaz. Eğitmenle tanışırsın, planlamayı aranızda yaparsınız.
           </p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <p className="text-sm text-[var(--color-muted)]">Hoca mısın? Şimdi hemen üye ol, işe başla.</p>
+            <Button asChild size="sm">
+              <Link href="/signup">Üye Ol</Link>
+            </Button>
+          </div>
         </div>
 
         <TeacherFilterBar provinces={provincesOrdered} instruments={instruments} levels={levels} />
