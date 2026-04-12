@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { Resend } from "resend";
 import { authOptions } from "@/auth";
+import { triggerGoogleCalendarSyncForStudio } from "@/lib/google-calendar-sync";
 import { prisma } from "@/lib/prisma";
 import {
   isBlockingBlock,
@@ -153,6 +154,10 @@ Studyom ekibi
         });
     }
 
+    if (updated.calendarBlockId) {
+      await triggerGoogleCalendarSyncForStudio(request.studio.id);
+    }
+
     return NextResponse.json({ ok: true, status: updated.status });
   }
 
@@ -265,6 +270,8 @@ Studyom ekibi
         console.error("reservation approve email error", err);
       });
   }
+
+  await triggerGoogleCalendarSyncForStudio(request.studio.id);
 
   return NextResponse.json({ ok: true, status: updated.status, calendarBlockId: updated.calendarBlockId });
 }

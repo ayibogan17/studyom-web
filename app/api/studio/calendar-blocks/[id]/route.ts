@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
+import { triggerGoogleCalendarSyncForStudio } from "@/lib/google-calendar-sync";
 import { prisma } from "@/lib/prisma";
 
 const updateSchema = z.object({
@@ -138,6 +139,8 @@ export async function PATCH(
     },
   });
 
+  await triggerGoogleCalendarSyncForStudio(studio.id);
+
   return NextResponse.json({
     block: {
       id: updated.id,
@@ -180,6 +183,8 @@ export async function DELETE(
   }
 
   await prisma.studioCalendarBlock.delete({ where: { id: existing.id } });
+
+  await triggerGoogleCalendarSyncForStudio(studio.id);
 
   return NextResponse.json({ ok: true });
 }

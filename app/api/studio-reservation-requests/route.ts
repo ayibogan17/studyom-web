@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { Resend } from "resend";
 import { authOptions } from "@/auth";
+import { triggerGoogleCalendarSyncForStudio } from "@/lib/google-calendar-sync";
 import { prisma } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -396,6 +397,10 @@ Not: ${parsed.data.note?.trim() || "-"}
       } catch (err) {
         console.error("reservation request email error", err);
       }
+    }
+
+    if (request.calendarBlockId) {
+      await triggerGoogleCalendarSyncForStudio(studio.id);
     }
 
     return NextResponse.json({

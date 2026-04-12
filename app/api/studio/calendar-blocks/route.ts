@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
+import { triggerGoogleCalendarSyncForStudio } from "@/lib/google-calendar-sync";
 import { prisma } from "@/lib/prisma";
 import { toTimeZoneDate } from "@/lib/studio-availability";
 
@@ -217,6 +218,8 @@ export async function POST(req: Request) {
       createdByUserId: userId ?? null,
     },
   });
+
+  await triggerGoogleCalendarSyncForStudio(studio.id);
 
   return NextResponse.json({
     block: {
