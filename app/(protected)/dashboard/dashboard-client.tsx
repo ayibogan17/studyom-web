@@ -10,10 +10,12 @@ import {
   type ChangeEvent,
 } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, History, Key, Save } from "lucide-react";
 
 import { SignOutButton } from "@/components/sign-out-button";
+import { DEFAULT_ROOM_COLOR, ROOM_COLOR_HEXES, ROOM_COLOR_OPTIONS } from "@/lib/room-colors";
 import { Equipment, OpeningHours, Room, Slot, Studio } from "@/types/panel";
 
 type ReservationRequest = {
@@ -454,19 +456,18 @@ function normalizeStudio(data: Studio | null): Studio | null {
   };
 }
 
-const colorPalette = ["#1D4ED8", "#0EA5E9", "#10B981", "#F97316", "#F43F5E"];
-
 const pickNextColor = (rooms: Room[]) => {
   const used = new Set(
     rooms
       .map((r) => r.color)
       .filter(Boolean)
-      .map((c) => c!.toLowerCase()),
+      .map((c) => c!.trim().toLowerCase()),
   );
-  const next =
-    colorPalette.find((c) => !used.has(c.toLowerCase())) ?? colorPalette[rooms.length % colorPalette.length];
-  return next;
+  return ROOM_COLOR_HEXES.find((c) => !used.has(c.toLowerCase())) ?? null;
 };
+
+const normalizeRoomColorHex = (color?: string | null) =>
+  color?.trim().toLowerCase() || DEFAULT_ROOM_COLOR.toLowerCase();
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 const hourOptions = Array.from({ length: 24 }, (_, h) => `${pad(h)}:00`);
@@ -923,8 +924,10 @@ export function DashboardClient({
   const [showRatings, setShowRatings] = useState(false);
   const [editingHours, setEditingHours] = useState(false);
   const [dragRoomId, setDragRoomId] = useState<string | null>(null);
-  const [showPalette, setShowPalette] = useState(false);
+  const [showColorMenu, setShowColorMenu] = useState(false);
+  const [calendarConnectLoading, setCalendarConnectLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const colorMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (activeTab !== "calendar") return;
@@ -934,6 +937,17 @@ export function DashboardClient({
       setCalendarView("day");
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!showColorMenu) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!colorMenuRef.current?.contains(event.target as Node)) {
+        setShowColorMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [showColorMenu]);
 
   const handleReservationDecision = async (request: ReservationRequest, action: "approve" | "reject") => {
     if (reservationAction) return;
@@ -1101,7 +1115,7 @@ export function DashboardClient({
     );
   }, [studio?.rooms]);
   const roomColorById = useMemo(
-    () => new Map(orderedRooms.map((room) => [room.id, room.color ?? "#1D4ED8"])),
+    () => new Map(orderedRooms.map((room) => [room.id, room.color ?? DEFAULT_ROOM_COLOR])),
     [orderedRooms],
   );
   const roomNameById = useMemo(
@@ -1167,6 +1181,20 @@ export function DashboardClient({
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
+  const currentRoomColorOption =
+    ROOM_COLOR_OPTIONS.find((option) => option.hex === currentRoom?.color) ?? ROOM_COLOR_OPTIONS[0];
+  const usedColorsByOtherRooms = useMemo(
+    () =>
+      new Set(
+        orderedRooms
+          .filter((room) => room.id !== currentRoom?.id)
+          .map((room) => normalizeRoomColorHex(room.color)),
+      ),
+    [currentRoom?.id, orderedRooms],
+  );
+  useEffect(() => {
+    setShowColorMenu(false);
+  }, [currentRoom?.id]);
   const selectedRoomTypes = currentRoom
     ? Array.from(
         new Set([currentRoom.type, ...(currentRoom.extras?.alsoTypes ?? [])].filter(Boolean)),
@@ -2352,6 +2380,14 @@ export function DashboardClient({
   const saveRoomBasics = async (roomId: string, patch: Partial<Room>) => {
     if (!studio) return;
     const existingRoom = studio.rooms.find((room) => room.id === roomId);
+    const nextColor = normalizeRoomColorHex(patch.color ?? existingRoom?.color);
+    const conflictingRoom = studio.rooms.find(
+      (room) => room.id !== roomId && normalizeRoomColorHex(room.color) === nextColor,
+    );
+    if (conflictingRoom) {
+      setStatus("Her oda için farklı bir renk seçin.");
+      return;
+    }
     const mergedPricing =
       patch.pricing || existingRoom?.pricing
         ? { ...(existingRoom?.pricing ?? {}), ...(patch.pricing ?? {}) }
@@ -2426,6 +2462,11 @@ export function DashboardClient({
       const existingPayload = buildRoomsPayload(orderedRooms);
       const newRoomOrder = orderedRooms.length;
       const nextColor = pickNextColor(orderedRooms);
+      if (!nextColor) {
+        setStatus("Tüm oda renkleri kullanılıyor. Yeni oda eklemek için önce başka bir odanın rengini değiştirin.");
+        setSaving(false);
+        return;
+      }
       const res = await fetch("/api/studio", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2511,6 +2552,89 @@ export function DashboardClient({
       extras: { ...defaultExtras, ...(r.extras ?? {}) },
       images: r.images ?? [],
     }));
+
+  const clearGoogleCalendarSyncFlag = useCallback(() => {
+    if (!searchParams?.get("gcal_sync")) return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("gcal_sync");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  const syncGoogleCalendar = useCallback(
+    async (options?: { redirectIfAuthRequired?: boolean; clearFlag?: boolean }) => {
+      const redirectIfAuthRequired = options?.redirectIfAuthRequired ?? false;
+      const clearFlag = options?.clearFlag ?? false;
+      if (calendarConnectLoading) return;
+      setCalendarConnectLoading(true);
+      setStatus(null);
+      try {
+        const res = await fetch("/api/google-calendar/sync", {
+          method: "POST",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          code?: string;
+          error?: string;
+          message?: string;
+        };
+
+        if (res.ok) {
+          setStatus(json.message || "Google Takvim senkronlandı.");
+          return;
+        }
+
+        if (json.code === "GOOGLE_CALENDAR_AUTH_REQUIRED" && redirectIfAuthRequired) {
+          const callbackUrl =
+            typeof window !== "undefined"
+              ? (() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("gcal_sync", "1");
+                  return url.toString();
+                })()
+              : `${pathname || "/dashboard"}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
+          const authorizationParams: Record<string, string> = {
+            scope: "openid email profile https://www.googleapis.com/auth/calendar.events",
+            access_type: "offline",
+            prompt: "consent",
+            include_granted_scopes: "true",
+            response_type: "code",
+          };
+          if (userEmail) {
+            authorizationParams.login_hint = userEmail;
+          }
+          await signIn(
+            "google",
+            {
+              callbackUrl,
+              redirect: true,
+            },
+            authorizationParams,
+          );
+          return;
+        }
+
+        setStatus(json.error || "Google Takvim senkronu başarısız.");
+      } catch (error) {
+        console.error(error);
+        setStatus("Google Takvim senkronu başlatılamadı.");
+      } finally {
+        if (clearFlag) {
+          clearGoogleCalendarSyncFlag();
+        }
+        setCalendarConnectLoading(false);
+      }
+    },
+    [calendarConnectLoading, clearGoogleCalendarSyncFlag, pathname, router, searchParams, userEmail],
+  );
+
+  const handleGoogleCalendarConnect = async () => {
+    await syncGoogleCalendar({ redirectIfAuthRequired: true });
+  };
+
+  useEffect(() => {
+    if (searchParams?.get("gcal_sync") !== "1") return;
+    void syncGoogleCalendar({ clearFlag: true });
+  }, [searchParams, syncGoogleCalendar]);
 
   const startOfMonth = new Date(
     monthCursor.getFullYear(),
@@ -2662,7 +2786,7 @@ export function DashboardClient({
                     className="mr-2 inline-block h-3 w-3 rounded-full border border-white/70"
                     style={{
                       backgroundColor:
-                        orderedRooms.find((r) => `room-${r.id}` === item.key)?.color ?? "#1D4ED8",
+                        orderedRooms.find((r) => `room-${r.id}` === item.key)?.color ?? DEFAULT_ROOM_COLOR,
                     }}
                     aria-hidden
                   />
@@ -3752,7 +3876,21 @@ export function DashboardClient({
                   </p>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-start gap-2">
+                <button
+                  type="button"
+                  onClick={handleGoogleCalendarConnect}
+                  disabled={calendarConnectLoading}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800 shadow-sm hover:border-blue-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <img
+                    src="/integrations/google-calendar.png"
+                    alt=""
+                    className="h-4 w-4 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span>{calendarConnectLoading ? "Yönlendiriliyor..." : "Entegre Et"}</span>
+                </button>
                 <div className="inline-flex rounded-lg border border-gray-200 bg-white text-xs font-semibold">
                   {([
                     { key: "month", label: "Ay" },
@@ -4088,7 +4226,7 @@ export function DashboardClient({
                               if (height <= 0) return null;
                               const status = (block.status ?? "").toLowerCase();
                               const isAllRooms = calendarRoomScope === "all";
-                              const roomColor = roomColorById.get(block.roomId ?? "") ?? "#1D4ED8";
+                              const roomColor = roomColorById.get(block.roomId ?? "") ?? DEFAULT_ROOM_COLOR;
                               const roomLabel = roomNameById.get(block.roomId ?? "") ?? "Oda";
                               const palette =
                                 block.type === "manual_block"
@@ -4294,7 +4432,7 @@ export function DashboardClient({
                                       if (height <= 0) return null;
                                       const status = (block.status ?? "").toLowerCase();
                                       const isAllRooms = calendarRoomScope === "all";
-                                      const roomColor = roomColorById.get(block.roomId ?? "") ?? "#1D4ED8";
+                                      const roomColor = roomColorById.get(block.roomId ?? "") ?? DEFAULT_ROOM_COLOR;
                                       const roomLabel = roomNameById.get(block.roomId ?? "") ?? "Oda";
                                       const palette =
                                         block.type === "manual_block"
@@ -4565,19 +4703,68 @@ export function DashboardClient({
                   }
                 />
                 <div className="flex items-center gap-2">
-                  <span
-                    className="inline-block h-8 w-8 rounded-full border border-gray-200"
-                    style={{ backgroundColor: currentRoom.color }}
-                    aria-hidden
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPalette((v) => !v)}
-                    className="rounded-full border border-gray-200 p-2 text-xs text-gray-700 hover:border-blue-300 hover:text-blue-700"
-                    aria-label="Renk değiştir"
-                  >
-                    ✏️
-                  </button>
+                  <div className="relative" ref={colorMenuRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowColorMenu((prev) => !prev)}
+                      className="flex items-center gap-2 rounded-lg border border-gray-200 px-2 py-1.5 text-gray-700 hover:border-blue-300"
+                      aria-label={`Oda rengi: ${currentRoomColorOption.label}`}
+                      aria-expanded={showColorMenu}
+                    >
+                      <span
+                        className="inline-block h-8 w-8 rounded-full border border-gray-200"
+                        style={{ backgroundColor: currentRoom.color }}
+                        aria-hidden
+                      />
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                    </button>
+                    {showColorMenu ? (
+                      <div className="absolute left-0 top-full z-20 mt-2 w-52 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+                        <div className="space-y-1">
+                          {ROOM_COLOR_OPTIONS.map((option) => {
+                            const active = option.hex === currentRoom.color;
+                            const usedByAnotherRoom = usedColorsByOtherRooms.has(
+                              normalizeRoomColorHex(option.hex),
+                            );
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                disabled={usedByAnotherRoom && !active}
+                                onClick={() => {
+                                  setStudio((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          rooms: prev.rooms.map((r) =>
+                                            r.id === currentRoom.id ? { ...r, color: option.hex } : r,
+                                          ),
+                                        }
+                                      : prev,
+                                  );
+                                  setShowColorMenu(false);
+                                }}
+                                className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm ${
+                                  active
+                                    ? "bg-blue-50 text-blue-700"
+                                    : usedByAnotherRoom
+                                      ? "cursor-not-allowed text-gray-300"
+                                      : "text-gray-700 hover:bg-gray-50"
+                                }`}
+                              >
+                                <span
+                                  className="inline-block h-5 w-5 rounded-full border border-gray-200"
+                                  style={{ backgroundColor: option.hex }}
+                                  aria-hidden
+                                />
+                                <span>{option.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                   <button
                     type="button"
                     onClick={() =>
@@ -4598,32 +4785,6 @@ export function DashboardClient({
                     Buradaki bütün bilgiler herkese görünür olacaktır.
                   </span>
                 </div>
-                {showPalette && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {colorPalette.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => {
-                          setStudio((prev) =>
-                            prev
-                              ? {
-                                  ...prev,
-                                  rooms: prev.rooms.map((r) =>
-                                    r.id === currentRoom.id ? { ...r, color: c } : r,
-                                  ),
-                                }
-                              : prev,
-                          );
-                          setShowPalette(false);
-                        }}
-                        className="h-9 w-9 rounded-full border border-gray-200 ring-offset-2 hover:ring-2 hover:ring-blue-400"
-                        style={{ backgroundColor: c }}
-                        aria-label={`Renk ${c}`}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
               <div className="mt-3 rounded-xl border border-gray-200 bg-white px-3 py-2">
                 <p className="text-xs font-semibold text-gray-800">Bu oda hangi amaçta?</p>

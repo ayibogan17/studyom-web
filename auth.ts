@@ -204,7 +204,6 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       const profileToken = token as ProfileToken;
-      const now = Date.now();
       if (user) {
         const profileUser = user as ProfileUser;
         profileToken.role = profileUser.role ?? profileToken.role ?? "USER";
@@ -267,6 +266,59 @@ export const authOptions: NextAuthOptions = {
           profileToken.isProducer = dbUser.isProducer ?? profileToken.isProducer ?? false;
           profileToken.isStudioOwner = dbUser.isStudioOwner ?? profileToken.isStudioOwner ?? false;
           profileToken.profileComplete = isProfileComplete(dbUser);
+        }
+      }
+      if (account?.provider === "google" && account.providerAccountId) {
+        const tokenUserId =
+          (user as ProfileUser | undefined)?.id ??
+          (typeof profileToken.sub === "string" ? profileToken.sub : null);
+        const tokenEmail =
+          (user as ProfileUser | undefined)?.email?.toLowerCase() ??
+          (typeof profileToken.email === "string" ? profileToken.email.toLowerCase() : null);
+        const targetUserId =
+          tokenUserId ??
+          (tokenEmail
+            ? (
+                await prisma.user.findUnique({
+                  where: { email: tokenEmail },
+                  select: { id: true },
+                })
+              )?.id ?? null
+            : null);
+
+        if (targetUserId) {
+          await prisma.account.upsert({
+            where: {
+              provider_providerAccountId: {
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+              },
+            },
+            update: {
+              access_token: account.access_token ?? undefined,
+              refresh_token: account.refresh_token ?? undefined,
+              expires_at: account.expires_at ?? undefined,
+              token_type: account.token_type ?? undefined,
+              scope: account.scope ?? undefined,
+              id_token: account.id_token ?? undefined,
+              session_state:
+                typeof account.session_state === "string" ? account.session_state : undefined,
+            },
+            create: {
+              userId: targetUserId,
+              type: account.type,
+              provider: account.provider,
+              providerAccountId: account.providerAccountId,
+              access_token: account.access_token ?? null,
+              refresh_token: account.refresh_token ?? null,
+              expires_at: account.expires_at ?? null,
+              token_type: account.token_type ?? null,
+              scope: account.scope ?? null,
+              id_token: account.id_token ?? null,
+              session_state:
+                typeof account.session_state === "string" ? account.session_state : null,
+            },
+          });
         }
       }
       // Status lookups are now lazy and handled in panel pages to reduce DB load.

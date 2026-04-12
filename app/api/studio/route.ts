@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_ROOM_COLOR } from "@/lib/room-colors";
 import { mergeRoles, normalizeRoles } from "@/lib/roles";
 import {
   Prisma,
@@ -226,7 +227,7 @@ function mapStudioToResponse(studio: StudioWithRelations) {
         id: room.id,
         name: room.name,
         type: room.type,
-        color: room.color ?? "#6C63FF",
+        color: room.color ?? DEFAULT_ROOM_COLOR,
         order: room.order ?? 0,
         pricing: {
           model: room.pricingModel.toLowerCase(),
@@ -300,7 +301,7 @@ function mapStudioToCalendarResponse(studio: StudioCalendarResponse) {
         id: room.id,
         name: room.name,
         type: room.type,
-        color: room.color ?? "#6C63FF",
+        color: room.color ?? DEFAULT_ROOM_COLOR,
         order: room.order ?? 0,
         pricing: {
           model: room.pricingModel.toLowerCase(),
@@ -546,6 +547,8 @@ export async function PATCH(req: Request) {
       where: { studioId: studio.id },
     });
     const roomById = new Map(existingRooms.map((room) => [room.id, room]));
+    const normalizeRoomColor = (color?: string | null) =>
+      color?.trim().toLowerCase() || DEFAULT_ROOM_COLOR.toLowerCase();
 
     const resolveBaseRate = (
       pricing?: UpdateRoomPayload["pricing"],
@@ -591,6 +594,30 @@ export async function PATCH(req: Request) {
       }
     }
 
+    const finalRoomColors = new Map<string, string>();
+    existingRooms.forEach((room) => {
+      finalRoomColors.set(room.id, normalizeRoomColor(room.color));
+    });
+    body.rooms.forEach((roomUpdate, index) => {
+      if (roomUpdate._delete && roomUpdate.id) {
+        finalRoomColors.delete(roomUpdate.id);
+        return;
+      }
+      if (roomUpdate.id) {
+        const existing = roomById.get(roomUpdate.id) ?? null;
+        finalRoomColors.set(roomUpdate.id, normalizeRoomColor(roomUpdate.color ?? existing?.color));
+        return;
+      }
+      finalRoomColors.set(`new-${index}`, normalizeRoomColor(roomUpdate.color));
+    });
+    const seenColors = new Set<string>();
+    for (const color of finalRoomColors.values()) {
+      if (seenColors.has(color)) {
+        return NextResponse.json({ error: "Her oda için farklı bir renk seçin." }, { status: 400 });
+      }
+      seenColors.add(color);
+    }
+
     const maxOrder = await prisma.room.aggregate({
       _max: { order: true },
       where: { studioId: studio.id },
@@ -606,7 +633,7 @@ export async function PATCH(req: Request) {
           data: {
             name: roomUpdate.name || `Yeni Oda ${Date.now() % 1000}`,
             type: roomUpdate.type || "Prova odası",
-            color: roomUpdate.color || "#6C63FF",
+            color: roomUpdate.color || DEFAULT_ROOM_COLOR,
             order: roomUpdate.order ?? nextOrder++,
             pricingModel: roomUpdate.pricing?.model
               ? pricingToDb(roomUpdate.pricing.model)
