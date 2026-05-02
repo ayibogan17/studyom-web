@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 import { authOptions } from "@/auth";
+import { triggerGoogleCalendarSyncForStudio } from "@/lib/google-calendar-sync";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_ROOM_COLOR, normalizeRoomColor, normalizeRoomColorHex } from "@/lib/room-colors";
 import { mergeRoles, normalizeRoles } from "@/lib/roles";
@@ -547,6 +548,7 @@ export async function PATCH(req: Request) {
       where: { studioId: studio.id },
     });
     const roomById = new Map(existingRooms.map((room) => [room.id, room]));
+    let roomCalendarAffected = false;
 
     const resolveBaseRate = (
       pricing?: UpdateRoomPayload["pricing"],
@@ -623,7 +625,10 @@ export async function PATCH(req: Request) {
     let nextOrder = (maxOrder._max.order ?? 0) + 1;
     for (const roomUpdate of body.rooms) {
       if (roomUpdate._delete && roomUpdate.id) {
-        await prisma.room.delete({ where: { id: roomUpdate.id, studioId: studio.id } });
+        const existing = roomById.get(roomUpdate.id) ?? null;
+        if (!existing) continue;
+        await prisma.room.delete({ where: { id: roomUpdate.id } });
+        roomCalendarAffected = true;
         continue;
       }
       if (!roomUpdate.id) {
@@ -675,6 +680,11 @@ export async function PATCH(req: Request) {
           imagesJson: roomUpdate.images ?? room.imagesJson ?? [],
         },
       });
+      roomCalendarAffected = true;
+    }
+
+    if (roomCalendarAffected) {
+      await triggerGoogleCalendarSyncForStudio(studio.id);
     }
   }
 

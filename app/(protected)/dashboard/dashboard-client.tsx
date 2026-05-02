@@ -908,7 +908,6 @@ export function DashboardClient({
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
-  const [calendarDataVersion, setCalendarDataVersion] = useState(0);
   const [happyHourOverlayReady, setHappyHourOverlayReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerData, setDrawerData] = useState<{
@@ -1569,7 +1568,7 @@ export function DashboardClient({
     setWeekCursor(selectedDate);
   }, [selectedDate]);
 
-  useEffect(() => {
+  const refreshCalendarBundle = useCallback(async () => {
     if (!studio) return;
     if (activeTab !== "calendar") return;
     if (!calendarRoomIds.length) return;
@@ -1598,87 +1597,76 @@ export function DashboardClient({
       rangeStart = dayStart;
       rangeEnd = getDayRange(dayStart, dayCutoffHour).end;
     }
-
-    let active = true;
-    const loadBlocks = async () => {
-      setCalendarLoading(true);
-      setCalendarError(null);
-      setHappyHourOverlayReady(false);
-      try {
-        const roomQuery =
-          calendarRoomScope === "all"
-            ? `roomIds=${calendarRoomIds.join(",")}`
-            : `roomId=${calendarRoomIds[0]}`;
-        const bundleRes = await fetch(
-          `/api/studio/calendar-bundle?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}&includeSummary=0`,
-        );
-        const bundleJson = await bundleRes.json().catch(() => ({}));
-        if (!bundleRes.ok) {
-          setCalendarError(bundleJson.error || "Takvim blokları alınamadı.");
-          setCalendarBlocks([]);
-          setHappyHourSlots({});
-          return;
-        }
-        if (!active) return;
-        setCalendarBlocks((bundleJson.blocks as CalendarBlock[]) ?? []);
-        const nextSlots: Record<string, boolean> = {};
-        (bundleJson.happyHours as { startAt: string; endAt: string; roomId: string }[] | undefined)?.forEach(
-          (slot) => {
-            const start = new Date(slot.startAt);
-            const end = new Date(slot.endAt);
-            const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
-            const minutesFromStart = Math.round(
-              (start.getTime() - businessStart.getTime()) / 60000,
-            );
-            const minutesToEnd = Math.round(
-              (end.getTime() - businessStart.getTime()) / 60000,
-            );
-            if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
-            const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
-            for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
-              const key = buildHappyHourKey(slot.roomId, businessStart, m);
-              if (key) {
-                nextSlots[key] = true;
-              }
-            }
-          },
-        );
-        setHappyHourSlots(nextSlots);
-        setHappyHourOverlayReady(true);
-      } catch (err) {
-        console.error(err);
-        if (!active) return;
-        setCalendarError("Takvim blokları alınamadı.");
+    setCalendarLoading(true);
+    setCalendarError(null);
+    setHappyHourOverlayReady(false);
+    try {
+      const roomQuery =
+        calendarRoomScope === "all"
+          ? `roomIds=${calendarRoomIds.join(",")}`
+          : `roomId=${calendarRoomIds[0]}`;
+      const bundleRes = await fetch(
+        `/api/studio/calendar-bundle?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}&includeSummary=0`,
+      );
+      const bundleJson = await bundleRes.json().catch(() => ({}));
+      if (!bundleRes.ok) {
+        setCalendarError(bundleJson.error || "Takvim blokları alınamadı.");
         setCalendarBlocks([]);
         setHappyHourSlots({});
-      } finally {
-        if (active) {
-          setCalendarLoading(false);
-        }
+        return;
       }
-    };
-
-    void loadBlocks();
-
-    return () => {
-      active = false;
-    };
+      setCalendarBlocks((bundleJson.blocks as CalendarBlock[]) ?? []);
+      const nextSlots: Record<string, boolean> = {};
+      (bundleJson.happyHours as { startAt: string; endAt: string; roomId: string }[] | undefined)?.forEach(
+        (slot) => {
+          const start = new Date(slot.startAt);
+          const end = new Date(slot.endAt);
+          const businessStart = getBusinessDayStartForTime(start, dayCutoffHour);
+          const minutesFromStart = Math.round(
+            (start.getTime() - businessStart.getTime()) / 60000,
+          );
+          const minutesToEnd = Math.round(
+            (end.getTime() - businessStart.getTime()) / 60000,
+          );
+          if (!Number.isFinite(minutesFromStart) || !Number.isFinite(minutesToEnd)) return;
+          const endBound = Math.max(minutesToEnd, minutesFromStart + slotStepMinutes);
+          for (let m = minutesFromStart; m < endBound; m += slotStepMinutes) {
+            const key = buildHappyHourKey(slot.roomId, businessStart, m);
+            if (key) {
+              nextSlots[key] = true;
+            }
+          }
+        },
+      );
+      setHappyHourSlots(nextSlots);
+      setHappyHourOverlayReady(true);
+    } catch (err) {
+      console.error(err);
+      setCalendarError("Takvim blokları alınamadı.");
+      setCalendarBlocks([]);
+      setHappyHourSlots({});
+    } finally {
+      setCalendarLoading(false);
+    }
   }, [
     activeTab,
-    calendarView,
-    calendarRoomScope,
     calendarRoomIds,
-    happyHourRoomId,
-    happyHourActive,
-    happyHourSelectedSet,
+    calendarRoomScope,
+    calendarView,
     buildHappyHourKey,
-    happyHourScheduleVersion,
-    selectedDate,
-    weekCursor,
-    monthCursor,
     dayCutoffHour,
-    calendarDataVersion,
+    happyHourScheduleVersion,
+    monthCursor,
+    selectedDate,
+    slotStepMinutes,
     studio,
+    weekCursor,
+  ]);
+
+  useEffect(() => {
+    void refreshCalendarBundle();
+  }, [
+    refreshCalendarBundle,
   ]);
 
   const updateBasicField = <K extends keyof BasicInfoForm>(key: K, value: BasicInfoForm[K]) => {
@@ -2140,7 +2128,7 @@ export function DashboardClient({
         const filtered = prev.filter((item) => item.id !== block.id);
         return [...filtered, block].sort((a, b) => a.startAt.localeCompare(b.startAt));
       });
-      setCalendarDataVersion((prev) => prev + 1);
+      await refreshCalendarBundle();
       setDrawerOpen(false);
       setDrawerData(null);
     } catch (err) {
@@ -2160,7 +2148,7 @@ export function DashboardClient({
         return;
       }
       setCalendarBlocks((prev) => prev.filter((item) => item.id !== drawerData.id));
-      setCalendarDataVersion((prev) => prev + 1);
+      await refreshCalendarBundle();
       setDrawerOpen(false);
       setDrawerData(null);
     } catch (err) {
@@ -6342,12 +6330,13 @@ export function DashboardClient({
                   onClick={() => {
                     if (!currentRoom) return;
                     if (!window.confirm("Bu odayı silmek istediğine emin misin?")) return;
+                    const deletingRoomId = currentRoom.id;
                     setSaving(true);
                     fetch("/api/studio", {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        rooms: [{ id: currentRoom.id, _delete: true }],
+                        rooms: [{ id: deletingRoomId, _delete: true }],
                       }),
                     })
                       .then((res) => res.json())
@@ -6355,9 +6344,17 @@ export function DashboardClient({
                         if (json.studio) {
                           const normalized = normalizeStudio(json.studio);
                           setStudio(normalized);
+                          setCalendarBlocks((prev) =>
+                            prev.filter((block) => block.roomId !== deletingRoomId),
+                          );
                           if (normalized?.rooms?.length) {
                             setSelectedRoomId(normalized.rooms[0].id);
+                            setCalendarRoomScope(normalized.rooms[0].id);
                             setActiveTab(`room-${normalized.rooms[0].id}`);
+                          } else {
+                            setSelectedRoomId("");
+                            setCalendarRoomScope("");
+                            setActiveTab("calendar");
                           }
                           setStatus("Oda silindi");
                         } else {
