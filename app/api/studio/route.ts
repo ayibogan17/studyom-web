@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_ROOM_COLOR } from "@/lib/room-colors";
+import { DEFAULT_ROOM_COLOR, normalizeRoomColor, normalizeRoomColorHex } from "@/lib/room-colors";
 import { mergeRoles, normalizeRoles } from "@/lib/roles";
 import {
   Prisma,
@@ -227,7 +227,7 @@ function mapStudioToResponse(studio: StudioWithRelations) {
         id: room.id,
         name: room.name,
         type: room.type,
-        color: room.color ?? DEFAULT_ROOM_COLOR,
+        color: normalizeRoomColor(room.color ?? DEFAULT_ROOM_COLOR),
         order: room.order ?? 0,
         pricing: {
           model: room.pricingModel.toLowerCase(),
@@ -301,7 +301,7 @@ function mapStudioToCalendarResponse(studio: StudioCalendarResponse) {
         id: room.id,
         name: room.name,
         type: room.type,
-        color: room.color ?? DEFAULT_ROOM_COLOR,
+        color: normalizeRoomColor(room.color ?? DEFAULT_ROOM_COLOR),
         order: room.order ?? 0,
         pricing: {
           model: room.pricingModel.toLowerCase(),
@@ -547,8 +547,6 @@ export async function PATCH(req: Request) {
       where: { studioId: studio.id },
     });
     const roomById = new Map(existingRooms.map((room) => [room.id, room]));
-    const normalizeRoomColor = (color?: string | null) =>
-      color?.trim().toLowerCase() || DEFAULT_ROOM_COLOR.toLowerCase();
 
     const resolveBaseRate = (
       pricing?: UpdateRoomPayload["pricing"],
@@ -596,7 +594,7 @@ export async function PATCH(req: Request) {
 
     const finalRoomColors = new Map<string, string>();
     existingRooms.forEach((room) => {
-      finalRoomColors.set(room.id, normalizeRoomColor(room.color));
+      finalRoomColors.set(room.id, normalizeRoomColorHex(room.color));
     });
     body.rooms.forEach((roomUpdate, index) => {
       if (roomUpdate._delete && roomUpdate.id) {
@@ -605,10 +603,10 @@ export async function PATCH(req: Request) {
       }
       if (roomUpdate.id) {
         const existing = roomById.get(roomUpdate.id) ?? null;
-        finalRoomColors.set(roomUpdate.id, normalizeRoomColor(roomUpdate.color ?? existing?.color));
+        finalRoomColors.set(roomUpdate.id, normalizeRoomColorHex(roomUpdate.color ?? existing?.color));
         return;
       }
-      finalRoomColors.set(`new-${index}`, normalizeRoomColor(roomUpdate.color));
+      finalRoomColors.set(`new-${index}`, normalizeRoomColorHex(roomUpdate.color));
     });
     const seenColors = new Set<string>();
     for (const color of finalRoomColors.values()) {
@@ -633,7 +631,7 @@ export async function PATCH(req: Request) {
           data: {
             name: roomUpdate.name || `Yeni Oda ${Date.now() % 1000}`,
             type: roomUpdate.type || "Prova odası",
-            color: roomUpdate.color || DEFAULT_ROOM_COLOR,
+            color: normalizeRoomColor(roomUpdate.color || DEFAULT_ROOM_COLOR),
             order: roomUpdate.order ?? nextOrder++,
             pricingModel: roomUpdate.pricing?.model
               ? pricingToDb(roomUpdate.pricing.model)
@@ -661,7 +659,7 @@ export async function PATCH(req: Request) {
         data: {
           name: roomUpdate.name ?? room.name,
           type: roomUpdate.type ?? room.type,
-          color: roomUpdate.color ?? room.color,
+          color: normalizeRoomColor(roomUpdate.color ?? room.color),
           pricingModel: roomUpdate.pricing?.model
             ? pricingToDb(roomUpdate.pricing.model)
             : room.pricingModel,

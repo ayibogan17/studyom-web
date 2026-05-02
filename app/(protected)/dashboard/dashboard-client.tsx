@@ -15,7 +15,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BarChart3, ChevronDown, ChevronLeft, ChevronRight, History, Key, Save } from "lucide-react";
 
 import { SignOutButton } from "@/components/sign-out-button";
-import { DEFAULT_ROOM_COLOR, ROOM_COLOR_HEXES, ROOM_COLOR_OPTIONS } from "@/lib/room-colors";
+import {
+  DEFAULT_ROOM_COLOR,
+  ROOM_COLOR_HEXES,
+  ROOM_COLOR_OPTIONS,
+  findRoomColorOption,
+  getRoomColorTextColor,
+  normalizeRoomColor,
+  normalizeRoomColorHex,
+} from "@/lib/room-colors";
 import { Equipment, OpeningHours, Room, Slot, Studio } from "@/types/panel";
 
 type ReservationRequest = {
@@ -429,6 +437,7 @@ const parseBasicInfoFromStudio = (studio: Studio | null): BasicInfoForm => {
 function normalizeRoom(room: Room): Room {
   return {
     ...room,
+    color: normalizeRoomColor(room.color),
     equipment: room.equipment ?? { ...defaultEquipment },
     features: room.features ?? { ...defaultFeatures },
     extras: { ...defaultExtras, ...(room.extras ?? {}) },
@@ -465,9 +474,6 @@ const pickNextColor = (rooms: Room[]) => {
   );
   return ROOM_COLOR_HEXES.find((c) => !used.has(c.toLowerCase())) ?? null;
 };
-
-const normalizeRoomColorHex = (color?: string | null) =>
-  color?.trim().toLowerCase() || DEFAULT_ROOM_COLOR.toLowerCase();
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 const hourOptions = Array.from({ length: 24 }, (_, h) => `${pad(h)}:00`);
@@ -902,6 +908,7 @@ export function DashboardClient({
   const [calendarBlocks, setCalendarBlocks] = useState<CalendarBlock[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [calendarDataVersion, setCalendarDataVersion] = useState(0);
   const [happyHourOverlayReady, setHappyHourOverlayReady] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerData, setDrawerData] = useState<{
@@ -1181,8 +1188,7 @@ export function DashboardClient({
   const currentRoomRaw =
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
-  const currentRoomColorOption =
-    ROOM_COLOR_OPTIONS.find((option) => option.hex === currentRoom?.color) ?? ROOM_COLOR_OPTIONS[0];
+  const currentRoomColorOption = findRoomColorOption(currentRoom?.color);
   const usedColorsByOtherRooms = useMemo(
     () =>
       new Set(
@@ -1671,6 +1677,7 @@ export function DashboardClient({
     weekCursor,
     monthCursor,
     dayCutoffHour,
+    calendarDataVersion,
     studio,
   ]);
 
@@ -2133,6 +2140,7 @@ export function DashboardClient({
         const filtered = prev.filter((item) => item.id !== block.id);
         return [...filtered, block].sort((a, b) => a.startAt.localeCompare(b.startAt));
       });
+      setCalendarDataVersion((prev) => prev + 1);
       setDrawerOpen(false);
       setDrawerData(null);
     } catch (err) {
@@ -2152,6 +2160,7 @@ export function DashboardClient({
         return;
       }
       setCalendarBlocks((prev) => prev.filter((item) => item.id !== drawerData.id));
+      setCalendarDataVersion((prev) => prev + 1);
       setDrawerOpen(false);
       setDrawerData(null);
     } catch (err) {
@@ -4006,7 +4015,11 @@ export function DashboardClient({
                   }}
                   style={
                     calendarRoomScope === room.id
-                      ? { backgroundColor: room.color, borderColor: room.color, color: "#fff" }
+                      ? {
+                          backgroundColor: normalizeRoomColor(room.color),
+                          borderColor: normalizeRoomColor(room.color),
+                          color: getRoomColorTextColor(room.color),
+                        }
                       : { borderColor: "#e5e7eb" }
                   }
                   className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
@@ -4713,7 +4726,7 @@ export function DashboardClient({
                     >
                       <span
                         className="inline-block h-8 w-8 rounded-full border border-gray-200"
-                        style={{ backgroundColor: currentRoom.color }}
+                        style={{ backgroundColor: normalizeRoomColor(currentRoom.color) }}
                         aria-hidden
                       />
                       <ChevronDown className="h-4 w-4" aria-hidden />
@@ -4722,7 +4735,7 @@ export function DashboardClient({
                       <div className="absolute left-0 top-full z-20 mt-2 w-52 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
                         <div className="space-y-1">
                           {ROOM_COLOR_OPTIONS.map((option) => {
-                            const active = option.hex === currentRoom.color;
+                            const active = option.id === currentRoomColorOption.id;
                             const usedByAnotherRoom = usedColorsByOtherRooms.has(
                               normalizeRoomColorHex(option.hex),
                             );
