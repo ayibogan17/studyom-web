@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/auth";
 import { triggerGoogleCalendarSyncForStudio } from "@/lib/google-calendar-sync";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_ROOM_COLOR, normalizeRoomColor, normalizeRoomColorHex } from "@/lib/room-colors";
+import { DEFAULT_ROOM_COLOR, normalizeRoomColor } from "@/lib/room-colors";
 import { mergeRoles, normalizeRoles } from "@/lib/roles";
 import {
   Prisma,
@@ -592,30 +592,6 @@ export async function PATCH(req: Request) {
       if (happyRate !== null && baseRate !== null && happyRate >= baseRate * 0.9) {
         return NextResponse.json({ error: "Happy Hour minimum %10 olmalıdır." }, { status: 400 });
       }
-    }
-
-    const finalRoomColors = new Map<string, string>();
-    existingRooms.forEach((room) => {
-      finalRoomColors.set(room.id, normalizeRoomColorHex(room.color));
-    });
-    body.rooms.forEach((roomUpdate, index) => {
-      if (roomUpdate._delete && roomUpdate.id) {
-        finalRoomColors.delete(roomUpdate.id);
-        return;
-      }
-      if (roomUpdate.id) {
-        const existing = roomById.get(roomUpdate.id) ?? null;
-        finalRoomColors.set(roomUpdate.id, normalizeRoomColorHex(roomUpdate.color ?? existing?.color));
-        return;
-      }
-      finalRoomColors.set(`new-${index}`, normalizeRoomColorHex(roomUpdate.color));
-    });
-    const seenColors = new Set<string>();
-    for (const color of finalRoomColors.values()) {
-      if (seenColors.has(color)) {
-        return NextResponse.json({ error: "Her oda için farklı bir renk seçin." }, { status: 400 });
-      }
-      seenColors.add(color);
     }
 
     const maxOrder = await prisma.room.aggregate({

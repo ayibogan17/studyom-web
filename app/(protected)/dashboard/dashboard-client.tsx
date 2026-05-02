@@ -1188,15 +1188,6 @@ export function DashboardClient({
     orderedRooms.find((r) => r.id === selectedRoomId) ?? orderedRooms[0] ?? null;
   const currentRoom = currentRoomRaw ? normalizeRoom(currentRoomRaw) : null;
   const currentRoomColorOption = findRoomColorOption(currentRoom?.color);
-  const usedColorsByOtherRooms = useMemo(
-    () =>
-      new Set(
-        orderedRooms
-          .filter((room) => room.id !== currentRoom?.id)
-          .map((room) => normalizeRoomColorHex(room.color)),
-      ),
-    [currentRoom?.id, orderedRooms],
-  );
   useEffect(() => {
     setShowColorMenu(false);
   }, [currentRoom?.id]);
@@ -2377,14 +2368,6 @@ export function DashboardClient({
   const saveRoomBasics = async (roomId: string, patch: Partial<Room>) => {
     if (!studio) return;
     const existingRoom = studio.rooms.find((room) => room.id === roomId);
-    const nextColor = normalizeRoomColorHex(patch.color ?? existingRoom?.color);
-    const conflictingRoom = studio.rooms.find(
-      (room) => room.id !== roomId && normalizeRoomColorHex(room.color) === nextColor,
-    );
-    if (conflictingRoom) {
-      setStatus("Her oda için farklı bir renk seçin.");
-      return;
-    }
     const mergedPricing =
       patch.pricing || existingRoom?.pricing
         ? { ...(existingRoom?.pricing ?? {}), ...(patch.pricing ?? {}) }
@@ -4724,14 +4707,10 @@ export function DashboardClient({
                         <div className="space-y-1">
                           {ROOM_COLOR_OPTIONS.map((option) => {
                             const active = option.id === currentRoomColorOption.id;
-                            const usedByAnotherRoom = usedColorsByOtherRooms.has(
-                              normalizeRoomColorHex(option.hex),
-                            );
                             return (
                               <button
                                 key={option.id}
                                 type="button"
-                                disabled={usedByAnotherRoom && !active}
                                 onClick={() => {
                                   setStudio((prev) =>
                                     prev
@@ -4748,9 +4727,7 @@ export function DashboardClient({
                                 className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm ${
                                   active
                                     ? "bg-blue-50 text-blue-700"
-                                    : usedByAnotherRoom
-                                      ? "cursor-not-allowed text-gray-300"
-                                      : "text-gray-700 hover:bg-gray-50"
+                                    : "text-gray-700 hover:bg-gray-50"
                                 }`}
                               >
                                 <span
