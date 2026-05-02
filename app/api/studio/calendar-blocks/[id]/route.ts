@@ -139,7 +139,7 @@ export async function PATCH(
     },
   });
 
-  await triggerGoogleCalendarSyncForStudio(studio.id);
+  void triggerGoogleCalendarSyncForStudio(studio.id);
 
   return NextResponse.json({
     block: {
@@ -184,7 +184,7 @@ export async function DELETE(
 
   await prisma.studioCalendarBlock.delete({ where: { id: existing.id } });
 
-  await triggerGoogleCalendarSyncForStudio(studio.id);
+  void triggerGoogleCalendarSyncForStudio(studio.id);
 
   return NextResponse.json({ ok: true });
 }

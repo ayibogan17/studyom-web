@@ -909,6 +909,7 @@ export function DashboardClient({
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [happyHourOverlayReady, setHappyHourOverlayReady] = useState(false);
+  const calendarBundleRequestRef = useRef(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerData, setDrawerData] = useState<{
     id?: string;
@@ -1563,6 +1564,8 @@ export function DashboardClient({
     if (!studio) return;
     if (activeTab !== "calendar") return;
     if (!calendarRoomIds.length) return;
+    const requestId = calendarBundleRequestRef.current + 1;
+    calendarBundleRequestRef.current = requestId;
     let rangeStart: Date;
     let rangeEnd: Date;
     if (calendarView === "month") {
@@ -1600,6 +1603,9 @@ export function DashboardClient({
         `/api/studio/calendar-bundle?${roomQuery}&start=${rangeStart.toISOString()}&end=${rangeEnd.toISOString()}&includeSummary=0`,
       );
       const bundleJson = await bundleRes.json().catch(() => ({}));
+      if (calendarBundleRequestRef.current !== requestId) {
+        return;
+      }
       if (!bundleRes.ok) {
         setCalendarError(bundleJson.error || "Takvim blokları alınamadı.");
         setCalendarBlocks([]);
@@ -1633,11 +1639,16 @@ export function DashboardClient({
       setHappyHourOverlayReady(true);
     } catch (err) {
       console.error(err);
+      if (calendarBundleRequestRef.current !== requestId) {
+        return;
+      }
       setCalendarError("Takvim blokları alınamadı.");
       setCalendarBlocks([]);
       setHappyHourSlots({});
     } finally {
-      setCalendarLoading(false);
+      if (calendarBundleRequestRef.current === requestId) {
+        setCalendarLoading(false);
+      }
     }
   }, [
     activeTab,

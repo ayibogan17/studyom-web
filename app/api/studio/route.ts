@@ -660,7 +660,7 @@ export async function PATCH(req: Request) {
     }
 
     if (roomCalendarAffected) {
-      await triggerGoogleCalendarSyncForStudio(studio.id);
+      void triggerGoogleCalendarSyncForStudio(studio.id);
     }
   }
 

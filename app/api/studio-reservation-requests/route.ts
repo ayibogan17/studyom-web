@@ -400,7 +400,7 @@ Not: ${parsed.data.note?.trim() || "-"}
     }
 
     if (request.calendarBlockId) {
-      await triggerGoogleCalendarSyncForStudio(studio.id);
+      void triggerGoogleCalendarSyncForStudio(studio.id);
     }
 
     return NextResponse.json({

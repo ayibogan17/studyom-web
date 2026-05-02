@@ -155,7 +155,7 @@ Studyom ekibi
     }
 
     if (updated.calendarBlockId) {
-      await triggerGoogleCalendarSyncForStudio(request.studio.id);
+      void triggerGoogleCalendarSyncForStudio(request.studio.id);
     }
 
     return NextResponse.json({ ok: true, status: updated.status });
@@ -271,7 +271,7 @@ Studyom ekibi
       });
   }
 
-  await triggerGoogleCalendarSyncForStudio(request.studio.id);
+  void triggerGoogleCalendarSyncForStudio(request.studio.id);
 
   return NextResponse.json({ ok: true, status: updated.status, calendarBlockId: updated.calendarBlockId });
 }

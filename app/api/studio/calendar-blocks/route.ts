@@ -219,7 +219,7 @@ export async function POST(req: Request) {
     },
   });
 
-  await triggerGoogleCalendarSyncForStudio(studio.id);
+  void triggerGoogleCalendarSyncForStudio(studio.id);
 
   return NextResponse.json({
     block: {
