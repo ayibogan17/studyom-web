@@ -935,6 +935,46 @@ export function DashboardClient({
   const [calendarConnectLoading, setCalendarConnectLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const colorMenuRef = useRef<HTMLDivElement | null>(null);
+  const googleCalendarBackgroundSyncRef = useRef({
+    inFlight: false,
+    rerunRequested: false,
+  });
+
+  const triggerGoogleCalendarSyncInBackground = useCallback(() => {
+    const state = googleCalendarBackgroundSyncRef.current;
+    if (state.inFlight) {
+      state.rerunRequested = true;
+      return;
+    }
+
+    state.inFlight = true;
+
+    void (async () => {
+      try {
+        do {
+          state.rerunRequested = false;
+          try {
+            const res = await fetch("/api/google-calendar/sync", { method: "POST" });
+            if (res.ok) {
+              continue;
+            }
+            const json = (await res.json().catch(() => ({}))) as {
+              code?: string;
+              error?: string;
+            };
+            if (json.code === "GOOGLE_CALENDAR_AUTH_REQUIRED") {
+              return;
+            }
+            console.error("google calendar background sync failed", json.error || res.status);
+          } catch (error) {
+            console.error("google calendar background sync failed", error);
+          }
+        } while (state.rerunRequested);
+      } finally {
+        state.inFlight = false;
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (activeTab !== "calendar") return;
@@ -1007,6 +1047,7 @@ export function DashboardClient({
                 },
               ],
         );
+        triggerGoogleCalendarSyncInBackground();
       }
     } catch (err) {
       console.error(err);
@@ -2130,9 +2171,10 @@ export function DashboardClient({
         const filtered = prev.filter((item) => item.id !== block.id);
         return [...filtered, block].sort((a, b) => a.startAt.localeCompare(b.startAt));
       });
-      await refreshCalendarBundle();
       setDrawerOpen(false);
       setDrawerData(null);
+      void refreshCalendarBundle();
+      triggerGoogleCalendarSyncInBackground();
     } catch (err) {
       console.error(err);
       setCalendarError("Kaydedilemedi.");
@@ -2150,9 +2192,10 @@ export function DashboardClient({
         return;
       }
       setCalendarBlocks((prev) => prev.filter((item) => item.id !== drawerData.id));
-      await refreshCalendarBundle();
       setDrawerOpen(false);
       setDrawerData(null);
+      void refreshCalendarBundle();
+      triggerGoogleCalendarSyncInBackground();
     } catch (err) {
       console.error(err);
       setCalendarError("Silinemedi.");
@@ -6345,6 +6388,7 @@ export function DashboardClient({
                             setActiveTab("calendar");
                           }
                           setStatus("Oda silindi");
+                          triggerGoogleCalendarSyncInBackground();
                         } else {
                           setStatus(json.error || "Oda silinemedi");
                         }
