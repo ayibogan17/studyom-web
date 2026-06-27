@@ -5,6 +5,7 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isBlockingBlock, normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
 import { buildHappyHourTemplatesByRoom, type HappyHourSlot } from "@/lib/happy-hour";
+import { ExpensesEditor } from "./expenses-editor";
 
 export const metadata = {
   title: "Rezervasyon İstatistikleri | Studyom",
@@ -86,6 +87,37 @@ const parsePrice = (value?: string | null) => {
   return Number.isFinite(num) ? num : null;
 };
 
+type ExpenseItem = {
+  label: string;
+  amount: number;
+};
+
+const normalizeExpenseItems = (value: unknown): ExpenseItem[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const rawLabel = "label" in item ? item.label : "";
+      const rawAmount = "amount" in item ? item.amount : 0;
+      const label = typeof rawLabel === "string" ? rawLabel.trim() : "";
+      const amount =
+        typeof rawAmount === "number"
+          ? rawAmount
+          : typeof rawAmount === "string"
+            ? Number.parseFloat(rawAmount.replace(/[^\d.,-]/g, "").replace(",", "."))
+            : 0;
+      if (!label && !Number.isFinite(amount)) return null;
+      return {
+        label,
+        amount: Number.isFinite(amount) ? amount : 0,
+      } satisfies ExpenseItem;
+    })
+    .filter((item): item is ExpenseItem => Boolean(item));
+};
+
+const getExpenseTotal = (items: ExpenseItem[]) =>
+  items.reduce((sum, item) => sum + (Number.isFinite(item.amount) ? item.amount : 0), 0);
+
 const getTotalOpenMinutes = (openingHours: OpeningHours[], rangeStart: Date, rangeEnd: Date) => {
   let minutes = 0;
   const cursor = new Date(rangeStart);
@@ -127,7 +159,14 @@ const getOccupiedMinutes = (
   }, 0);
 };
 
-type ReservationStatsSearchParams = { compareA?: string; compareB?: string; as?: string; calc?: string };
+type ReservationStatsSearchParams = {
+  compareA?: string;
+  compareB?: string;
+  roomId?: string;
+  month?: string;
+  as?: string;
+  calc?: string;
+};
 
 export default async function ReservationStatsPage({
   searchParams,
@@ -151,6 +190,7 @@ export default async function ReservationStatsPage({
         select: {
           id: true,
           name: true,
+          extrasJson: true,
           pricingModel: true,
           hourlyRate: true,
           flatRate: true,
@@ -172,6 +212,12 @@ export default async function ReservationStatsPage({
   if (typeof resolvedSearchParams?.compareB === "string") {
     computeParams.set("compareB", resolvedSearchParams.compareB);
   }
+  if (typeof resolvedSearchParams?.roomId === "string") {
+    computeParams.set("roomId", resolvedSearchParams.roomId);
+  }
+  if (typeof resolvedSearchParams?.month === "string") {
+    computeParams.set("month", resolvedSearchParams.month);
+  }
   if (typeof resolvedSearchParams?.as === "string") {
     computeParams.set("as", resolvedSearchParams.as);
   }
@@ -192,20 +238,43 @@ export default async function ReservationStatsPage({
   const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
 
   const defaultMonthKey = monthKeyFromDate(now);
-  const compareAKey =
+  const selectedMonthRaw =
+    typeof resolvedSearchParams?.month === "string" ? resolvedSearchParams.month : defaultMonthKey;
+  const compareARaw =
     typeof resolvedSearchParams?.compareA === "string" ? resolvedSearchParams.compareA : defaultMonthKey;
-  const compareBKey =
+  const compareBRaw =
     typeof resolvedSearchParams?.compareB === "string" ? resolvedSearchParams.compareB : defaultMonthKey;
+  const selectedRoomId =
+    typeof resolvedSearchParams?.roomId === "string" && studio.rooms.some((room) => room.id === resolvedSearchParams.roomId)
+      ? resolvedSearchParams.roomId
+      : (studio.rooms[0]?.id ?? "");
+  const selectedMonthKey = monthKeyFromDate(parseMonthKey(selectedMonthRaw, now));
+  const selectedMonthStart = parseMonthKey(selectedMonthKey, now);
+  const selectedMonthEnd = new Date(selectedMonthStart.getFullYear(), selectedMonthStart.getMonth() + 1, 1);
+  const compareAKey = monthKeyFromDate(parseMonthKey(compareARaw, now));
+  const compareBKey = monthKeyFromDate(parseMonthKey(compareBRaw, now));
   const compareAStart = parseMonthKey(compareAKey, now);
   const compareBStart = parseMonthKey(compareBKey, now);
   const compareAEnd = new Date(compareAStart.getFullYear(), compareAStart.getMonth() + 1, 1);
   const compareBEnd = new Date(compareBStart.getFullYear(), compareBStart.getMonth() + 1, 1);
 
   const rangeStart = new Date(
-    Math.min(weekStart.getTime(), monthStart.getTime(), compareAStart.getTime(), compareBStart.getTime()),
+    Math.min(
+      weekStart.getTime(),
+      monthStart.getTime(),
+      selectedMonthStart.getTime(),
+      compareAStart.getTime(),
+      compareBStart.getTime(),
+    ),
   );
   const rangeEnd = new Date(
-    Math.max(weekEnd.getTime(), monthEnd.getTime(), compareAEnd.getTime(), compareBEnd.getTime()),
+    Math.max(
+      weekEnd.getTime(),
+      monthEnd.getTime(),
+      selectedMonthEnd.getTime(),
+      compareAEnd.getTime(),
+      compareBEnd.getTime(),
+    ),
   );
 
   const blocks = shouldCompute
@@ -237,12 +306,6 @@ export default async function ReservationStatsPage({
     totalWeekOpenMinutes === 0 ? 0 : Math.round((totalWeekOccupied / totalWeekOpenMinutes) * 1000) / 10;
   const totalMonthOccupancy =
     totalMonthOpenMinutes === 0 ? 0 : Math.round((totalMonthOccupied / totalMonthOpenMinutes) * 1000) / 10;
-
-  const compareMonthOccupancy = (rangeStart: Date, rangeEnd: Date) => {
-    const totalOpenMinutes = getTotalOpenMinutes(openingHours, rangeStart, rangeEnd) * studio.rooms.length;
-    const occupiedMinutes = getOccupiedMinutes(blocks, openingHours, dayCutoffHour, rangeStart, rangeEnd);
-    return totalOpenMinutes === 0 ? 0 : Math.round((occupiedMinutes / totalOpenMinutes) * 1000) / 10;
-  };
 
   const priceByRoomId = new Map(
     studio.rooms.map((room) => [
@@ -324,14 +387,6 @@ export default async function ReservationStatsPage({
     return (happyMinutes / 60) * happyHourly + (normalMinutes / 60) * hourly;
   };
 
-  const getRevenueForRange = (rangeStart: Date, rangeEnd: Date) =>
-    blocks.reduce((acc, block) => acc + getBlockRevenue(block, rangeStart, rangeEnd), 0);
-
-  const compareAOccupancy = shouldCompute ? compareMonthOccupancy(compareAStart, compareAEnd) : 0;
-  const compareBOccupancy = shouldCompute ? compareMonthOccupancy(compareBStart, compareBEnd) : 0;
-  const compareARevenue = shouldCompute ? getRevenueForRange(compareAStart, compareAEnd) : 0;
-  const compareBRevenue = shouldCompute ? getRevenueForRange(compareBStart, compareBEnd) : 0;
-
   const monthOptions = Array.from({ length: 25 }, (_, idx) => {
     const offset = idx - 12;
     const date = new Date(now.getFullYear(), now.getMonth() + offset, 1);
@@ -341,40 +396,65 @@ export default async function ReservationStatsPage({
     };
   });
 
-  const roomStats = studio.rooms.map((room) => {
-    const roomBlocks = blocks.filter((block) => block.roomId === room.id);
-    const roomWeekOpen = shouldCompute ? getTotalOpenMinutes(openingHours, weekStart, weekEnd) : 0;
-    const roomMonthOpen = shouldCompute ? getTotalOpenMinutes(openingHours, monthStart, monthEnd) : 0;
-    const roomWeekOcc = shouldCompute
-      ? getOccupiedMinutes(roomBlocks, openingHours, dayCutoffHour, weekStart, weekEnd)
+  const selectedRoom = studio.rooms.find((room) => room.id === selectedRoomId) ?? studio.rooms[0] ?? null;
+  const selectedRoomBlocks = selectedRoom ? blocks.filter((block) => block.roomId === selectedRoom.id) : [];
+  const selectedRoomExtras =
+    selectedRoom?.extrasJson &&
+    typeof selectedRoom.extrasJson === "object" &&
+    !Array.isArray(selectedRoom.extrasJson)
+      ? (selectedRoom.extrasJson as Record<string, unknown>)
+      : {};
+  const monthlyExpensesSource =
+    selectedRoomExtras.monthlyExpenses &&
+    typeof selectedRoomExtras.monthlyExpenses === "object" &&
+    !Array.isArray(selectedRoomExtras.monthlyExpenses)
+      ? (selectedRoomExtras.monthlyExpenses as Record<string, unknown>)
+      : {};
+  const expensesByMonth = new Map(
+    Object.entries(monthlyExpensesSource).map(([monthKey, items]) => [monthKey, normalizeExpenseItems(items)]),
+  );
+  const selectedRoomExpenses = expensesByMonth.get(selectedMonthKey) ?? [];
+  const selectedRoomExpenseTotal = getExpenseTotal(selectedRoomExpenses);
+  const selectedRoomPrice = selectedRoom
+    ? parsePrice(selectedRoom.hourlyRate) ??
+      parsePrice(selectedRoom.flatRate) ??
+      parsePrice(selectedRoom.minRate) ??
+      parsePrice(selectedRoom.dailyRate) ??
+      0
+    : 0;
+  const selectedRoomMonthOpen = shouldCompute ? getTotalOpenMinutes(openingHours, selectedMonthStart, selectedMonthEnd) : 0;
+  const selectedRoomMonthOccupied =
+    shouldCompute && selectedRoom
+      ? getOccupiedMinutes(selectedRoomBlocks, openingHours, dayCutoffHour, selectedMonthStart, selectedMonthEnd)
       : 0;
-    const roomMonthOcc = shouldCompute
-      ? getOccupiedMinutes(roomBlocks, openingHours, dayCutoffHour, monthStart, monthEnd)
+  const selectedRoomMonthOccupancy =
+    selectedRoomMonthOpen === 0 ? 0 : Math.round((selectedRoomMonthOccupied / selectedRoomMonthOpen) * 1000) / 10;
+  const selectedRoomMonthRevenue =
+    shouldCompute && selectedRoom
+      ? selectedRoomBlocks.reduce((sum, block) => sum + getBlockRevenue(block, selectedMonthStart, selectedMonthEnd), 0)
       : 0;
-    const weekOccupancy =
-      roomWeekOpen === 0 ? 0 : Math.round((roomWeekOcc / roomWeekOpen) * 1000) / 10;
-    const monthOccupancy =
-      roomMonthOpen === 0 ? 0 : Math.round((roomMonthOcc / roomMonthOpen) * 1000) / 10;
+  const selectedRoomMonthNetRevenue = selectedRoomMonthRevenue - selectedRoomExpenseTotal;
 
-    const price =
-      parsePrice(room.hourlyRate) ??
-      parsePrice(room.flatRate) ??
-      parsePrice(room.minRate) ??
-      parsePrice(room.dailyRate) ??
-      0;
-    const monthRevenue = shouldCompute
-      ? roomBlocks.reduce((acc, block) => acc + getBlockRevenue(block, monthStart, monthEnd), 0)
-      : 0;
+  const compareRoomOccupancy = (rangeStart: Date, rangeEnd: Date) => {
+    if (!selectedRoom || !shouldCompute) return 0;
+    const totalOpenMinutes = getTotalOpenMinutes(openingHours, rangeStart, rangeEnd);
+    const occupiedMinutes = getOccupiedMinutes(selectedRoomBlocks, openingHours, dayCutoffHour, rangeStart, rangeEnd);
+    return totalOpenMinutes === 0 ? 0 : Math.round((occupiedMinutes / totalOpenMinutes) * 1000) / 10;
+  };
 
-    return {
-      id: room.id,
-      name: room.name || "Oda",
-      weekOccupancy,
-      monthOccupancy,
-      monthRevenue,
-      price,
-    };
-  });
+  const compareRoomRevenue = (rangeStart: Date, rangeEnd: Date) => {
+    if (!selectedRoom || !shouldCompute) return 0;
+    return selectedRoomBlocks.reduce((sum, block) => sum + getBlockRevenue(block, rangeStart, rangeEnd), 0);
+  };
+
+  const compareAExpenseTotal = getExpenseTotal(expensesByMonth.get(compareAKey) ?? []);
+  const compareBExpenseTotal = getExpenseTotal(expensesByMonth.get(compareBKey) ?? []);
+  const compareARoomOccupancy = compareRoomOccupancy(compareAStart, compareAEnd);
+  const compareBRoomOccupancy = compareRoomOccupancy(compareBStart, compareBEnd);
+  const compareARoomRevenue = compareRoomRevenue(compareAStart, compareAEnd);
+  const compareBRoomRevenue = compareRoomRevenue(compareBStart, compareBEnd);
+  const compareARoomNetRevenue = compareARoomRevenue - compareAExpenseTotal;
+  const compareBRoomNetRevenue = compareBRoomRevenue - compareBExpenseTotal;
 
   return (
     <div className="bg-gradient-to-b from-white via-orange-50/60 to-white">
@@ -417,46 +497,133 @@ export default async function ReservationStatsPage({
             <p className="text-sm font-semibold text-orange-900">Tahmini aylık gelir</p>
             <p className="mt-2 text-2xl font-semibold text-orange-950">
               {shouldCompute
-                ? formatCurrency(roomStats.reduce((acc, room) => acc + room.monthRevenue, 0))
+                ? formatCurrency(studio.rooms.reduce((acc, room) => {
+                    const roomBlocks = blocks.filter((block) => block.roomId === room.id);
+                    return acc + roomBlocks.reduce((roomSum, block) => roomSum + getBlockRevenue(block, monthStart, monthEnd), 0);
+                  }, 0))
                 : "Hesaplanmadı"}
             </p>
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {roomStats.map((room) => (
-            <div
-              key={room.id}
-              className="rounded-2xl border border-orange-200/50 bg-orange-50/70 p-5 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-orange-950">{room.name}</p>
-                <span className="rounded-full border border-orange-200 px-2 py-1 text-xs font-semibold text-orange-700">
-                  {room.price ? `${room.price}₺/saat` : "Fiyat yok"}
-                </span>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
-                  <p className="text-xs font-semibold text-orange-700">Bu hafta</p>
-                  <p className="mt-1 text-lg font-semibold text-orange-950">
-                    {shouldCompute ? formatPercent(room.weekOccupancy) : "Hesaplanmadı"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
-                  <p className="text-xs font-semibold text-orange-700">Bu ay</p>
-                  <p className="mt-1 text-lg font-semibold text-orange-950">
-                    {shouldCompute ? formatPercent(room.monthOccupancy) : "Hesaplanmadı"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
-                  <p className="text-xs font-semibold text-orange-700">Aylık gelir</p>
-                  <p className="mt-1 text-lg font-semibold text-orange-950">
-                    {shouldCompute ? formatCurrency(room.monthRevenue) : "Hesaplanmadı"}
-                  </p>
-                </div>
-              </div>
+        {studio.rooms.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-orange-200/50 bg-orange-50/70 p-5 shadow-sm">
+            <p className="text-sm font-semibold text-orange-950">Henüz oda eklenmemiş.</p>
+            <p className="mt-2 text-sm text-orange-700">
+              Oda ekledikten sonra oda bazlı gelir, doluluk ve gider istatistikleri burada görünecek.
+            </p>
+          </div>
+        ) : (
+        <>
+        <div className="mt-6 rounded-2xl border border-orange-200/50 bg-orange-50/70 p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
+                Oda bazlı aylık istatistik
+              </p>
+              <p className="text-sm text-orange-700">
+                Her oda için aylık gelir ve doluluk oranını dropdown ile inceleyebilirsin.
+              </p>
             </div>
-          ))}
+            {selectedRoom ? (
+              <span className="rounded-full border border-orange-200 px-3 py-1 text-xs font-semibold text-orange-700">
+                {selectedRoomPrice ? `${selectedRoomPrice}₺/saat` : "Fiyat yok"}
+              </span>
+            ) : null}
+          </div>
+
+          <form className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" method="get">
+            {resolvedSearchParams?.as ? <input type="hidden" name="as" value={resolvedSearchParams.as} /> : null}
+            {shouldCompute ? <input type="hidden" name="calc" value="1" /> : null}
+            <input type="hidden" name="compareA" value={compareAKey} />
+            <input type="hidden" name="compareB" value={compareBKey} />
+            <div>
+              <label className="text-xs font-semibold text-orange-700" htmlFor="roomId">
+                Oda
+              </label>
+              <select
+                id="roomId"
+                name="roomId"
+                defaultValue={selectedRoomId}
+                className="mt-2 h-11 w-full rounded-xl border border-orange-200 bg-white px-3 text-sm font-semibold text-orange-950 focus:border-orange-400 focus:outline-none"
+              >
+                {studio.rooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-orange-700" htmlFor="month">
+                Ay
+              </label>
+              <select
+                id="month"
+                name="month"
+                defaultValue={selectedMonthKey}
+                className="mt-2 h-11 w-full rounded-xl border border-orange-200 bg-white px-3 text-sm font-semibold text-orange-950 focus:border-orange-400 focus:outline-none"
+              >
+                {monthOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="h-11 rounded-xl bg-orange-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700"
+              >
+                Göster
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
+              <p className="text-xs font-semibold text-orange-700">Seçili ay doluluk</p>
+              <p className="mt-1 text-lg font-semibold text-orange-950">
+                {shouldCompute ? formatPercent(selectedRoomMonthOccupancy) : "Hesaplanmadı"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
+              <p className="text-xs font-semibold text-orange-700">Brüt gelir</p>
+              <p className="mt-1 text-lg font-semibold text-orange-950">
+                {shouldCompute ? formatCurrency(selectedRoomMonthRevenue) : "Hesaplanmadı"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
+              <p className="text-xs font-semibold text-orange-700">Giderler</p>
+              <p className="mt-1 text-lg font-semibold text-orange-950">
+                {formatCurrency(selectedRoomExpenseTotal)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-orange-200/60 bg-white p-3">
+              <p className="text-xs font-semibold text-orange-700">Net gelir</p>
+              <p className="mt-1 text-lg font-semibold text-orange-950">
+                {shouldCompute ? formatCurrency(selectedRoomMonthNetRevenue) : "Hesaplanmadı"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <ExpensesEditor
+            key={`${selectedRoomId}-${selectedMonthKey}`}
+            roomId={selectedRoomId}
+            roomName={selectedRoom?.name ?? "Oda"}
+            monthKey={selectedMonthKey}
+            monthLabel={formatMonthLabel(selectedMonthStart)}
+            roomOptions={studio.rooms.map((room) => ({ id: room.id, name: room.name }))}
+            monthOptions={monthOptions}
+            initialItems={selectedRoomExpenses}
+            searchAs={resolvedSearchParams?.as}
+            compareAKey={compareAKey}
+            compareBKey={compareBKey}
+            shouldCompute={shouldCompute}
+          />
         </div>
 
         <div className="mt-8 rounded-2xl border border-orange-200/60 bg-orange-50/80 p-6">
@@ -466,12 +633,12 @@ export default async function ReservationStatsPage({
                 İstatistikleri Karşılaştır
               </p>
               <p className="text-sm text-orange-700">
-                İki ay seçerek doluluk oranlarını karşılaştırabilirsin.
+                {selectedRoom ? `${selectedRoom.name} için` : "Seçili oda için"} iki ay seçerek doluluk ve net geliri karşılaştırabilirsin.
               </p>
             </div>
             <span className="text-xs font-semibold text-orange-600">
               {shouldCompute
-                ? `${formatPercent(compareAOccupancy)} · ${formatPercent(compareBOccupancy)}`
+                ? `${formatPercent(compareARoomOccupancy)} · ${formatPercent(compareBRoomOccupancy)}`
                 : "Hesaplanmadı"}
             </span>
           </div>
@@ -480,6 +647,9 @@ export default async function ReservationStatsPage({
             {resolvedSearchParams?.as ? (
               <input type="hidden" name="as" value={resolvedSearchParams.as} />
             ) : null}
+            <input type="hidden" name="roomId" value={selectedRoomId} />
+            <input type="hidden" name="month" value={selectedMonthKey} />
+            {shouldCompute ? <input type="hidden" name="calc" value="1" /> : null}
             <div className="rounded-2xl border border-orange-200/60 bg-white/80 p-4">
               <label className="text-xs font-semibold text-orange-700" htmlFor="compareA">
                 1. Ay seçimi
@@ -500,13 +670,13 @@ export default async function ReservationStatsPage({
                 <p>
                   Doluluk:{" "}
                   <span className="font-semibold">
-                    {shouldCompute ? formatPercent(compareAOccupancy) : "Hesaplanmadı"}
+                    {shouldCompute ? formatPercent(compareARoomOccupancy) : "Hesaplanmadı"}
                   </span>
                 </p>
                 <p>
-                  Tahmini gelir:{" "}
+                  Net gelir:{" "}
                   <span className="font-semibold">
-                    {shouldCompute ? formatCurrency(compareARevenue) : "Hesaplanmadı"}
+                    {shouldCompute ? formatCurrency(compareARoomNetRevenue) : "Hesaplanmadı"}
                   </span>
                 </p>
               </div>
@@ -532,13 +702,13 @@ export default async function ReservationStatsPage({
                 <p>
                   Doluluk:{" "}
                   <span className="font-semibold">
-                    {shouldCompute ? formatPercent(compareBOccupancy) : "Hesaplanmadı"}
+                    {shouldCompute ? formatPercent(compareBRoomOccupancy) : "Hesaplanmadı"}
                   </span>
                 </p>
                 <p>
-                  Tahmini gelir:{" "}
+                  Net gelir:{" "}
                   <span className="font-semibold">
-                    {shouldCompute ? formatCurrency(compareBRevenue) : "Hesaplanmadı"}
+                    {shouldCompute ? formatCurrency(compareBRoomNetRevenue) : "Hesaplanmadı"}
                   </span>
                 </p>
               </div>
@@ -554,6 +724,8 @@ export default async function ReservationStatsPage({
             </div>
           </form>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
