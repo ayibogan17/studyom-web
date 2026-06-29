@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
   const nextExtras = {
     ...currentExtras,
     monthlyExpenses: currentMonthlyExpenses,
-  };
+  } as Prisma.InputJsonValue;
 
   const saved = await prisma.room.update({
     where: { id: parsed.data.roomId },
