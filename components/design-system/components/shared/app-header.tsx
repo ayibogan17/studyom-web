@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -136,9 +137,20 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
         <div className="flex items-center gap-3">
-          <Link href="/" prefetch={false} className="flex items-center gap-2 text-xl font-semibold tracking-tight text-[var(--color-primary)]">
-            <img src="/logo.svg" alt="Studyom" className="h-3 w-3 shrink-0 object-contain" />
-            Studyom
+          <Link
+            href="/"
+            prefetch={false}
+            className="inline-flex items-center rounded-2xl bg-[#1E1E1E] px-3 py-2 shadow-sm transition hover:opacity-95"
+            aria-label="Studyom ana sayfa"
+          >
+            <Image
+              src="/studyom-logo.png"
+              alt="Studyom"
+              width={2172}
+              height={724}
+              className="h-8 w-auto shrink-0 md:h-9"
+              priority
+            />
           </Link>
         </div>
         <nav className="relative hidden min-w-0 items-center gap-4 text-sm font-medium text-[var(--color-primary)] whitespace-nowrap md:flex md:flex-nowrap">
