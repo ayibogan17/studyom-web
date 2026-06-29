@@ -5,7 +5,7 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isBlockingBlock, normalizeOpeningHours, type OpeningHours } from "@/lib/studio-availability";
 import { buildHappyHourTemplatesByRoom, type HappyHourSlot } from "@/lib/happy-hour";
-import { ExpensesEditor } from "./expenses-editor";
+import { FinancialItemsEditor } from "./financial-items-editor";
 
 export const metadata = {
   title: "Rezervasyon İstatistikleri | Studyom",
@@ -87,12 +87,14 @@ const parsePrice = (value?: string | null) => {
   return Number.isFinite(num) ? num : null;
 };
 
-type ExpenseItem = {
+type FinanceItem = {
   label: string;
   amount: number;
 };
 
-const normalizeExpenseItems = (value: unknown): ExpenseItem[] => {
+const ALL_ROOMS_VALUE = "__all__";
+
+const normalizeFinanceItems = (value: unknown): FinanceItem[] => {
   if (!Array.isArray(value)) return [];
   return value
     .map((item) => {
@@ -110,12 +112,12 @@ const normalizeExpenseItems = (value: unknown): ExpenseItem[] => {
       return {
         label,
         amount: Number.isFinite(amount) ? amount : 0,
-      } satisfies ExpenseItem;
+      } satisfies FinanceItem;
     })
-    .filter((item): item is ExpenseItem => Boolean(item));
+    .filter((item): item is FinanceItem => Boolean(item));
 };
 
-const getExpenseTotal = (items: ExpenseItem[]) =>
+const getFinanceTotal = (items: FinanceItem[]) =>
   items.reduce((sum, item) => sum + (Number.isFinite(item.amount) ? item.amount : 0), 0);
 
 const getTotalOpenMinutes = (openingHours: OpeningHours[], rangeStart: Date, rangeEnd: Date) => {
@@ -247,7 +249,7 @@ export default async function ReservationStatsPage({
   const selectedRoomId =
     typeof resolvedSearchParams?.roomId === "string" && studio.rooms.some((room) => room.id === resolvedSearchParams.roomId)
       ? resolvedSearchParams.roomId
-      : (studio.rooms[0]?.id ?? "");
+      : ALL_ROOMS_VALUE;
   const selectedMonthKey = monthKeyFromDate(parseMonthKey(selectedMonthRaw, now));
   const selectedMonthStart = parseMonthKey(selectedMonthKey, now);
   const selectedMonthEnd = new Date(selectedMonthStart.getFullYear(), selectedMonthStart.getMonth() + 1, 1);
@@ -396,25 +398,44 @@ export default async function ReservationStatsPage({
     };
   });
 
-  const selectedRoom = studio.rooms.find((room) => room.id === selectedRoomId) ?? studio.rooms[0] ?? null;
-  const selectedRoomBlocks = selectedRoom ? blocks.filter((block) => block.roomId === selectedRoom.id) : [];
-  const selectedRoomExtras =
-    selectedRoom?.extrasJson &&
-    typeof selectedRoom.extrasJson === "object" &&
-    !Array.isArray(selectedRoom.extrasJson)
-      ? (selectedRoom.extrasJson as Record<string, unknown>)
+  const financeHolderRoom = studio.rooms[0] ?? null;
+  const isAllRoomsSelected = selectedRoomId === ALL_ROOMS_VALUE;
+  const selectedRoom = isAllRoomsSelected
+    ? null
+    : studio.rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const selectedBlocks = isAllRoomsSelected
+    ? blocks
+    : selectedRoom
+      ? blocks.filter((block) => block.roomId === selectedRoom.id)
+      : [];
+  const financeExtras =
+    financeHolderRoom?.extrasJson &&
+    typeof financeHolderRoom.extrasJson === "object" &&
+    !Array.isArray(financeHolderRoom.extrasJson)
+      ? (financeHolderRoom.extrasJson as Record<string, unknown>)
       : {};
   const monthlyExpensesSource =
-    selectedRoomExtras.monthlyExpenses &&
-    typeof selectedRoomExtras.monthlyExpenses === "object" &&
-    !Array.isArray(selectedRoomExtras.monthlyExpenses)
-      ? (selectedRoomExtras.monthlyExpenses as Record<string, unknown>)
+    financeExtras.monthlyStudioExpenses &&
+    typeof financeExtras.monthlyStudioExpenses === "object" &&
+    !Array.isArray(financeExtras.monthlyStudioExpenses)
+      ? (financeExtras.monthlyStudioExpenses as Record<string, unknown>)
+      : {};
+  const monthlyExtraIncomeSource =
+    financeExtras.monthlyStudioExtraIncome &&
+    typeof financeExtras.monthlyStudioExtraIncome === "object" &&
+    !Array.isArray(financeExtras.monthlyStudioExtraIncome)
+      ? (financeExtras.monthlyStudioExtraIncome as Record<string, unknown>)
       : {};
   const expensesByMonth = new Map(
-    Object.entries(monthlyExpensesSource).map(([monthKey, items]) => [monthKey, normalizeExpenseItems(items)]),
+    Object.entries(monthlyExpensesSource).map(([monthKey, items]) => [monthKey, normalizeFinanceItems(items)]),
   );
-  const selectedRoomExpenses = expensesByMonth.get(selectedMonthKey) ?? [];
-  const selectedRoomExpenseTotal = getExpenseTotal(selectedRoomExpenses);
+  const extraIncomeByMonth = new Map(
+    Object.entries(monthlyExtraIncomeSource).map(([monthKey, items]) => [monthKey, normalizeFinanceItems(items)]),
+  );
+  const selectedMonthExpenses = expensesByMonth.get(selectedMonthKey) ?? [];
+  const selectedMonthExtraIncome = extraIncomeByMonth.get(selectedMonthKey) ?? [];
+  const selectedMonthExpenseTotal = getFinanceTotal(selectedMonthExpenses);
+  const selectedMonthExtraIncomeTotal = getFinanceTotal(selectedMonthExtraIncome);
   const selectedRoomPrice = selectedRoom
     ? parsePrice(selectedRoom.hourlyRate) ??
       parsePrice(selectedRoom.flatRate) ??
@@ -422,39 +443,44 @@ export default async function ReservationStatsPage({
       parsePrice(selectedRoom.dailyRate) ??
       0
     : 0;
-  const selectedRoomMonthOpen = shouldCompute ? getTotalOpenMinutes(openingHours, selectedMonthStart, selectedMonthEnd) : 0;
+  const selectedRoomMonthOpen = shouldCompute
+    ? getTotalOpenMinutes(openingHours, selectedMonthStart, selectedMonthEnd) * (isAllRoomsSelected ? studio.rooms.length : 1)
+    : 0;
   const selectedRoomMonthOccupied =
-    shouldCompute && selectedRoom
-      ? getOccupiedMinutes(selectedRoomBlocks, openingHours, dayCutoffHour, selectedMonthStart, selectedMonthEnd)
+    shouldCompute
+      ? getOccupiedMinutes(selectedBlocks, openingHours, dayCutoffHour, selectedMonthStart, selectedMonthEnd)
       : 0;
   const selectedRoomMonthOccupancy =
     selectedRoomMonthOpen === 0 ? 0 : Math.round((selectedRoomMonthOccupied / selectedRoomMonthOpen) * 1000) / 10;
   const selectedRoomMonthRevenue =
-    shouldCompute && selectedRoom
-      ? selectedRoomBlocks.reduce((sum, block) => sum + getBlockRevenue(block, selectedMonthStart, selectedMonthEnd), 0)
+    shouldCompute
+      ? selectedBlocks.reduce((sum, block) => sum + getBlockRevenue(block, selectedMonthStart, selectedMonthEnd), 0)
       : 0;
-  const selectedRoomMonthNetRevenue = selectedRoomMonthRevenue - selectedRoomExpenseTotal;
+  const selectedRoomMonthNetRevenue =
+    selectedRoomMonthRevenue - selectedMonthExpenseTotal + selectedMonthExtraIncomeTotal;
 
   const compareRoomOccupancy = (rangeStart: Date, rangeEnd: Date) => {
-    if (!selectedRoom || !shouldCompute) return 0;
-    const totalOpenMinutes = getTotalOpenMinutes(openingHours, rangeStart, rangeEnd);
-    const occupiedMinutes = getOccupiedMinutes(selectedRoomBlocks, openingHours, dayCutoffHour, rangeStart, rangeEnd);
+    if (!shouldCompute) return 0;
+    const totalOpenMinutes = getTotalOpenMinutes(openingHours, rangeStart, rangeEnd) * (isAllRoomsSelected ? studio.rooms.length : 1);
+    const occupiedMinutes = getOccupiedMinutes(selectedBlocks, openingHours, dayCutoffHour, rangeStart, rangeEnd);
     return totalOpenMinutes === 0 ? 0 : Math.round((occupiedMinutes / totalOpenMinutes) * 1000) / 10;
   };
 
   const compareRoomRevenue = (rangeStart: Date, rangeEnd: Date) => {
-    if (!selectedRoom || !shouldCompute) return 0;
-    return selectedRoomBlocks.reduce((sum, block) => sum + getBlockRevenue(block, rangeStart, rangeEnd), 0);
+    if (!shouldCompute) return 0;
+    return selectedBlocks.reduce((sum, block) => sum + getBlockRevenue(block, rangeStart, rangeEnd), 0);
   };
 
-  const compareAExpenseTotal = getExpenseTotal(expensesByMonth.get(compareAKey) ?? []);
-  const compareBExpenseTotal = getExpenseTotal(expensesByMonth.get(compareBKey) ?? []);
+  const compareAExpenseTotal = getFinanceTotal(expensesByMonth.get(compareAKey) ?? []);
+  const compareBExpenseTotal = getFinanceTotal(expensesByMonth.get(compareBKey) ?? []);
+  const compareAExtraIncomeTotal = getFinanceTotal(extraIncomeByMonth.get(compareAKey) ?? []);
+  const compareBExtraIncomeTotal = getFinanceTotal(extraIncomeByMonth.get(compareBKey) ?? []);
   const compareARoomOccupancy = compareRoomOccupancy(compareAStart, compareAEnd);
   const compareBRoomOccupancy = compareRoomOccupancy(compareBStart, compareBEnd);
   const compareARoomRevenue = compareRoomRevenue(compareAStart, compareAEnd);
   const compareBRoomRevenue = compareRoomRevenue(compareBStart, compareBEnd);
-  const compareARoomNetRevenue = compareARoomRevenue - compareAExpenseTotal;
-  const compareBRoomNetRevenue = compareBRoomRevenue - compareBExpenseTotal;
+  const compareARoomNetRevenue = compareARoomRevenue - compareAExpenseTotal + compareAExtraIncomeTotal;
+  const compareBRoomNetRevenue = compareBRoomRevenue - compareBExpenseTotal + compareBExtraIncomeTotal;
 
   return (
     <div className="bg-gradient-to-b from-white via-orange-50/60 to-white">
@@ -522,12 +548,16 @@ export default async function ReservationStatsPage({
                 Oda bazlı aylık istatistik
               </p>
               <p className="text-sm text-orange-700">
-                Her oda için aylık gelir ve doluluk oranını dropdown ile inceleyebilirsin.
+                Her oda için ya da tüm odalar toplamı için aylık gelir ve doluluk oranını dropdown ile inceleyebilirsin.
               </p>
             </div>
             {selectedRoom ? (
               <span className="rounded-full border border-orange-200 px-3 py-1 text-xs font-semibold text-orange-700">
                 {selectedRoomPrice ? `${selectedRoomPrice}₺/saat` : "Fiyat yok"}
+              </span>
+            ) : isAllRoomsSelected ? (
+              <span className="rounded-full border border-orange-200 px-3 py-1 text-xs font-semibold text-orange-700">
+                Tüm odalar toplamı
               </span>
             ) : null}
           </div>
@@ -547,6 +577,7 @@ export default async function ReservationStatsPage({
                 defaultValue={selectedRoomId}
                 className="mt-2 h-11 w-full rounded-xl border border-orange-200 bg-white px-3 text-sm font-semibold text-orange-950 focus:border-orange-400 focus:outline-none"
               >
+                <option value={ALL_ROOMS_VALUE}>Tüm odalar</option>
                 {studio.rooms.map((room) => (
                   <option key={room.id} value={room.id}>
                     {room.name}
@@ -581,7 +612,7 @@ export default async function ReservationStatsPage({
             </div>
           </form>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="mt-4 grid gap-3 lg:grid-cols-5">
             <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
               <p className="text-xs font-semibold text-orange-700">Seçili ay doluluk</p>
               <p className="mt-1 text-lg font-semibold text-orange-950">
@@ -597,7 +628,13 @@ export default async function ReservationStatsPage({
             <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
               <p className="text-xs font-semibold text-orange-700">Giderler</p>
               <p className="mt-1 text-lg font-semibold text-orange-950">
-                {formatCurrency(selectedRoomExpenseTotal)}
+                {formatCurrency(selectedMonthExpenseTotal)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-orange-200/60 bg-orange-50/80 p-3">
+              <p className="text-xs font-semibold text-orange-700">Ek gelirler</p>
+              <p className="mt-1 text-lg font-semibold text-orange-950">
+                {formatCurrency(selectedMonthExtraIncomeTotal)}
               </p>
             </div>
             <div className="rounded-xl border border-orange-200/60 bg-white p-3">
@@ -610,18 +647,39 @@ export default async function ReservationStatsPage({
         </div>
 
         <div className="mt-6">
-          <ExpensesEditor
-            key={`${selectedRoomId}-${selectedMonthKey}`}
-            roomId={selectedRoomId}
-            roomName={selectedRoom?.name ?? "Oda"}
+          <FinancialItemsEditor
+            key={`expenses-${selectedMonthKey}-${selectedRoomId}`}
+            type="expenses"
+            title="Giderler"
+            totalLabel="Toplam gider"
+            itemPlaceholder="Örn: kira"
             monthKey={selectedMonthKey}
             monthLabel={formatMonthLabel(selectedMonthStart)}
-            roomOptions={studio.rooms.map((room) => ({ id: room.id, name: room.name }))}
             monthOptions={monthOptions}
-            initialItems={selectedRoomExpenses}
+            initialItems={selectedMonthExpenses}
             searchAs={resolvedSearchParams?.as}
             compareAKey={compareAKey}
             compareBKey={compareBKey}
+            selectedRoomId={selectedRoomId}
+            shouldCompute={shouldCompute}
+          />
+        </div>
+
+        <div className="mt-4">
+          <FinancialItemsEditor
+            key={`extra-income-${selectedMonthKey}-${selectedRoomId}`}
+            type="extraIncome"
+            title="Ek gelirler"
+            totalLabel="Toplam ek gelir"
+            itemPlaceholder="Örn: sponsorluk"
+            monthKey={selectedMonthKey}
+            monthLabel={formatMonthLabel(selectedMonthStart)}
+            monthOptions={monthOptions}
+            initialItems={selectedMonthExtraIncome}
+            searchAs={resolvedSearchParams?.as}
+            compareAKey={compareAKey}
+            compareBKey={compareBKey}
+            selectedRoomId={selectedRoomId}
             shouldCompute={shouldCompute}
           />
         </div>
@@ -633,7 +691,7 @@ export default async function ReservationStatsPage({
                 İstatistikleri Karşılaştır
               </p>
               <p className="text-sm text-orange-700">
-                {selectedRoom ? `${selectedRoom.name} için` : "Seçili oda için"} iki ay seçerek doluluk ve net geliri karşılaştırabilirsin.
+                {(selectedRoom ? `${selectedRoom.name} için` : "Tüm odalar için")} iki ay seçerek doluluk ve net geliri karşılaştırabilirsin.
               </p>
             </div>
             <span className="text-xs font-semibold text-orange-600">

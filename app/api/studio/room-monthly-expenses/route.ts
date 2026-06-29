@@ -6,8 +6,8 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
-  roomId: z.string().min(1),
   monthKey: z.string().regex(/^\d{4}-\d{2}$/),
+  type: z.enum(["expenses", "extraIncome"]),
   items: z
     .array(
       z.object({
@@ -39,18 +39,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
   }
 
-  const room = await prisma.room.findFirst({
+  const studio = await prisma.studio.findFirst({
     where: {
-      id: parsed.data.roomId,
-      studio: {
-        ownerEmail: { equals: email, mode: "insensitive" },
+      ownerEmail: { equals: email, mode: "insensitive" },
+    },
+    select: {
+      id: true,
+      rooms: {
+        orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { id: true, extrasJson: true },
       },
     },
-    select: { id: true, extrasJson: true },
   });
 
+  const room = studio?.rooms[0] ?? null;
+
   if (!room) {
-    return NextResponse.json({ error: "Oda bulunamadı" }, { status: 404 });
+    return NextResponse.json({ error: "Önce en az bir oda eklemelisiniz." }, { status: 404 });
   }
 
   const items = parsed.data.items
@@ -65,10 +71,16 @@ export async function POST(req: Request) {
       ? (room.extrasJson as Record<string, unknown>)
       : {};
   const currentMonthlyExpenses =
-    currentExtras.monthlyExpenses &&
-    typeof currentExtras.monthlyExpenses === "object" &&
-    !Array.isArray(currentExtras.monthlyExpenses)
-      ? ({ ...(currentExtras.monthlyExpenses as Record<string, unknown>) } as Record<string, unknown>)
+    parsed.data.type === "expenses" &&
+    currentExtras.monthlyStudioExpenses &&
+    typeof currentExtras.monthlyStudioExpenses === "object" &&
+    !Array.isArray(currentExtras.monthlyStudioExpenses)
+      ? ({ ...(currentExtras.monthlyStudioExpenses as Record<string, unknown>) } as Record<string, unknown>)
+      : parsed.data.type === "extraIncome" &&
+          currentExtras.monthlyStudioExtraIncome &&
+          typeof currentExtras.monthlyStudioExtraIncome === "object" &&
+          !Array.isArray(currentExtras.monthlyStudioExtraIncome)
+        ? ({ ...(currentExtras.monthlyStudioExtraIncome as Record<string, unknown>) } as Record<string, unknown>)
       : {};
 
   if (items.length === 0) {
@@ -79,11 +91,13 @@ export async function POST(req: Request) {
 
   const nextExtras = {
     ...currentExtras,
-    monthlyExpenses: currentMonthlyExpenses,
+    ...(parsed.data.type === "expenses"
+      ? { monthlyStudioExpenses: currentMonthlyExpenses }
+      : { monthlyStudioExtraIncome: currentMonthlyExpenses }),
   } as Prisma.InputJsonValue;
 
   const saved = await prisma.room.update({
-    where: { id: parsed.data.roomId },
+    where: { id: room.id },
     data: {
       extrasJson: nextExtras,
     },
@@ -97,10 +111,16 @@ export async function POST(req: Request) {
       ? (saved.extrasJson as Record<string, unknown>)
       : {};
   const savedMonthlyExpenses =
-    savedExtras.monthlyExpenses &&
-    typeof savedExtras.monthlyExpenses === "object" &&
-    !Array.isArray(savedExtras.monthlyExpenses)
-      ? (savedExtras.monthlyExpenses as Record<string, unknown>)
+    parsed.data.type === "expenses" &&
+    savedExtras.monthlyStudioExpenses &&
+    typeof savedExtras.monthlyStudioExpenses === "object" &&
+    !Array.isArray(savedExtras.monthlyStudioExpenses)
+      ? (savedExtras.monthlyStudioExpenses as Record<string, unknown>)
+      : parsed.data.type === "extraIncome" &&
+          savedExtras.monthlyStudioExtraIncome &&
+          typeof savedExtras.monthlyStudioExtraIncome === "object" &&
+          !Array.isArray(savedExtras.monthlyStudioExtraIncome)
+        ? (savedExtras.monthlyStudioExtraIncome as Record<string, unknown>)
       : {};
 
   return NextResponse.json({
