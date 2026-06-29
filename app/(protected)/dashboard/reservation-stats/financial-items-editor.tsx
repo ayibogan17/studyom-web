@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type FinanceItem = {
   label: string;
@@ -24,14 +24,9 @@ type Props = {
   totalLabel: string;
   itemPlaceholder: string;
   monthKey: string;
-  monthLabel: string;
   monthOptions: MonthOption[];
   initialItems: FinanceItem[];
-  searchAs?: string;
-  compareAKey: string;
-  compareBKey: string;
-  selectedRoomId: string;
-  shouldCompute: boolean;
+  refreshMonthKey: string;
 };
 
 const createEmptyRows = (): EditableFinanceItem[] => [
@@ -60,46 +55,68 @@ export function FinancialItemsEditor({
   totalLabel,
   itemPlaceholder,
   monthKey,
-  monthLabel,
   monthOptions,
   initialItems,
-  searchAs,
-  compareAKey,
-  compareBKey,
-  selectedRoomId,
-  shouldCompute,
+  refreshMonthKey,
 }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [activeMonthKey, setActiveMonthKey] = useState(monthKey);
   const [items, setItems] = useState<EditableFinanceItem[]>(
     initialItems.length > 0 ? toEditableRows(initialItems) : createEmptyRows(),
   );
   const [status, setStatus] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingMonth, setIsLoadingMonth] = useState(false);
+
+  useEffect(() => {
+    setActiveMonthKey(monthKey);
+    setItems(initialItems.length > 0 ? toEditableRows(initialItems) : createEmptyRows());
+    setStatus(null);
+  }, [initialItems, monthKey]);
 
   const total = useMemo(
     () => items.reduce((sum, item) => sum + parseAmount(item.amount), 0),
     [items],
   );
 
-  const navigateWithMonth = (nextMonthKey: string) => {
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.set("month", nextMonthKey);
-    params.set("roomId", selectedRoomId);
-    params.set("compareA", compareAKey);
-    params.set("compareB", compareBKey);
-    if (searchAs) params.set("as", searchAs);
-    if (shouldCompute) params.set("calc", "1");
-    router.push(`${pathname}?${params.toString()}`);
+  const activeMonthLabel =
+    monthOptions.find((option) => option.key === activeMonthKey)?.label ?? activeMonthKey;
+
+  const loadMonth = async (nextMonthKey: string) => {
+    setActiveMonthKey(nextMonthKey);
+    setStatus(null);
+    setIsLoadingMonth(true);
+    try {
+      const params = new URLSearchParams({
+        type,
+        monthKey: nextMonthKey,
+      });
+      const res = await fetch(`/api/studio/room-monthly-expenses?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        items?: FinanceItem[];
+      };
+      if (!res.ok) {
+        setStatus(json.error || `${title} yüklenemedi.`);
+        setItems(createEmptyRows());
+        return;
+      }
+      setItems(json.items && json.items.length > 0 ? toEditableRows(json.items) : createEmptyRows());
+    } finally {
+      setIsLoadingMonth(false);
+    }
   };
 
-  const saveItems = () => {
+  const saveItems = async () => {
     setStatus(null);
-    startTransition(async () => {
+    setIsSaving(true);
+    try {
       const payload = {
         type,
-        monthKey,
+        monthKey: activeMonthKey,
         items: items.map((item) => ({
           label: item.label,
           amount: parseAmount(item.amount),
@@ -120,16 +137,20 @@ export function FinancialItemsEditor({
       }
       setItems(json.items && json.items.length > 0 ? toEditableRows(json.items) : createEmptyRows());
       setStatus(`${title} kaydedildi.`);
-      router.refresh();
-    });
+      if (activeMonthKey === refreshMonthKey) {
+        router.refresh();
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <details className="rounded-2xl border border-orange-200/60 bg-orange-50/80" open>
+    <details className="rounded-2xl border border-orange-200/60 bg-orange-50/80">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">{title}</p>
-          <p className="text-sm text-orange-700">{monthLabel}</p>
+          <p className="text-sm text-orange-700">{activeMonthLabel}</p>
         </div>
         <div className="text-right">
           <p className="text-xs font-semibold text-orange-700">{totalLabel}</p>
@@ -146,8 +167,8 @@ export function FinancialItemsEditor({
           </label>
           <select
             id={`${type}-month`}
-            value={monthKey}
-            onChange={(event) => navigateWithMonth(event.target.value)}
+            value={activeMonthKey}
+            onChange={(event) => void loadMonth(event.target.value)}
             className="mt-2 h-11 w-full rounded-xl border border-orange-200 bg-white px-3 text-sm font-semibold text-orange-950 focus:border-orange-400 focus:outline-none"
           >
             {monthOptions.map((option) => (
@@ -168,8 +189,8 @@ export function FinancialItemsEditor({
                     prev.map((row, rowIndex) =>
                       rowIndex === index ? { ...row, label: event.target.value } : row,
                     ),
-                )
-              }
+                  )
+                }
                 placeholder={itemPlaceholder}
                 className="h-11 rounded-xl border border-orange-200 bg-white px-3 text-sm text-orange-950 placeholder:text-orange-300 focus:border-orange-400 focus:outline-none"
               />
@@ -218,11 +239,11 @@ export function FinancialItemsEditor({
             {status ? <p className="text-sm text-orange-700">{status}</p> : null}
             <button
               type="button"
-              onClick={saveItems}
-              disabled={isPending}
+              onClick={() => void saveItems()}
+              disabled={isSaving || isLoadingMonth}
               className="inline-flex h-10 items-center justify-center rounded-xl bg-orange-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isPending ? "Kaydediliyor..." : "Kaydet"}
+              {isLoadingMonth ? "Yükleniyor..." : isSaving ? "Kaydediliyor..." : "Kaydet"}
             </button>
           </div>
         </div>

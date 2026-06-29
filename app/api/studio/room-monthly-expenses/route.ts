@@ -18,6 +18,11 @@ const bodySchema = z.object({
     .max(100),
 });
 
+const querySchema = z.object({
+  monthKey: z.string().regex(/^\d{4}-\d{2}$/),
+  type: z.enum(["expenses", "extraIncome"]),
+});
+
 const parseAmount = (value: number | string | null | undefined) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value !== "string") return 0;
@@ -26,19 +31,7 @@ const parseAmount = (value: number | string | null | undefined) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email?.toLowerCase();
-  if (!email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const rawBody = await req.json().catch(() => null);
-  const parsed = bodySchema.safeParse(rawBody);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
-  }
-
+const getFinanceHolderRoom = async (email: string) => {
   const studio = await prisma.studio.findFirst({
     where: {
       ownerEmail: { equals: email, mode: "insensitive" },
@@ -53,8 +46,71 @@ export async function POST(req: Request) {
     },
   });
 
-  const room = studio?.rooms[0] ?? null;
+  return studio?.rooms[0] ?? null;
+};
 
+const getSavedItems = (extrasJson: unknown, type: "expenses" | "extraIncome", monthKey: string) => {
+  const extras =
+    extrasJson && typeof extrasJson === "object" && !Array.isArray(extrasJson)
+      ? (extrasJson as Record<string, unknown>)
+      : {};
+  const monthlyFinanceSource =
+    type === "expenses" &&
+    extras.monthlyStudioExpenses &&
+    typeof extras.monthlyStudioExpenses === "object" &&
+    !Array.isArray(extras.monthlyStudioExpenses)
+      ? (extras.monthlyStudioExpenses as Record<string, unknown>)
+      : type === "extraIncome" &&
+          extras.monthlyStudioExtraIncome &&
+          typeof extras.monthlyStudioExtraIncome === "object" &&
+          !Array.isArray(extras.monthlyStudioExtraIncome)
+        ? (extras.monthlyStudioExtraIncome as Record<string, unknown>)
+      : {};
+
+  return Array.isArray(monthlyFinanceSource[monthKey]) ? (monthlyFinanceSource[monthKey] as unknown[]) : [];
+};
+
+export async function GET(req: Request) {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email?.toLowerCase();
+  if (!email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(req.url);
+  const parsed = querySchema.safeParse({
+    monthKey: url.searchParams.get("monthKey"),
+    type: url.searchParams.get("type"),
+  });
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
+  }
+
+  const room = await getFinanceHolderRoom(email);
+  if (!room) {
+    return NextResponse.json({ error: "Önce en az bir oda eklemelisiniz." }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    items: getSavedItems(room.extrasJson, parsed.data.type, parsed.data.monthKey),
+  });
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email?.toLowerCase();
+  if (!email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rawBody = await req.json().catch(() => null);
+  const parsed = bodySchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
+  }
+
+  const room = await getFinanceHolderRoom(email);
   if (!room) {
     return NextResponse.json({ error: "Önce en az bir oda eklemelisiniz." }, { status: 404 });
   }
@@ -106,27 +162,8 @@ export async function POST(req: Request) {
     },
   });
 
-  const savedExtras =
-    saved.extrasJson && typeof saved.extrasJson === "object" && !Array.isArray(saved.extrasJson)
-      ? (saved.extrasJson as Record<string, unknown>)
-      : {};
-  const savedMonthlyExpenses =
-    parsed.data.type === "expenses" &&
-    savedExtras.monthlyStudioExpenses &&
-    typeof savedExtras.monthlyStudioExpenses === "object" &&
-    !Array.isArray(savedExtras.monthlyStudioExpenses)
-      ? (savedExtras.monthlyStudioExpenses as Record<string, unknown>)
-      : parsed.data.type === "extraIncome" &&
-          savedExtras.monthlyStudioExtraIncome &&
-          typeof savedExtras.monthlyStudioExtraIncome === "object" &&
-          !Array.isArray(savedExtras.monthlyStudioExtraIncome)
-        ? (savedExtras.monthlyStudioExtraIncome as Record<string, unknown>)
-      : {};
-
   return NextResponse.json({
     ok: true,
-    items: Array.isArray(savedMonthlyExpenses[parsed.data.monthKey])
-      ? (savedMonthlyExpenses[parsed.data.monthKey] as unknown[])
-      : [],
+    items: getSavedItems(saved.extrasJson, parsed.data.type, parsed.data.monthKey),
   });
 }

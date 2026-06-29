@@ -547,9 +547,6 @@ export default async function ReservationStatsPage({
               <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
                 Oda bazlı aylık istatistik
               </p>
-              <p className="text-sm text-orange-700">
-                Her oda için ya da tüm odalar toplamı için aylık gelir ve doluluk oranını dropdown ile inceleyebilirsin.
-              </p>
             </div>
             {selectedRoom ? (
               <span className="rounded-full border border-orange-200 px-3 py-1 text-xs font-semibold text-orange-700">
@@ -654,14 +651,9 @@ export default async function ReservationStatsPage({
             totalLabel="Toplam gider"
             itemPlaceholder="Örn: kira"
             monthKey={selectedMonthKey}
-            monthLabel={formatMonthLabel(selectedMonthStart)}
             monthOptions={monthOptions}
             initialItems={selectedMonthExpenses}
-            searchAs={resolvedSearchParams?.as}
-            compareAKey={compareAKey}
-            compareBKey={compareBKey}
-            selectedRoomId={selectedRoomId}
-            shouldCompute={shouldCompute}
+            refreshMonthKey={selectedMonthKey}
           />
         </div>
 
@@ -673,25 +665,20 @@ export default async function ReservationStatsPage({
             totalLabel="Toplam ek gelir"
             itemPlaceholder="Örn: sponsorluk"
             monthKey={selectedMonthKey}
-            monthLabel={formatMonthLabel(selectedMonthStart)}
             monthOptions={monthOptions}
             initialItems={selectedMonthExtraIncome}
-            searchAs={resolvedSearchParams?.as}
-            compareAKey={compareAKey}
-            compareBKey={compareBKey}
-            selectedRoomId={selectedRoomId}
-            shouldCompute={shouldCompute}
+            refreshMonthKey={selectedMonthKey}
           />
         </div>
 
-        <div className="mt-8 rounded-2xl border border-orange-200/60 bg-orange-50/80 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <details className="mt-8 rounded-2xl border border-orange-200/60 bg-orange-50/80">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-5">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">
                 İstatistikleri Karşılaştır
               </p>
               <p className="text-sm text-orange-700">
-                {(selectedRoom ? `${selectedRoom.name} için` : "Tüm odalar için")} iki ay seçerek doluluk ve net geliri karşılaştırabilirsin.
+                {selectedRoom ? selectedRoom.name : "Tüm odalar"}
               </p>
             </div>
             <span className="text-xs font-semibold text-orange-600">
@@ -699,9 +686,9 @@ export default async function ReservationStatsPage({
                 ? `${formatPercent(compareARoomOccupancy)} · ${formatPercent(compareBRoomOccupancy)}`
                 : "Hesaplanmadı"}
             </span>
-          </div>
+          </summary>
 
-          <form className="mt-4 grid gap-4 md:grid-cols-2" method="get">
+          <form className="grid gap-4 border-t border-orange-200/60 px-6 pb-6 pt-5 md:grid-cols-2" method="get">
             {resolvedSearchParams?.as ? (
               <input type="hidden" name="as" value={resolvedSearchParams.as} />
             ) : null}
@@ -781,7 +768,7 @@ export default async function ReservationStatsPage({
               </button>
             </div>
           </form>
-        </div>
+        </details>
         </>
         )}
       </div>
