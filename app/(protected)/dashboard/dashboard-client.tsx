@@ -2545,37 +2545,6 @@ export function DashboardClient({
     }
   };
 
-  const loadCalendarSummary = useCallback(async () => {
-    if (!studio) return;
-    setSummaryLoading(true);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
-    try {
-      const res = await fetch("/api/studio/reservation-stats-cache", {
-        cache: "no-store",
-        signal: controller.signal,
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(json.error || "Özet alınamadı");
-      }
-      const data = (json.summary ?? null) as {
-        weekOccupancy: number;
-        monthOccupancy: number;
-        monthRevenue: number;
-      } | null;
-      setCalendarSummary(data);
-    } catch (err) {
-      console.error(err);
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setStatus("Özet zamanında alınamadı");
-      }
-    } finally {
-      clearTimeout(timeout);
-      setSummaryLoading(false);
-    }
-  }, [studio]);
-
   const computeReservationStatsCache = useCallback(async () => {
     if (!studio || summaryLoading) return;
     setSummaryLoading(true);
@@ -2609,12 +2578,6 @@ export function DashboardClient({
       setSummaryLoading(false);
     }
   }, [studio, summaryLoading]);
-
-  useEffect(() => {
-    if (activeTab !== "panel") return;
-    if (summaryLoading || calendarSummary) return;
-    loadCalendarSummary();
-  }, [activeTab, calendarSummary, loadCalendarSummary, summaryLoading]);
 
   const buildRoomsPayload = (rooms: Room[]) =>
     rooms.map((r) => ({
