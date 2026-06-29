@@ -298,7 +298,7 @@ export function AppHeader() {
           <Link
             href="/uretim"
             prefetch={false}
-            className="rounded-xl px-3 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-secondary)]"
+            className="rounded-xl px-3 py-2 text-center text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-secondary)]"
             onClick={() => setOpen(false)}
           >
             Üretim
@@ -308,7 +308,7 @@ export function AppHeader() {
               key={`${link.href}-${link.label}`}
               href={link.href}
               prefetch={false}
-              className="rounded-xl px-3 py-2 hover:bg-[var(--color-secondary)]"
+              className="rounded-xl px-3 py-2 text-center hover:bg-[var(--color-secondary)]"
               onClick={() => setOpen(false)}
             >
               {link.label}

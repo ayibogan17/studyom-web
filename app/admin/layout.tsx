@@ -50,7 +50,34 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen bg-[var(--color-secondary)] text-[var(--color-primary)]">
-      <div className="mx-auto flex max-w-7xl gap-6 px-6 py-8">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 md:flex-row md:px-6 md:py-8">
+        <Card className="space-y-4 p-4 md:hidden">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-muted)]">Admin</p>
+            <p className="text-sm font-semibold break-all">{admin.email}</p>
+          </div>
+          <div className="h-px w-full bg-[var(--color-border)]" />
+          <nav className="space-y-4 text-sm">
+            {navSections.map((section) => (
+              <div key={section.title} className="space-y-2">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--color-muted)]">
+                  {section.title}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {section.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="rounded-xl border border-[var(--color-border)] px-3 py-2 transition hover:bg-[var(--color-secondary)]"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </Card>
         <Card className="hidden w-56 flex-shrink-0 space-y-4 p-4 md:block">
           <div className="space-y-1">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--color-muted)]">Admin</p>
