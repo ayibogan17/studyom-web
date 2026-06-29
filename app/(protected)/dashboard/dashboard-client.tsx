@@ -2548,8 +2548,13 @@ export function DashboardClient({
   const loadCalendarSummary = useCallback(async () => {
     if (!studio) return;
     setSummaryLoading(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-      const res = await fetch("/api/studio/reservation-stats-cache", { cache: "no-store" });
+      const res = await fetch("/api/studio/reservation-stats-cache", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(json.error || "Özet alınamadı");
@@ -2562,7 +2567,11 @@ export function DashboardClient({
       setCalendarSummary(data);
     } catch (err) {
       console.error(err);
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setStatus("Özet zamanında alınamadı");
+      }
     } finally {
+      clearTimeout(timeout);
       setSummaryLoading(false);
     }
   }, [studio]);
@@ -2570,10 +2579,13 @@ export function DashboardClient({
   const computeReservationStatsCache = useCallback(async () => {
     if (!studio || summaryLoading) return;
     setSummaryLoading(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
     try {
       const res = await fetch("/api/studio/reservation-stats-cache", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -2587,8 +2599,13 @@ export function DashboardClient({
       setCalendarSummary(data);
     } catch (err) {
       console.error(err);
-      setStatus("İstatistikler hesaplanamadı");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setStatus("İstatistik hesaplama zaman aşımına uğradı");
+      } else {
+        setStatus("İstatistikler hesaplanamadı");
+      }
     } finally {
+      clearTimeout(timeout);
       setSummaryLoading(false);
     }
   }, [studio, summaryLoading]);
@@ -2920,7 +2937,7 @@ export function DashboardClient({
                       approvalInfoOpen ? "opacity-100" : ""
                     }`}
                   >
-                    Talep otomatik onaylanır olarak seçtiğinizde, müzisyenler Studyom üzerinden sizinle hiç iletişime geçmeden bir odanızın bir saatini kapatabilirler. Whatsapp ve Mail üzerinden bilgilendirilirsiniz.
+                    Talep otomatik onaylanır olarak seçtiğinizde, müzisyenler Studyom üzerinden sizinle hiç iletişime geçmeden bir odanızın bir saatini kapatabilirler. Mail üzerinden bilgilendirilirsiniz.
                   </div>
                 </div>
               </div>

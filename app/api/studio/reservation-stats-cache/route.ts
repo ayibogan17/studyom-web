@@ -13,6 +13,14 @@ type CachedRoomStats = {
   revenue: number;
 };
 
+type CalendarBlock = {
+  roomId: string;
+  startAt: Date;
+  endAt: Date;
+  type: string | null;
+  status: string | null;
+};
+
 type ReservationStatsCache = {
   generatedAt: string;
   summary: {
@@ -102,32 +110,30 @@ const getTotalOpenMinutes = (openingHours: OpeningHours[], rangeStart: Date, ran
   return minutes;
 };
 
-const getOccupiedMinutes = (
-  blocks: { startAt: Date; endAt: Date; type: string | null; status: string | null }[],
+const getOccupiedMinutesForBlock = (
+  block: { startAt: Date; endAt: Date; type: string | null; status: string | null },
   openingHours: OpeningHours[],
   cutoffHour: number,
   rangeStart: Date,
   rangeEnd: Date,
 ) => {
+  if (!isBlockingBlock(block)) return 0;
   const rangeStartMs = rangeStart.getTime();
   const rangeEndMs = rangeEnd.getTime();
-  return blocks.reduce((acc, block) => {
-    if (!isBlockingBlock(block)) return acc;
-    const start = new Date(block.startAt);
-    const end = new Date(block.endAt);
-    const clampedStart = Math.max(start.getTime(), rangeStartMs);
-    const clampedEnd = Math.min(end.getTime(), rangeEndMs);
-    if (clampedEnd <= clampedStart) return acc;
-    const businessStart = getBusinessDayStart(new Date(clampedStart), cutoffHour);
-    const openRange = getOpenRangeForDay(businessStart, openingHours);
-    if (!openRange) return acc;
-    const openStartMs = businessStart.getTime() + openRange.start * 60000;
-    const openEndMs = businessStart.getTime() + openRange.end * 60000;
-    const finalStart = Math.max(clampedStart, openStartMs);
-    const finalEnd = Math.min(clampedEnd, openEndMs);
-    if (finalEnd <= finalStart) return acc;
-    return acc + (finalEnd - finalStart) / 60000;
-  }, 0);
+  const start = new Date(block.startAt);
+  const end = new Date(block.endAt);
+  const clampedStart = Math.max(start.getTime(), rangeStartMs);
+  const clampedEnd = Math.min(end.getTime(), rangeEndMs);
+  if (clampedEnd <= clampedStart) return 0;
+  const businessStart = getBusinessDayStart(new Date(clampedStart), cutoffHour);
+  const openRange = getOpenRangeForDay(businessStart, openingHours);
+  if (!openRange) return 0;
+  const openStartMs = businessStart.getTime() + openRange.start * 60000;
+  const openEndMs = businessStart.getTime() + openRange.end * 60000;
+  const finalStart = Math.max(clampedStart, openStartMs);
+  const finalEnd = Math.min(clampedEnd, openEndMs);
+  if (finalEnd <= finalStart) return 0;
+  return (finalEnd - finalStart) / 60000;
 };
 
 const buildMonthOptions = (now: Date) =>
@@ -182,14 +188,14 @@ async function computeCache(studio: NonNullable<Awaited<ReturnType<typeof loadSt
   const dayCutoffHour = studio.calendarSettings?.dayCutoffHour ?? 4;
   const roomCount = studio.rooms.length || 1;
 
-  const blocks = await prisma.studioCalendarBlock.findMany({
+  const blocks = (await prisma.studioCalendarBlock.findMany({
     where: {
       studioId: studio.id,
       startAt: { lt: rangeEnd },
       endAt: { gt: rangeStart },
     },
     select: { roomId: true, startAt: true, endAt: true, type: true, status: true },
-  });
+  })) as CalendarBlock[];
 
   const roomPriceById = new Map(
     studio.rooms.map((room) => {
@@ -263,46 +269,111 @@ async function computeCache(studio: NonNullable<Awaited<ReturnType<typeof loadSt
     return (happyMinutes / 60) * happyHourly + (normalMinutes / 60) * hourly;
   };
 
-  const blocksByRoom = new Map<string, typeof blocks>();
-  studio.rooms.forEach((room) => {
-    blocksByRoom.set(room.id, blocks.filter((block) => block.roomId === room.id));
-  });
-
   const weekOpenMinutes = getTotalOpenMinutes(openingHours, weekStart, weekEnd) * roomCount;
   const monthOpenMinutes = getTotalOpenMinutes(openingHours, monthStart, monthEnd) * roomCount;
-  const weekOccupiedMinutes = getOccupiedMinutes(blocks, openingHours, dayCutoffHour, weekStart, weekEnd);
-  const monthOccupiedMinutes = getOccupiedMinutes(blocks, openingHours, dayCutoffHour, monthStart, monthEnd);
+  const monthMeta = monthOptions.map((option) => {
+    const end = new Date(option.start.getFullYear(), option.start.getMonth() + 1, 1);
+    return {
+      key: option.key,
+      start: option.start,
+      end,
+      openMinutesPerRoom: getTotalOpenMinutes(openingHours, option.start, end),
+    };
+  });
+  const monthMetaByKey = new Map(monthMeta.map((item) => [item.key, item] as const));
+  const monthlyRoomTotals: Record<string, Record<string, { occupiedMinutes: number; revenue: number }>> = {};
+  monthMeta.forEach((item) => {
+    monthlyRoomTotals[item.key] = {};
+  });
+
+  let weekOccupiedMinutes = 0;
+  let monthOccupiedMinutes = 0;
+  let monthRevenue = 0;
+
+  for (const block of blocks) {
+    weekOccupiedMinutes += getOccupiedMinutesForBlock(block, openingHours, dayCutoffHour, weekStart, weekEnd);
+    monthOccupiedMinutes += getOccupiedMinutesForBlock(block, openingHours, dayCutoffHour, monthStart, monthEnd);
+    monthRevenue += getBlockRevenue(block, monthStart, monthEnd);
+
+    const overlapStartMs = Math.max(block.startAt.getTime(), rangeStart.getTime());
+    const overlapEndMs = Math.min(block.endAt.getTime(), rangeEnd.getTime());
+    if (overlapEndMs <= overlapStartMs) continue;
+
+    let cursorMonthStart = new Date(
+      new Date(overlapStartMs).getFullYear(),
+      new Date(overlapStartMs).getMonth(),
+      1,
+    );
+
+    while (cursorMonthStart.getTime() < overlapEndMs) {
+      const key = monthKeyFromDate(cursorMonthStart);
+      const meta = monthMetaByKey.get(key);
+      const nextMonthStart = new Date(
+        cursorMonthStart.getFullYear(),
+        cursorMonthStart.getMonth() + 1,
+        1,
+      );
+      if (!meta) {
+        cursorMonthStart = nextMonthStart;
+        continue;
+      }
+
+      const segmentStart = new Date(Math.max(overlapStartMs, meta.start.getTime()));
+      const segmentEnd = new Date(Math.min(overlapEndMs, meta.end.getTime()));
+      if (segmentEnd > segmentStart) {
+        const occupiedMinutes = getOccupiedMinutesForBlock(
+          block,
+          openingHours,
+          dayCutoffHour,
+          segmentStart,
+          segmentEnd,
+        );
+        const revenue = getBlockRevenue(block, segmentStart, segmentEnd);
+        const roomTotals = monthlyRoomTotals[key] ?? {};
+        const existing = roomTotals[block.roomId] ?? { occupiedMinutes: 0, revenue: 0 };
+        roomTotals[block.roomId] = {
+          occupiedMinutes: existing.occupiedMinutes + occupiedMinutes,
+          revenue: existing.revenue + revenue,
+        };
+        monthlyRoomTotals[key] = roomTotals;
+      }
+
+      cursorMonthStart = nextMonthStart;
+    }
+  }
+
   const weekOccupancy =
     weekOpenMinutes === 0 ? 0 : Math.round((weekOccupiedMinutes / weekOpenMinutes) * 1000) / 10;
   const monthOccupancy =
     monthOpenMinutes === 0 ? 0 : Math.round((monthOccupiedMinutes / monthOpenMinutes) * 1000) / 10;
-  const monthRevenue = blocks.reduce((acc, block) => acc + getBlockRevenue(block, monthStart, monthEnd), 0);
 
   const months: ReservationStatsCache["months"] = {};
-  for (const option of monthOptions) {
-    const optionEnd = new Date(option.start.getFullYear(), option.start.getMonth() + 1, 1);
-    const allRoomsOpenMinutes = getTotalOpenMinutes(openingHours, option.start, optionEnd) * roomCount;
-    const allRoomsOccupiedMinutes = getOccupiedMinutes(blocks, openingHours, dayCutoffHour, option.start, optionEnd);
-    const allRoomsRevenue = blocks.reduce((acc, block) => acc + getBlockRevenue(block, option.start, optionEnd), 0);
+  for (const option of monthMeta) {
+    const allRoomsOpenMinutes = option.openMinutesPerRoom * roomCount;
     const roomStats: Record<string, CachedRoomStats> = {
-      [ALL_ROOMS_KEY]: {
-        occupancy:
-          allRoomsOpenMinutes === 0 ? 0 : Math.round((allRoomsOccupiedMinutes / allRoomsOpenMinutes) * 1000) / 10,
-        revenue: Math.round(allRoomsRevenue),
-      },
+      [ALL_ROOMS_KEY]: { occupancy: 0, revenue: 0 },
     };
 
-    const singleRoomOpenMinutes = getTotalOpenMinutes(openingHours, option.start, optionEnd);
+    let allRoomsOccupiedMinutes = 0;
+    let allRoomsRevenue = 0;
     studio.rooms.forEach((room) => {
-      const roomBlocks = blocksByRoom.get(room.id) ?? [];
-      const roomOccupiedMinutes = getOccupiedMinutes(roomBlocks, openingHours, dayCutoffHour, option.start, optionEnd);
-      const roomRevenue = roomBlocks.reduce((acc, block) => acc + getBlockRevenue(block, option.start, optionEnd), 0);
+      const totals = monthlyRoomTotals[option.key]?.[room.id] ?? { occupiedMinutes: 0, revenue: 0 };
+      allRoomsOccupiedMinutes += totals.occupiedMinutes;
+      allRoomsRevenue += totals.revenue;
       roomStats[room.id] = {
         occupancy:
-          singleRoomOpenMinutes === 0 ? 0 : Math.round((roomOccupiedMinutes / singleRoomOpenMinutes) * 1000) / 10,
-        revenue: Math.round(roomRevenue),
+          option.openMinutesPerRoom === 0
+            ? 0
+            : Math.round((totals.occupiedMinutes / option.openMinutesPerRoom) * 1000) / 10,
+        revenue: Math.round(totals.revenue),
       };
     });
+
+    roomStats[ALL_ROOMS_KEY] = {
+      occupancy:
+        allRoomsOpenMinutes === 0 ? 0 : Math.round((allRoomsOccupiedMinutes / allRoomsOpenMinutes) * 1000) / 10,
+      revenue: Math.round(allRoomsRevenue),
+    };
 
     months[option.key] = { rooms: roomStats };
   }
